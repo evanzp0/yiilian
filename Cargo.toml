@@ -1,0 +1,12 @@
+[workspace]
+members = [ 
+    "yiilian-core", 
+]
+resolver = "2"
+
+[patch.crates-io]
+yiilian-core = { path = "./yiilian-core" }
+
+[profile.bench]
+lto = "fat"
+codegen-units = 1
