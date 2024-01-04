@@ -1,8 +1,7 @@
 use std::{collections::HashMap, fmt::Display};
 
 use bytes::Bytes;
-use anyhow::{Result, anyhow};
-use crate::{util::atoi, error::YiiLianError};
+use crate::{util::atoi, error::Error};
 
 /// Frame 的帧
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -15,39 +14,39 @@ pub enum Frame {
 
 impl Frame {
     /// 从 Bytes 中解析出 Frame
-    pub fn parse(data: &[u8]) -> Result<Frame, YiiLianError> {
+    pub fn parse(data: &[u8]) -> Result<Frame, Error> {
         decode(data)
     }
 
-    pub fn as_bstr(&self) -> Result<&Bytes, YiiLianError> {
+    pub fn as_bstr(&self) -> Result<&Bytes, Error> {
         if let Frame::Str(v) = self {
             Ok(v)
         } else {
-            Err(YiiLianError::FrameParse(anyhow!("error type for Frame's as_bstr()")))?
+            Err(Error::new_frame(None, Some("error type for Frame's as_bstr()".to_owned())))?
         }
     }
 
-    pub fn as_int(&self) -> Result<i32, YiiLianError> {
+    pub fn as_int(&self) -> Result<i32, Error> {
         if let Frame::Int(v) = self {
             Ok(v.to_owned())
         } else {
-            Err(YiiLianError::FrameParse(anyhow!("error type for Frame's as_int()")))?
+            Err(Error::new_frame(None, Some("error type for Frame's as_int()".to_owned())))?
         }
     }
 
-    pub fn as_map(&self) -> Result<&HashMap<Bytes, Frame>, YiiLianError> {
+    pub fn as_map(&self) -> Result<&HashMap<Bytes, Frame>, Error> {
         if let Frame::Map(v) = self {
             Ok(v)
         } else {
-            Err(YiiLianError::FrameParse(anyhow!("error type for Frame's as_map()")))?
+            Err(Error::new_frame(None, Some("error type for Frame's as_map()".to_owned())))?
         }
     }
 
-    pub fn as_list(&self) -> Result<&[Frame], YiiLianError> {
+    pub fn as_list(&self) -> Result<&[Frame], Error> {
         if let Frame::List(v) = self {
             Ok(v)
         } else {
-            Err(YiiLianError::FrameParse(anyhow!("error type for Frame's as_list()")))?
+            Err(Error::new_frame(None, Some("error type for Frame's as_list()".to_owned())))?
         }
     }
 
@@ -84,13 +83,18 @@ impl Frame {
         }
     }
 
-    pub fn extract_dict(&self, key: &'static str) -> Result<&Frame, YiiLianError> {
+    pub fn extract_dict(&self, key: &'static str) -> Result<&Frame, Error> {
         if let Frame::Map(m) = self {
-            let rst = m.get(&Bytes::from(key)).ok_or(YiiLianError::FrameParse(anyhow!(format!("Can't find '{}' in the frame", key))))?;
+            let rst = m.get(&Bytes::from(key))
+                .ok_or(
+                    Error::new_frame(None, Some(format!("Can't find '{}' in the frame", key)))
+                )?;
 
             Ok(rst)
         } else {
-            Err(YiiLianError::FrameParse(anyhow!("extract_dict: not a invalid frame: {}", self.to_string())))
+            Err(
+                Error::new_frame(None, Some(format!("extract_dict: not a invalid frame: {}", self.to_string())))
+            )
         }
     }
 
@@ -204,15 +208,18 @@ pub fn find(data: &[u8], start: usize, target: u8) -> Option<usize> {
 
 /// DecodeString decodes a string in the data. It returns a
 /// Result<(decoded result, the end position), error>.
-pub fn decode_string(data: &[u8], start: usize) -> Result<(Frame, usize), YiiLianError> {
+pub fn decode_string(data: &[u8], start: usize) -> Result<(Frame, usize), Error> {
 
     if start >= data.len() || data[start] < b'0' || data[start] > b'9' {
-        return Err(YiiLianError::FrameParse(anyhow!("invalid string bencode")));
+        return Err(
+            Error::new_frame(None, Some("invalid string bencode".to_owned()))
+        );
     }
 
     let idx = find(data, start, b':');
     if idx == None {
-        return Err(YiiLianError::FrameParse(anyhow!("':' not found when decode string")));
+        return Err(
+            Error::new_frame(None, Some("':' not found when decode string".to_owned())));
     }
 
     let idx = idx.unwrap();
@@ -220,7 +227,8 @@ pub fn decode_string(data: &[u8], start: usize) -> Result<(Frame, usize), YiiLia
     let index = idx + 1 + (length as usize);
 
     if index > data.len() || index < idx + 1 {
-        return Err(YiiLianError::FrameParse(anyhow!("out of range")));
+        return Err(
+            Error::new_frame(None, Some("':' out of range".to_owned())));
     }
 
     let rst = data[(idx + 1)..index].to_vec();
@@ -228,15 +236,17 @@ pub fn decode_string(data: &[u8], start: usize) -> Result<(Frame, usize), YiiLia
     Ok((rst.into(), index))
 }
 
-pub fn decode_int(data: &[u8], start: usize) -> Result<(Frame, usize), YiiLianError> {
+pub fn decode_int(data: &[u8], start: usize) -> Result<(Frame, usize), Error> {
     if start >= data.len() || data[start] != b'i' {
-        return Err(YiiLianError::FrameParse(anyhow!("invalid int bencode")));
+        return Err(
+            Error::new_frame(None, Some("invalid int bencode".to_owned())));
     }
 
     let start = start + 1;
     let idx = find(data, start, b'e');
     if idx == None {
-        return Err(YiiLianError::FrameParse(anyhow!("'e' not found when decode string")));
+        return Err(
+            Error::new_frame(None, Some("'e' not found when decode string".to_owned())));
     }
 
     let idx = idx.unwrap();
@@ -244,7 +254,8 @@ pub fn decode_int(data: &[u8], start: usize) -> Result<(Frame, usize), YiiLianEr
     let rst = if let Ok(v) = s.parse::<i32>() {
         v
     } else {
-        return Err(YiiLianError::FrameParse(anyhow!("can't pasrse to i32")));
+        return Err(
+            Error::new_frame(None, Some("can't pasrse to i32".to_owned())));
     };
 
     let index = idx + 1;
@@ -253,7 +264,7 @@ pub fn decode_int(data: &[u8], start: usize) -> Result<(Frame, usize), YiiLianEr
 }
 
 /// decodeItem decodes an item of dict or list.
-pub fn decode_item(data: &[u8], start: usize) -> Result<(Frame, usize), YiiLianError> {
+pub fn decode_item(data: &[u8], start: usize) -> Result<(Frame, usize), Error> {
     let decode_func = [decode_string, decode_int, decode_list, decode_dict];
 
     for func in decode_func {
@@ -263,13 +274,16 @@ pub fn decode_item(data: &[u8], start: usize) -> Result<(Frame, usize), YiiLianE
         }
     }
 
-    Err(YiiLianError::FrameParse(anyhow!("invalid bencode when decode item")))
+    Err(
+        Error::new_frame(None, Some("invalid bencode when decode item".to_owned())))
 }
 
 /// DecodeList decodes a list value.
-pub fn decode_list(data: &[u8], start: usize) -> Result<(Frame, usize), YiiLianError> {
+pub fn decode_list(data: &[u8], start: usize) -> Result<(Frame, usize), Error> {
     if start >= data.len() || data[start] != b'l' {
-        return Err(YiiLianError::FrameParse(anyhow!("invalid list bencode")));
+        return Err(
+            Error::new_frame(None, Some("invalid list bencode".to_owned()))
+        );
     }
 
     let mut rst: Vec<Frame> = Vec::new();
@@ -287,7 +301,8 @@ pub fn decode_list(data: &[u8], start: usize) -> Result<(Frame, usize), YiiLianE
     }
 
     if index == data.len() {
-        return Err(YiiLianError::FrameParse(anyhow!("'e' not found when decode list")));
+        return Err(
+            Error::new_frame(None, Some("'e' not found when decode list".to_owned())));
     }
 
     index += 1;
@@ -296,9 +311,10 @@ pub fn decode_list(data: &[u8], start: usize) -> Result<(Frame, usize), YiiLianE
 }
 
 /// DecodeDict decodes a map value.
-pub fn decode_dict(data: &[u8], start: usize) -> Result<(Frame, usize), YiiLianError> {
+pub fn decode_dict(data: &[u8], start: usize) -> Result<(Frame, usize), Error> {
     if start >= data.len() || data[start] != b'd' {
-        return Err(YiiLianError::FrameParse(anyhow!("invalid dict bencode")));
+        return Err(
+            Error::new_frame(None, Some("invalid dict bencode".to_owned())));
     }
 
     let mut rst: HashMap<Bytes, Frame> = HashMap::new();
@@ -310,7 +326,8 @@ pub fn decode_dict(data: &[u8], start: usize) -> Result<(Frame, usize), YiiLianE
         }
 
         if !data[index].is_ascii_digit() {
-            return Err(YiiLianError::FrameParse(anyhow!("invalid dict bencode")));
+            return Err(
+                Error::new_frame(None, Some("invalid dict bencode".to_owned())));
         }
 
         let (b_key, idx) = decode_string(data, index)?;
@@ -321,7 +338,8 @@ pub fn decode_dict(data: &[u8], start: usize) -> Result<(Frame, usize), YiiLianE
         };
 
         if idx >= data.len() {
-            return Err(YiiLianError::FrameParse(anyhow!("out of range when decode dict")));
+            return Err(
+                Error::new_frame(None, Some("out of range when decode dict".to_owned())));
         }
 
         let (item, idx) = decode_item(data, idx)?;
@@ -331,7 +349,8 @@ pub fn decode_dict(data: &[u8], start: usize) -> Result<(Frame, usize), YiiLianE
     }
 
     if index == data.len() {
-        return Err(YiiLianError::FrameParse(anyhow!("'e' not found when decode dict")));
+        return Err(
+            Error::new_frame(None, Some("'e' not found when decode dict".to_owned())));
     }
 
     index += 1;
@@ -340,7 +359,7 @@ pub fn decode_dict(data: &[u8], start: usize) -> Result<(Frame, usize), YiiLianE
 }
 
 /// Decode decodes a bencoded string to string, int, list or map.
-pub fn decode(data: &[u8]) -> Result<Frame, YiiLianError> {
+pub fn decode(data: &[u8]) -> Result<Frame, Error> {
     let (rst, _) = decode_item(data, 0)?;
     Ok(rst)
 }
