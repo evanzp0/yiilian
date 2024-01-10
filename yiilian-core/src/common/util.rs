@@ -3,7 +3,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 use fnv::FnvHasher;
 
-use crate::error::Error;
+use crate::common::error::Error;
 
 /// Macro for creating a [`HashMap`](std::collections::HashMap).
 #[macro_export]

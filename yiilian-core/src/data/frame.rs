@@ -1,7 +1,7 @@
 use std::{collections::HashMap, fmt::Display};
 
 use bytes::Bytes;
-use crate::{util::atoi, error::Error};
+use crate::common::{util::atoi, error::Error};
 
 /// Frame 的帧
 #[derive(Debug, Eq, PartialEq, Clone)]

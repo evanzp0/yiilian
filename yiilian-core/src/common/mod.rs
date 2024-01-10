@@ -1,3 +1,6 @@
+pub mod error;
+pub mod util;
+
 #[macro_export]
 macro_rules! ready {
     ($e:expr) => {
