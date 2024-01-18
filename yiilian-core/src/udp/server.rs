@@ -83,10 +83,17 @@ where
             let data: Bytes = buf.filled().to_owned().into();
             let req = Request::new(UdpBody::new(data), remote_addr, local_addr);
 
-            let fut = me.recv_filter.call(req);
+            match me.recv_filter.poll_ready(cx) {
+                Poll::Pending => {
+                    return Poll::Pending
+                },
+                Poll::Ready(_) => {
+                    let fut = me.recv_filter.call(req);
 
-            // 每个收到的连接都会在独立的任务中处理
-            tokio::spawn(fut);
+                    // 每个收到的连接都会在独立的任务中处理
+                    tokio::spawn(fut);
+                },
+            }
         }
     }
 }
