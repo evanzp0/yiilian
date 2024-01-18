@@ -1,18 +1,16 @@
 use std::net::SocketAddr;
 
-use bytes::Bytes;
-
 #[derive(Debug)]
-pub struct Response {
-    pub data: Bytes,
+pub struct Response<T> {
+    pub body: T,
     pub remote_addr: SocketAddr,
     pub local_addr: SocketAddr,
 }
 
-impl Response {
-    pub fn new(data: Bytes, remote_addr: SocketAddr, local_addr: SocketAddr) -> Self {
+impl<T> Response<T> {
+    pub fn new(body: T, remote_addr: SocketAddr, local_addr: SocketAddr) -> Self {
         Self {
-            data,
+            body,
             remote_addr,
             local_addr,
         }

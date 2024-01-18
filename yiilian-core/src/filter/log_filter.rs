@@ -4,7 +4,7 @@ use std::{future::Future, task::{Poll, Context}};
 use pin_project::pin_project;
 use tower::Service;
 
-use crate::{data::{Request, Response}, ready, common::error::Error};
+use crate::{data::{Request, Response, Body}, ready, common::error::Error};
 
 #[derive(Debug)]
 pub struct LogFilter<F> {
@@ -18,9 +18,10 @@ impl<F> LogFilter<F> {
     }
 }
 
-impl<F> Service<Request> for LogFilter<F> 
+impl<F, B> Service<Request<B>> for LogFilter<F> 
 where
-    F: Service<Request, Response = Response, Error = Error>
+    F: Service<Request<B>, Response = Response<B>, Error = Error>,
+    B: Body,
 {
     type Response = F::Response;
     type Error = F::Error;
@@ -30,12 +31,12 @@ where
         self.inner.poll_ready(cx)
     }
 
-    fn call(&mut self, req: Request) -> Self::Future {
+    fn call(&mut self, req: Request<B>) -> Self::Future {
         log::trace!(
             target: "yiilian_core::filter::log_filter",
             "[index: {}] recv {} bytes, address: {}",
             self.ctx_index,
-            req.data.len(),
+            req.len(),
             req.remote_addr,
         );
 
@@ -55,11 +56,12 @@ pub struct LogFuture<F> {
     ctx_index: i32,
 }
 
-impl<F> Future for LogFuture<F> 
+impl<F, B> Future for LogFuture<F> 
 where
-    F: Future<Output = Result<Response, Error>>
+    F: Future<Output = Result<Response<B>, Error>>,
+    B: Body,
 {
-    type Output = Result<Response, Error>;
+    type Output = Result<Response<B>, Error>;
 
     fn poll(self: std::pin::Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let me = self.project();
@@ -70,7 +72,7 @@ where
                     target: "yiilian_core::filter::log_filter",
                     "[index: {}] reply {} bytes, address: {}",
                     me.ctx_index,
-                    res.data.len(),
+                    res.len(),
                     res.remote_addr,
                 );
                 Poll::Ready(Ok(res))

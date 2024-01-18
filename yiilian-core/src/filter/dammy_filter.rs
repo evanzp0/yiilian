@@ -15,17 +15,17 @@ impl DammyFilter {
     }
 }
 
-impl Service<Request> for DammyFilter
+impl<B> Service<Request<B>> for DammyFilter
 {
-    type Response = Response;
+    type Response = Response<B>;
     type Error = Infallible;
-    type Future = Ready<Result<Response, Infallible>>;
+    type Future = Ready<Result<Self::Response, Infallible>>;
 
-    fn poll_ready(&mut self, cx: &mut std::task::Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, _cx: &mut std::task::Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, req: Request) -> Self::Future {
-        ready(Ok(Response::new(req.data, req.remote_addr, req.local_addr)))
+    fn call(&mut self, req: Request<B>) -> Self::Future {
+        ready(Ok(Response::new(req.body, req.remote_addr, req.local_addr)))
     }
 }
