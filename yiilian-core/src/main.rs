@@ -7,7 +7,7 @@ async fn main() -> Result<(), Error> {
     setup_log();
     let ctx_index = 0;
     let svc = DummyFilter;
-    let svc = LogFilter::new(svc, ctx_index);
+    let svc = LogFilter::new(ctx_index, svc);
     let server = Server::bind(ctx_index, "0.0.0.0:6578", svc)?;
 
     let _rst = server.await;

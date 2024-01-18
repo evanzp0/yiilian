@@ -21,8 +21,6 @@ pub async fn recv_from(socket: &Arc<UdpSocket>) -> Result<(Bytes, SocketAddr)> {
 
 /// 通过 socket 发送一个帧
 pub async fn send_to(socket: Arc<UdpSocket>, data: &Bytes, dest: SocketAddr) -> Result<()> {
-    // log::trace!(target:"yiilian_core::udp", "Sending {} bytes to {}", bytes.len(), dest);
-
     match socket.send_to(data, dest).await {
         Ok(_) => Ok(()),
         Err(e) => Err(Error::new_io(Some(e.into()), Some(dest))),

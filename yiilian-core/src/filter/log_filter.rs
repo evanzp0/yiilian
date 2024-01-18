@@ -13,7 +13,7 @@ pub struct LogFilter<F> {
 }
 
 impl<F> LogFilter<F> {
-    pub fn new(inner: F, ctx_index: i32) -> Self {
+    pub fn new(ctx_index: i32, inner: F) -> Self {
         LogFilter { inner, ctx_index }
     }
 }
