@@ -1,3 +1,4 @@
+use std::net::ToSocketAddrs;
 use std::task::Poll;
 use std::{net::SocketAddr, sync::Arc};
 
@@ -7,12 +8,15 @@ use pin_project::pin_project;
 use tokio::{io::ReadBuf, net::UdpSocket};
 use tower::Service;
 
+use crate::data::Body;
 use crate::ready;
 
 use crate::{
     common::error::Error,
     data::{Request, Response, UdpBody},
 };
+
+use super::net::send_to;
 
 type Result<T> = std::result::Result<T, Error>;
 
@@ -38,6 +42,24 @@ impl<S> Server<S> {
             local_addr,
             retry_times: 0,
         }
+    }
+
+    /// 通过绑定方式，生成 UdpIo
+    pub fn bind<A: ToSocketAddrs>(
+        ctx_index: i32,
+        socket_addr: A,
+        recv_filter: S,
+    ) -> Result<Self> {
+        let std_sock =
+            std::net::UdpSocket::bind(socket_addr).map_err(|e| Error::new_bind(Some(Box::new(e))))?;
+        std_sock
+            .set_nonblocking(true)
+            .map_err(|e| Error::new_bind(Some(Box::new(e))))?;
+
+        let socket = UdpSocket::from_std(std_sock).map_err(|e| Error::new_bind(Some(Box::new(e))))?;
+        let socket = Arc::new(socket);
+
+        Ok(Server::new(ctx_index, socket, recv_filter))
     }
 }
 
@@ -70,7 +92,7 @@ where
                 }
                 Err(error) => {
                     if *me.retry_times >= 3 {
-                        log::error!(target: "yiilian_dht::udp::server", "[index: {}] {:?}", *me.ctx_index, error);
+                        log::error!(target: "yiilian_dht::udp::server", "recv_from error: [index: {}] {:?}", *me.ctx_index, error);
                         return Poll::Ready(Err(error));
                     } else {
                         *me.retry_times += 1;
@@ -84,15 +106,25 @@ where
             let req = Request::new(UdpBody::new(data), remote_addr, local_addr);
 
             match me.recv_filter.poll_ready(cx) {
-                Poll::Pending => {
-                    return Poll::Pending
-                },
+                Poll::Pending => return Poll::Pending,
                 Poll::Ready(_) => {
                     let fut = me.recv_filter.call(req);
-
+                    let socket = me.socket.clone();
+                    let ctx_index = *me.ctx_index;
                     // 每个收到的连接都会在独立的任务中处理
-                    tokio::spawn(fut);
-                },
+                    tokio::spawn(async move {
+                        match fut.await {
+                            Ok(mut res) => {
+                                if let Err(error) = send_to(socket, &res.data(), res.remote_addr).await {
+                                    log::debug!(target: "yiilian_dht::udp::server", "send_to error: [index: {}]  {:?}", ctx_index, error);
+                                }
+                            },
+                            Err(error) => {
+                                log::debug!(target: "yiilian_dht::udp::server", "filter call error: [index: {}]  {:?}", ctx_index, error);
+                            },
+                        }
+                    });
+                }
             }
         }
     }

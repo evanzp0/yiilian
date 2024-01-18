@@ -75,6 +75,10 @@ impl Error {
         Error::new(Kind::IO, None, cause, connect_info)
     }
 
+    pub fn new_bind(cause: Option<Cause>) -> Self {
+        Error::new(Kind::Bind, None, cause, None)
+    }
+
     pub fn new_frame(cause: Option<Cause>, description: Option<String>,) -> Self {
         Error::new(Kind::Frame, description, cause, None)
     }

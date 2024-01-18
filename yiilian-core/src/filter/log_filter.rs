@@ -6,7 +6,7 @@ use tower::Service;
 
 use crate::{data::{Request, Response, Body}, ready, common::error::Error};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LogFilter<F> {
     ctx_index: i32,
     inner: F,

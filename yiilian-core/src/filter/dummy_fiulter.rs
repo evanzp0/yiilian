@@ -1,25 +1,25 @@
 
-use std::{task::Poll, convert::Infallible};
+use std::task::Poll;
 
 use futures::future::{Ready, ready};
 use tower::Service;
 
-use crate::data::{Request, Response};
+use crate::{data::{Request, Response}, common::error::Error};
 
-#[derive(Debug)]
-pub struct DammyFilter;
+#[derive(Debug, Clone)]
+pub struct DummyFilter;
 
-impl DammyFilter {
+impl DummyFilter {
     pub fn new() -> Self {
-        DammyFilter
+        DummyFilter
     }
 }
 
-impl<B> Service<Request<B>> for DammyFilter
+impl<B> Service<Request<B>> for DummyFilter
 {
     type Response = Response<B>;
-    type Error = Infallible;
-    type Future = Ready<Result<Self::Response, Infallible>>;
+    type Error = Error;
+    type Future = Ready<Result<Self::Response, Self::Error>>;
 
     fn poll_ready(&mut self, _cx: &mut std::task::Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))
