@@ -48,6 +48,7 @@ impl Body for String {
     }
 }
 
+#[derive(Debug)]
 pub struct UdpBody {
     data: Bytes,
 }

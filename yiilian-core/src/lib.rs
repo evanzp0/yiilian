@@ -1,6 +1,6 @@
 #![feature(trait_alias)]
 
-pub mod udp;
+pub mod net;
 pub mod filter;
 pub mod data;
 #[macro_use]

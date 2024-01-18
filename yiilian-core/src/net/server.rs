@@ -16,7 +16,7 @@ use crate::{
     data::{Request, Response, UdpBody},
 };
 
-use super::net::send_to;
+use super::io::send_to;
 
 type Result<T> = std::result::Result<T, Error>;
 
@@ -27,9 +27,6 @@ pub struct Server<S> {
     pub local_addr: SocketAddr,
     pub recv_filter: S,
     pub ctx_index: i32,
-
-    // 重试次数
-    retry_times: u8,
 }
 
 impl<S> Server<S> {
@@ -40,7 +37,6 @@ impl<S> Server<S> {
             socket,
             recv_filter,
             local_addr,
-            retry_times: 0,
         }
     }
 
@@ -65,7 +61,7 @@ impl<S> Server<S> {
 
 impl<S> Future for Server<S>
 where
-    S: Service<Request<UdpBody>, Response = Response<UdpBody>> + Clone,
+    S: Service<Request<UdpBody>, Response = Response<UdpBody>> + Clone + Send + 'static,
     S::Error: Send + std::fmt::Debug + 'static,
     S::Future: Send + 'static,
 {
@@ -84,20 +80,10 @@ where
                 .map_err(|e| Error::new_io(Some(e.into()), me.socket.peer_addr().ok()));
 
             let remote_addr = match rst {
-                Ok(remote_addr) => {
-                    if *me.retry_times > 0 {
-                        *me.retry_times = 0;
-                    }
-                    remote_addr
-                }
+                Ok(remote_addr) => remote_addr,
                 Err(error) => {
-                    if *me.retry_times >= 3 {
-                        log::error!(target: "yiilian_dht::udp::server", "recv_from error: [index: {}] {:?}", *me.ctx_index, error);
-                        return Poll::Ready(Err(error));
-                    } else {
-                        *me.retry_times += 1;
-                        continue;
-                    }
+                    log::debug!(target: "yiilian_dht::udp::server", "recv error: [index: {}]  {:?}", me.ctx_index, error);
+                    continue;
                 }
             };
 
@@ -108,11 +94,13 @@ where
             match me.recv_filter.poll_ready(cx) {
                 Poll::Pending => return Poll::Pending,
                 Poll::Ready(_) => {
-                    let fut = me.recv_filter.call(req);
+                    let mut filter = me.recv_filter.clone();
                     let socket = me.socket.clone();
                     let ctx_index = *me.ctx_index;
+                    
                     // 每个收到的连接都会在独立的任务中处理
                     tokio::spawn(async move {
+                        let fut = filter.call(req);
                         match fut.await {
                             Ok(mut res) => {
                                 if let Err(error) = send_to(socket, &res.data(), res.remote_addr).await {

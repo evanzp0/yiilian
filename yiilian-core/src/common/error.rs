@@ -142,8 +142,6 @@ impl StdError for Error {
     }
 }
 
-
-
 // #[derive(thiserror::Error, Debug)]
 // pub enum YiiLianError {
 //     // Failure to parse bytes of a frame
