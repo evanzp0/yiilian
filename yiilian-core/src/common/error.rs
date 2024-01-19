@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use std::{error::Error as StdError, net::SocketAddr, fmt};
+use std::{error::Error as StdError, net::SocketAddr, fmt, panic::UnwindSafe};
 
 pub type Result<T> = std::result::Result<T, Error>;
 type Cause = Box<dyn StdError + Send + Sync>;
@@ -101,6 +101,8 @@ impl Error {
     }
 
 }
+
+impl UnwindSafe for Error {}
 
 impl fmt::Debug for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

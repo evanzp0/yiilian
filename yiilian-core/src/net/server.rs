@@ -1,9 +1,13 @@
+use std::cell::RefCell;
 use std::net::ToSocketAddrs;
+use std::panic::UnwindSafe;
+use std::sync::Mutex;
 use std::task::Poll;
 use std::{net::SocketAddr, sync::Arc};
 
+use backtrace::Backtrace;
 use bytes::Bytes;
-use futures::Future;
+use futures::{Future, FutureExt};
 use pin_project::pin_project;
 use tokio::{io::ReadBuf, net::UdpSocket};
 use tower::Service;
@@ -19,6 +23,10 @@ use crate::{
 use super::io::send_to;
 
 type Result<T> = std::result::Result<T, Error>;
+
+thread_local! {
+    static BACKTRACE: RefCell<Option<Backtrace>> = RefCell::new(None);
+}
 
 #[derive(Debug)]
 #[pin_project]
@@ -63,7 +71,7 @@ impl<S> Future for Server<S>
 where
     S: Service<Request<UdpBody>, Response = Response<UdpBody>> + Clone + Send + 'static,
     S::Error: Send + std::fmt::Debug + 'static,
-    S::Future: Send + 'static,
+    S::Future: UnwindSafe + Send + 'static,
 {
     type Output = Result<()>;
 
@@ -72,6 +80,12 @@ where
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Self::Output> {
         let me = self.project();
+
+        std::panic::set_hook(Box::new(|_| {
+            let trace = Backtrace::new();
+            BACKTRACE.with(move |b| b.borrow_mut().replace(trace));
+        }));
+
         loop {
             let mut buf = [0; 65000];
             let mut buf = ReadBuf::new(&mut buf);
@@ -82,7 +96,7 @@ where
             let remote_addr = match rst {
                 Ok(remote_addr) => remote_addr,
                 Err(error) => {
-                    log::debug!(target: "yiilian_dht::udp::server", "recv error: [index: {}]  {:?}", me.ctx_index, error);
+                    log::debug!(target: "yiilian_dht::udp::server", "recv error: [index: {}] {:?}", me.ctx_index, error);
                     continue;
                 }
             };
@@ -94,21 +108,54 @@ where
             match me.recv_filter.poll_ready(cx) {
                 Poll::Pending => return Poll::Pending,
                 Poll::Ready(_) => {
-                    let mut filter = me.recv_filter.clone();
+                    let filter = me.recv_filter.clone();
                     let socket = me.socket.clone();
                     let ctx_index = *me.ctx_index;
-                    
+
                     // 每个收到的连接都会在独立的任务中处理
                     tokio::spawn(async move {
-                        let fut = filter.call(req);
-                        match fut.await {
-                            Ok(mut res) => {
-                                if let Err(error) = send_to(socket, &res.data(), res.remote_addr).await {
-                                    log::debug!(target: "yiilian_dht::udp::server", "send_to error: [index: {}]  {:?}", ctx_index, error);
-                                }
+                        // let fut = filter.call(req);
+                        let filter = Mutex::new(filter);
+                        let fut = {
+                            let rst = std::panic::catch_unwind(|| {
+                                filter.lock().unwrap().call(req)
+                            });
+
+                            match rst {
+                                Ok(fut) => fut,
+                                Err(error) => {
+                                    // 捕获 panic 后的处理
+                                    let b = BACKTRACE.with(|b| b.borrow_mut().take()).unwrap();
+                                    let err_msg = panic_message::panic_message(&error);
+                                    log::error!(
+                                        target: "yiilian_dht::udp::server", 
+                                        "filter call panic: [index: {}] {}\ntrace:\n{:?}", 
+                                        ctx_index, err_msg, b);
+
+                                    return;
+                                },
+                            }
+                        };
+
+                        match fut.catch_unwind().await {
+                            Ok(rst) => match rst {
+                                Ok(mut res) => {
+                                    if let Err(error) = send_to(socket, &res.data(), res.remote_addr).await {
+                                        log::debug!(target: "yiilian_dht::udp::server", "send_to error: [index: {}] {:?}", ctx_index, error);
+                                    }
+                                },
+                                Err(error) => {
+                                    log::debug!(target: "yiilian_dht::udp::server", "filter call error: [index: {}] {:?}", ctx_index, error);
+                                },
                             },
                             Err(error) => {
-                                log::debug!(target: "yiilian_dht::udp::server", "filter call error: [index: {}]  {:?}", ctx_index, error);
+                                // 捕获 panic 后的处理
+                                let b = BACKTRACE.with(|b| b.borrow_mut().take()).unwrap();
+                                let err_msg = panic_message::panic_message(&error);
+                                log::error!(
+                                    target: "yiilian_dht::udp::server", 
+                                    "filter future panic: [index: {}] {}\ntrace:\n{:?}", 
+                                    ctx_index, err_msg, b);
                             },
                         }
                     });
