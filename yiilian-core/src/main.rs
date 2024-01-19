@@ -1,8 +1,10 @@
-use yiilian_core::{net::server::Server, filter::{dummy_fiulter::DummyFilter, log_filter::LogFilter}, common::error::Error};
+use yiilian_core::{net::server::Server, filter::{dummy_fiulter::DummyFilter, log_filter::LogFilter}, common::error::{Error, hook_panic}};
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     setup_log();
+    hook_panic();
+    
     let ctx_index = 0;
     let svc = DummyFilter;
     let svc = LogFilter::new(ctx_index, svc);

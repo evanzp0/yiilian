@@ -1,9 +1,15 @@
 #![allow(unused)]
 
-use std::{error::Error as StdError, net::SocketAddr, fmt, panic::UnwindSafe};
+use std::{error::Error as StdError, net::SocketAddr, fmt, panic::UnwindSafe, cell::RefCell, any::Any};
+
+use backtrace::Backtrace;
 
 pub type Result<T> = std::result::Result<T, Error>;
 type Cause = Box<dyn StdError + Send + Sync>;
+
+thread_local! {
+    pub static BACKTRACE: RefCell<Option<Backtrace>> = RefCell::new(None);
+}
 
 pub struct Error {
     inner: Box<ErrorImpl>,
@@ -142,6 +148,20 @@ impl StdError for Error {
             .as_ref()
             .map(|cause| &**cause as &(dyn StdError + 'static))
     }
+}
+
+pub fn hook_panic() {
+    std::panic::set_hook(Box::new(|_| {
+        let trace = Backtrace::new();
+        BACKTRACE.with(move |b| b.borrow_mut().replace(trace));
+    }));
+}
+
+pub fn trace_panic(error: &Box<dyn Any + Send>) -> (Backtrace, &str) {
+    let b = BACKTRACE.with(|b| b.borrow_mut().take()).unwrap_or_default();
+    let err_msg = panic_message::panic_message(error);
+
+    (b, err_msg)
 }
 
 // #[derive(thiserror::Error, Debug)]

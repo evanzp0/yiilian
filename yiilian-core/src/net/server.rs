@@ -1,17 +1,17 @@
-use std::cell::RefCell;
+
 use std::net::ToSocketAddrs;
 use std::panic::UnwindSafe;
 use std::sync::Mutex;
 use std::task::Poll;
 use std::{net::SocketAddr, sync::Arc};
 
-use backtrace::Backtrace;
 use bytes::Bytes;
 use futures::{Future, FutureExt};
 use pin_project::pin_project;
 use tokio::{io::ReadBuf, net::UdpSocket};
 use tower::Service;
 
+use crate::common::error::trace_panic;
 use crate::data::Body;
 use crate::ready;
 
@@ -24,9 +24,9 @@ use super::io::send_to;
 
 type Result<T> = std::result::Result<T, Error>;
 
-thread_local! {
-    static BACKTRACE: RefCell<Option<Backtrace>> = RefCell::new(None);
-}
+// thread_local! {
+//     static BACKTRACE: RefCell<Option<Backtrace>> = RefCell::new(None);
+// }
 
 #[derive(Debug)]
 #[pin_project]
@@ -81,10 +81,10 @@ where
     ) -> std::task::Poll<Self::Output> {
         let me = self.project();
 
-        std::panic::set_hook(Box::new(|_| {
-            let trace = Backtrace::new();
-            BACKTRACE.with(move |b| b.borrow_mut().replace(trace));
-        }));
+        // std::panic::set_hook(Box::new(|_| {
+        //     let trace = Backtrace::new();
+        //     BACKTRACE.with(move |b| b.borrow_mut().replace(trace));
+        // }));
 
         loop {
             let mut buf = [0; 65000];
@@ -125,12 +125,11 @@ where
                                 Ok(fut) => fut,
                                 Err(error) => {
                                     // 捕获 panic 后的处理
-                                    let b = BACKTRACE.with(|b| b.borrow_mut().take()).unwrap();
-                                    let err_msg = panic_message::panic_message(&error);
+                                    let (b, err) = trace_panic(&error);
                                     log::error!(
                                         target: "yiilian_dht::udp::server", 
                                         "filter call panic: [index: {}] {}\ntrace:\n{:?}", 
-                                        ctx_index, err_msg, b);
+                                        ctx_index, err, b);
 
                                     return;
                                 },
@@ -150,12 +149,11 @@ where
                             },
                             Err(error) => {
                                 // 捕获 panic 后的处理
-                                let b = BACKTRACE.with(|b| b.borrow_mut().take()).unwrap();
-                                let err_msg = panic_message::panic_message(&error);
+                                let (b, err) = trace_panic(&error);
                                 log::error!(
                                     target: "yiilian_dht::udp::server", 
                                     "filter future panic: [index: {}] {}\ntrace:\n{:?}", 
-                                    ctx_index, err_msg, b);
+                                    ctx_index, err, b);
                             },
                         }
                     });
