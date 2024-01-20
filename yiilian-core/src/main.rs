@@ -1,4 +1,4 @@
-use yiilian_core::{net::server::Server, filter::{dummy_fiulter::DummyFilter, log_filter::LogFilter}, common::error::{Error, hook_panic}};
+use yiilian_core::{net::server::Server, service::{dummy_service::DummyService, log_service::LogService}, common::error::{Error, hook_panic}};
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -6,8 +6,8 @@ async fn main() -> Result<(), Error> {
     hook_panic();
     
     let ctx_index = 0;
-    let svc = DummyFilter;
-    let svc = LogFilter::new(ctx_index, svc);
+    let svc = DummyService;
+    let svc = LogService::new(ctx_index, svc);
     let server = Server::bind(ctx_index, "0.0.0.0:6578", svc)?;
 
     let _rst = server.await;

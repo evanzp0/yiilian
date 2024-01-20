@@ -7,15 +7,15 @@ use tower::Service;
 use crate::{data::{Request, Response}, common::error::Error};
 
 #[derive(Debug, Clone)]
-pub struct DummyFilter;
+pub struct DummyService;
 
-impl DummyFilter {
+impl DummyService {
     pub fn new() -> Self {
-        DummyFilter
+        DummyService
     }
 }
 
-impl<B> Service<Request<B>> for DummyFilter
+impl<B> Service<Request<B>> for DummyService
 {
     type Response = Response<B>;
     type Error = Error;

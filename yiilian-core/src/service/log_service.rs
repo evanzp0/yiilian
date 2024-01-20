@@ -7,18 +7,18 @@ use tower::Service;
 use crate::{data::{Request, Response, Body}, ready, common::error::Error};
 
 #[derive(Debug, Clone)]
-pub struct LogFilter<F> {
+pub struct LogService<F> {
     ctx_index: i32,
     inner: F,
 }
 
-impl<F> LogFilter<F> {
+impl<F> LogService<F> {
     pub fn new(ctx_index: i32, inner: F) -> Self {
-        LogFilter { inner, ctx_index }
+        LogService { inner, ctx_index }
     }
 }
 
-impl<F, B> Service<Request<B>> for LogFilter<F> 
+impl<F, B> Service<Request<B>> for LogService<F> 
 where
     F: Service<Request<B>, Response = Response<B>, Error = Error>,
     B: Body,
