@@ -30,25 +30,3 @@ where
         Service::call(self, req).await
     }
 }
-
-// pub trait RawService<ReqBody> {
-
-//     type ResBody: Body;
-
-//     type Error: Into<Box<dyn StdError + Send + Sync>>;
-
-//     fn call(&self, req: String) -> impl Future<Output = Result<Self::ResBody, Self::Error>> + Send;
-// }
-
-// impl<T> RawService<String> for T
-// where
-//     T: Service<String, Response = String> + Send + Sync,
-//     T::Error: Into<Box<dyn StdError + Send + Sync>>,
-// {
-//     type ResBody = String;
-//     type Error = T::Error;
-
-//     async fn call(&self, req: String) -> Result<Self::ResBody, Self::Error> {
-//         Service::call(self, req).await
-//     }
-// }
