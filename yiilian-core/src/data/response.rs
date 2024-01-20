@@ -16,3 +16,5 @@ impl<T> Response<T> {
         }
     }
 }
+
+// unsafe impl<T> Send for Response<T> {}

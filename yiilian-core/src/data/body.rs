@@ -49,23 +49,23 @@ impl Body for String {
 }
 
 #[derive(Debug)]
-pub struct UdpBody {
+pub struct RawBody {
     data: Bytes,
 }
 
-impl UdpBody {
+impl RawBody {
     pub fn new(data: Bytes) -> Self {
         Self { data }
     }
 }
 
-impl Default for UdpBody {
+impl Default for RawBody {
     fn default() -> Self {
         Self { data: Default::default() }
     }
 }
 
-impl Body for UdpBody {
+impl Body for RawBody {
     type Data = Bytes;
 
     fn data(&mut self) -> Self::Data {
@@ -77,3 +77,5 @@ impl Body for UdpBody {
         self.data.len()
     }
 }
+
+// unsafe impl Send for RawBody {}

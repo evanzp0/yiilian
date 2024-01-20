@@ -3,32 +3,34 @@
 use std::{error::Error as StdError, fmt::Display};
 use std::fmt::Debug;
 
+use futures::Future;
+
 #[tokio::main]
 async fn main() {
     let svc = HelloService;
 
     let svr = Server::new(svc);
 
-    tokio::spawn(async move {
-        svr.run().await;
-    });
+    svr.run().await;
 }
 
 pub trait Service<Request> {
     type Response;
     type Error;
 
-    async fn call(&self, req: Request) -> Result<Self::Response, Self::Error>;
+    fn call(&self, req: Request) -> impl Future<Output = Result<Self::Response, Self::Error>> + Send;
 }
 
+#[derive(Clone)]
 pub struct HelloService;
 
-impl Service<String> for HelloService 
+impl Service<String> for HelloService
 {
     type Response = String;
     type Error = Box<dyn StdError + Send + Sync>;
 
-    async fn call(&self, req: String) -> Result<Self::Response, Self::Error> {
+    async fn call(&self, req: String) -> Result<Self::Response, Self::Error>
+    {
         println!("{}", req);
         // Ok(())
         Err(MyError::new("my error").into())
@@ -41,7 +43,7 @@ pub struct Server<S> {
 
 impl<S> Server<S> 
 where
-    S: Service<String>,
+    S: Service<String> + Clone + Send + 'static,
     S::Response: Debug,
     S::Error: Into<Box<dyn StdError + Send + Sync>> + Debug,
 {
@@ -52,8 +54,11 @@ where
     }
 
     pub async fn run(&self) {
-        let rst = self.service.call("abc".to_owned()).await;
-        println!("{:?}", rst);
+        let service = self.service.clone();
+        tokio::spawn(async move {
+            let rst = service.call("abc".to_owned()).await;
+            println!("{:?}", rst);
+        });
     }
 }
 

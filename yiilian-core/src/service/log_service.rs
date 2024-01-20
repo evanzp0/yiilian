@@ -1,37 +1,31 @@
 
-use std::{future::Future, task::{Poll, Context}};
+use std::panic::{UnwindSafe, RefUnwindSafe};
 
-use pin_project::pin_project;
-use tower::Service;
+use crate::{data::{Request, Response, Body}, common::error::Error};
 
-use crate::{data::{Request, Response, Body}, ready, common::error::Error};
+use super::service::Service;
 
 #[derive(Debug, Clone)]
-pub struct LogService<F> {
+pub struct LogService<S> {
     ctx_index: i32,
-    inner: F,
+    inner: S,
 }
 
-impl<F> LogService<F> {
-    pub fn new(ctx_index: i32, inner: F) -> Self {
+impl<S> LogService<S> {
+    pub fn new(ctx_index: i32, inner: S) -> Self {
         LogService { inner, ctx_index }
     }
 }
 
-impl<F, B> Service<Request<B>> for LogService<F> 
+impl<S, B> Service<Request<B>> for LogService<S> 
 where
-    F: Service<Request<B>, Response = Response<B>, Error = Error>,
-    B: Body,
+    S: Service<Request<B>, Response = Response<B>, Error = Error> + Send + Sync + RefUnwindSafe,
+    B: Body + Send + UnwindSafe,
 {
-    type Response = F::Response;
-    type Error = F::Error;
-    type Future = LogFuture<F::Future>;
+    type Response = S::Response;
+    type Error = S::Error;
 
-    fn poll_ready(&mut self, cx: &mut std::task::Context<'_>) -> std::task::Poll<Result<(), Self::Error>> {
-        self.inner.poll_ready(cx)
-    }
-
-    fn call(&mut self, req: Request<B>) -> Self::Future {
+    async fn call(&self, req: Request<B>) -> Result<Self::Response, Self::Error> {
         log::trace!(
             target: "yiilian_core::filter::log_filter",
             "[index: {}] recv {} bytes, address: {}",
@@ -40,52 +34,27 @@ where
             req.remote_addr,
         );
 
-        let fut = self.inner.call(req);
-
-        LogFuture {
-            fut,
-            ctx_index: self.ctx_index,
-        }
-    }
-}
-
-#[pin_project]
-pub struct LogFuture<F> {
-    #[pin]
-    fut: F,
-    ctx_index: i32,
-}
-
-impl<F, B> Future for LogFuture<F> 
-where
-    F: Future<Output = Result<Response<B>, Error>>,
-    B: Body,
-{
-    type Output = Result<Response<B>, Error>;
-
-    fn poll(self: std::pin::Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let me = self.project();
-
-        match ready!(me.fut.poll(cx)) {
+        let rst = self.inner.call(req).await;
+        match &rst {
             Ok(res) => {
                 log::trace!(
                     target: "yiilian_core::filter::log_filter",
                     "[index: {}] reply {} bytes, address: {}",
-                    me.ctx_index,
+                    self.ctx_index,
                     res.len(),
                     res.remote_addr,
                 );
-                Poll::Ready(Ok(res))
             },
             Err(e) => {
                 log::trace!(
                     target: "yiilian_core::filter::log_filter",
                     "[index: {}] error: {}",
-                    me.ctx_index,
+                    self.ctx_index,
                     e
                 );
-                Poll::Ready(Err(e))
             },
         }
+        
+        rst
     }
 }

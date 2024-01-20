@@ -16,3 +16,5 @@ impl<T> Request<T> {
         }
     }
 }
+
+// unsafe impl<T> Send for Request<T> {}

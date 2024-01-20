@@ -10,7 +10,7 @@ async fn main() -> Result<(), Error> {
     let svc = LogService::new(ctx_index, svc);
     let server = Server::bind(ctx_index, "0.0.0.0:6578", svc)?;
 
-    let _rst = server.await;
+    let _rst = server.run_loop().await;
 
     Ok(())
 }
