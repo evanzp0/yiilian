@@ -57,6 +57,13 @@ impl RawBody {
     pub fn new(data: Bytes) -> Self {
         Self { data }
     }
+
+    pub fn from_str(data: &str) -> Self {
+        let data = Bytes::copy_from_slice(data.as_bytes());
+        Self {
+            data
+        }
+    }
 }
 
 impl Default for RawBody {
