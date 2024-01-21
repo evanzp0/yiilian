@@ -1,5 +1,5 @@
 use yiilian_core::{
-    common::error::{hook_panic, Error},
+    common::{error::{hook_panic, Error}, shutdown::create_shutdown},
     data::{Request, Response, Body}, service::{service_fn, ServiceBuilder},
 };
 use yiilian_raw::{net::{service::log_service::LogLayer, server::Server}, data::raw_body::RawBody};
@@ -30,9 +30,17 @@ async fn main() {
     let svc = ServiceBuilder::new()
         .layer(LogLayer::new(ctx_index))
         .service(hello_service);
-    let server = Server::bind(ctx_index, "0.0.0.0:6578", svc).unwrap();
 
-    server.run_loop().await;
+    let (mut shutdown_tx, shutdown_rx) = create_shutdown();
+    let server = Server::bind(ctx_index, "0.0.0.0:6578", svc, shutdown_rx).unwrap();
+    
+    tokio::select! {
+        _ = server.run_loop() => (),
+        _ = tokio::signal::ctrl_c() => {
+            shutdown_tx.shutdown().await;
+            println!("\nCtrl + c shutdown");
+        },
+    }
 }
 
 fn setup_log() {

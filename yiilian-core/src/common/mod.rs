@@ -1,5 +1,6 @@
 pub mod error;
 pub mod util;
+pub mod shutdown;
 
 #[macro_export]
 macro_rules! ready {

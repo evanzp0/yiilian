@@ -1,18 +1,20 @@
 use std::fmt::Debug;
 use std::net::ToSocketAddrs;
+use std::time::Duration;
 use std::{net::SocketAddr, sync::Arc};
 
 use bytes::Bytes;
 use futures::FutureExt;
 use tokio::net::UdpSocket;
-use yiilian_core::common::error::{Error, trace_panic};
+use tokio::time::sleep;
+use yiilian_core::common::error::{trace_panic, Error};
+use yiilian_core::common::shutdown::{ShutdownReceiver, spawn_with_shutdown};
 use yiilian_core::data::{Body, Request};
 use yiilian_core::net::io::send_to;
 
 use crate::data::raw_body::RawBody;
 
 use super::service::raw_service::RawService;
-
 
 type Result<T> = std::result::Result<T, Error>;
 
@@ -29,7 +31,25 @@ where
     S: RawService<RawBody, ResBody = RawBody> + Clone + Send + 'static,
     S::Error: Debug + Send,
 {
-    pub fn new(ctx_index: i32, socket: Arc<UdpSocket>, recv_filter: S) -> Self {
+    pub fn new(
+        ctx_index: i32,
+        socket: Arc<UdpSocket>,
+        recv_filter: S,
+        shutdown_rx: ShutdownReceiver,
+    ) -> Self {
+        // 后台发送监听任务
+        spawn_with_shutdown(
+            shutdown_rx.clone(),
+            async {
+                loop {
+                    println!("zzZZZ ~~~");
+                    sleep(Duration::from_secs(5)).await;
+                }
+            },
+            "sleep and loop",
+            None,
+        );
+        
         let local_addr = socket.local_addr().expect("Get local address error");
         Server {
             ctx_index,
@@ -40,7 +60,12 @@ where
     }
 
     /// 通过绑定方式，生成 UdpIo
-    pub fn bind<A: ToSocketAddrs>(ctx_index: i32, socket_addr: A, recv_filter: S) -> Result<Self> {
+    pub fn bind<A: ToSocketAddrs>(
+        ctx_index: i32,
+        socket_addr: A,
+        recv_service: S,
+        shutdown_rx: ShutdownReceiver,
+    ) -> Result<Self> {
         let std_sock = std::net::UdpSocket::bind(socket_addr)
             .map_err(|e| Error::new_bind(Some(Box::new(e))))?;
         std_sock
@@ -51,7 +76,7 @@ where
             UdpSocket::from_std(std_sock).map_err(|e| Error::new_bind(Some(Box::new(e))))?;
         let socket = Arc::new(socket);
 
-        Ok(Server::new(ctx_index, socket, recv_filter))
+        Ok(Server::new(ctx_index, socket, recv_service, shutdown_rx))
     }
 
     pub async fn run_loop(&self) {
@@ -67,8 +92,8 @@ where
                 Ok(rst) => rst,
                 Err(error) => {
                     log::debug!(
-                        target: "yiilian_raw::net::server", 
-                        "recv error: [index: {}] {:?}", 
+                        target: "yiilian_raw::net::server",
+                        "recv error: [index: {}] {:?}",
                         self.ctx_index, error
                     );
                     continue;
@@ -88,19 +113,20 @@ where
                 match rst {
                     Ok(rst) => match rst {
                         Ok(mut res) => {
-                            if let Err(error) = send_to(socket, &res.data(), res.remote_addr).await {
+                            if let Err(error) = send_to(socket, &res.data(), res.remote_addr).await
+                            {
                                 log::debug!(
-                                    target: "yiilian_raw::net::server", 
-                                    "send_to error: [index: {}] {:?}", 
-                                    ctx_index, 
+                                    target: "yiilian_raw::net::server",
+                                    "send_to error: [index: {}] {:?}",
+                                    ctx_index,
                                     error
                                 );
                             }
                         }
                         Err(error) => {
                             log::debug!(
-                                target: "yiilian_dht::net::server", 
-                                "service error: [index: {}] {:?}", 
+                                target: "yiilian_dht::net::server",
+                                "service error: [index: {}] {:?}",
                                 ctx_index, error
                             );
                         }
