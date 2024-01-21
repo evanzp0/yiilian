@@ -1,0 +1,38 @@
+appenders:
+  stdout:
+    kind: console
+    encoder:
+      pattern: "[{d(%Y-%m-%d %H:%M:%S)} {h({l})} {t}] {m}{n}"
+  log_file:
+    kind: rolling_file
+    path: "log/yiilian.log"
+    policy:
+      kind: compound
+      trigger:
+        kind: size
+        limit: 10 mb
+      roller:
+        kind: fixed_window
+        pattern: 'log/yiilian.{}.gz'
+        base: 1
+        count: 5
+  firewall:
+    kind: rolling_file
+    path: "log/yiilian-firewall.log"
+    policy:
+      kind: compound
+      trigger:
+        kind: size
+        limit: 10 mb
+      roller:
+        kind: delete
+root:
+  level: info
+  appenders:
+    - log_file
+loggers:
+  yiilian_dht::filter::firewall_filter:
+    level: trace
+    appenders:
+      - firewall
+    additive: false

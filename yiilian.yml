@@ -1,0 +1,12 @@
+dht:
+  # node_file_prefix: client
+  routers:
+    # - 127.0.0.1:6111
+    # - 87.98.162.88:6881
+    - dht.transmissionbt.com:6881
+    - router.bittorrent.com:6881
+    - router.utorrent.com:6881
+  # block_ips: ["127.0.0.1"]
+  ports: !Int 1
+  # ports: !Array
+  #   - 6538
