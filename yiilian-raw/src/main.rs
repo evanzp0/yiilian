@@ -1,12 +1,8 @@
 use yiilian_core::{
     common::error::{hook_panic, Error},
-    data::{RawBody, Request, Response},
-    net::server::Server,
-    service::{
-        dummy_service::DummyService, 
-        log_service::LogService, 
-        util::service_fn},
+    data::{Request, Response}, service::util::service_fn,
 };
+use yiilian_raw::{net::{service::{dummy_service::DummyService, log_service::LogService}, server::Server}, data::raw_body::RawBody};
 
 #[tokio::main]
 async fn main() {
@@ -18,7 +14,8 @@ async fn main() {
     let svc = service_fn(|req: Request<RawBody>| async move {
         println!("{:?}", req);
         Ok::<Response<RawBody>, Error>(Response::new(
-            RawBody::from_str("aaa123"),
+            // RawBody::from_str("aaa123"),
+            req.body,
             req.remote_addr,
             req.local_addr,
         ))

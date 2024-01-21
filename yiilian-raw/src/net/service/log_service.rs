@@ -1,9 +1,10 @@
+use std::panic::{RefUnwindSafe, UnwindSafe};
 
-use std::panic::{UnwindSafe, RefUnwindSafe};
-
-use crate::{data::{Request, Response, Body}, common::error::Error};
-
-use super::service::Service;
+use yiilian_core::{
+    common::error::Error,
+    data::{Body, Request, Response},
+    service::service::Service,
+};
 
 #[derive(Debug, Clone)]
 pub struct LogService<S> {
@@ -17,7 +18,7 @@ impl<S> LogService<S> {
     }
 }
 
-impl<S, B> Service<Request<B>> for LogService<S> 
+impl<S, B> Service<Request<B>> for LogService<S>
 where
     S: Service<Request<B>, Response = Response<B>, Error = Error> + Send + Sync + RefUnwindSafe,
     B: Body + Send + UnwindSafe,
@@ -26,9 +27,12 @@ where
     type Error = S::Error;
 
     async fn call(&self, req: Request<B>) -> Result<Self::Response, Self::Error> {
+        // if req.len() == 3 {
+        //     panic!("req.len == 3")
+        // }
         log::trace!(
-            target: "yiilian_core::filter::log_filter",
-            "[index: {}] recv {} bytes, address: {}",
+            target: "yiilian_core::net",
+            "recv {} bytes from address: [index: {}] {}",
             self.ctx_index,
             req.len(),
             req.remote_addr,
@@ -38,23 +42,16 @@ where
         match &rst {
             Ok(res) => {
                 log::trace!(
-                    target: "yiilian_core::filter::log_filter",
-                    "[index: {}] reply {} bytes, address: {}",
+                    target: "yiilian_core::net",
+                    "reply {} bytes to address: [index: {}] {}",
                     self.ctx_index,
                     res.len(),
                     res.remote_addr,
                 );
-            },
-            Err(e) => {
-                log::trace!(
-                    target: "yiilian_core::filter::log_filter",
-                    "[index: {}] error: {}",
-                    self.ctx_index,
-                    e
-                );
-            },
+            }
+            Err(_) => {}
         }
-        
+
         rst
     }
 }

@@ -1,6 +1,7 @@
 [workspace]
 members = [ 
     "yiilian-core", 
+    "yiilian-raw", 
 ]
 resolver = "2"
 

@@ -1,6 +1,10 @@
-use crate::{data::{Request, Response, RawBody}, common::error::Error};
+use yiilian_core::{
+    common::error::Error,
+    data::{Request, Response},
+    service::service::Service,
+};
 
-use super::service::Service;
+use crate::data::raw_body::RawBody;
 
 #[derive(Debug, Clone)]
 pub struct DummyService;
@@ -11,8 +15,7 @@ impl DummyService {
     }
 }
 
-impl Service<Request<RawBody>> for DummyService
-{
+impl Service<Request<RawBody>> for DummyService {
     type Response = Response<RawBody>;
     type Error = Error;
 
