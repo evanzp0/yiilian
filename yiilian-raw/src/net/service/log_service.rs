@@ -3,7 +3,7 @@ use std::panic::{RefUnwindSafe, UnwindSafe};
 use yiilian_core::{
     common::error::Error,
     data::{Body, Request, Response},
-    service::service::Service,
+    service::{Service, Layer},
 };
 
 #[derive(Debug, Clone)]
@@ -31,10 +31,10 @@ where
         //     panic!("req.len == 3")
         // }
         log::trace!(
-            target: "yiilian_core::net",
+            target: "yiilian_raw::net",
             "recv {} bytes from address: [index: {}] {}",
-            self.ctx_index,
             req.len(),
+            self.ctx_index,
             req.remote_addr,
         );
 
@@ -42,10 +42,10 @@ where
         match &rst {
             Ok(res) => {
                 log::trace!(
-                    target: "yiilian_core::net",
+                    target: "yiilian_raw::net",
                     "reply {} bytes to address: [index: {}] {}",
-                    self.ctx_index,
                     res.len(),
+                    self.ctx_index,
                     res.remote_addr,
                 );
             }
@@ -53,5 +53,23 @@ where
         }
 
         rst
+    }
+}
+
+pub struct LogLayer{
+    ctx_index: i32
+}
+
+impl LogLayer {
+    pub fn new(ctx_index: i32) -> Self {
+        LogLayer { ctx_index }
+    }
+}
+
+impl<S> Layer<S> for LogLayer {
+    type Service = LogService<S>;
+
+    fn layer(&self, inner: S) -> Self::Service {
+        LogService::new(self.ctx_index, inner)
     }
 }

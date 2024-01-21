@@ -5,7 +5,7 @@ use futures::Future;
 
 use yiilian_core::{
     data::{Request, Response, Body},
-    service::service::Service,
+    service::Service,
 };
 
 pub trait RawService<ReqBody> {

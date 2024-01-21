@@ -1,7 +1,7 @@
 use yiilian_core::{
     common::error::Error,
     data::{Request, Response},
-    service::service::Service,
+    service::Service,
 };
 
 use crate::data::raw_body::RawBody;

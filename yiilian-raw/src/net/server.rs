@@ -67,7 +67,7 @@ where
                 Ok(rst) => rst,
                 Err(error) => {
                     log::debug!(
-                        target: "yiilian_dht::net::server", 
+                        target: "yiilian_raw::net::server", 
                         "recv error: [index: {}] {:?}", 
                         self.ctx_index, error
                     );
@@ -88,21 +88,13 @@ where
                 match rst {
                     Ok(rst) => match rst {
                         Ok(mut res) => {
-                            match send_to(socket, &res.data(), res.remote_addr).await {
-                                Ok(_) => {
-                                    log::trace!(
-                                        target: "yiilian_dht::net", 
-                                        "send {} bytes to address: [index: {}] {}",
-                                        ctx_index, res.len(), res.remote_addr
-                                    );
-                                },
-                                Err(error) => {
-                                    log::debug!(
-                                        target: "yiilian_dht::net", 
-                                        "send_to error: [index: {}] {:?}", 
-                                        ctx_index, error
-                                    );
-                                },
+                            if let Err(error) = send_to(socket, &res.data(), res.remote_addr).await {
+                                log::debug!(
+                                    target: "yiilian_raw::net::server", 
+                                    "send_to error: [index: {}] {:?}", 
+                                    ctx_index, 
+                                    error
+                                );
                             }
                         }
                         Err(error) => {
