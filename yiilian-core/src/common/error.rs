@@ -27,6 +27,8 @@ pub enum Kind {
     // Failure to parse bytes of a frame
     Frame,
 
+    Id,
+
     General,
 
     ChannelClosed,
@@ -77,6 +79,14 @@ impl Error {
         }
     }
 
+    pub fn new_general(description: &str) -> Self {
+        Error::new(Kind::General, Some(description.to_owned()), None, None)
+    }
+
+    pub fn new_id(cause: Option<Cause>, description: Option<String>) -> Self {
+        Error::new(Kind::Id, None, cause, None)
+    }
+
     pub fn new_io(cause: Option<Cause>, connect_info: Option<SocketAddr>) -> Self {
         Error::new(Kind::IO, None, cause, connect_info)
     }
@@ -85,7 +95,7 @@ impl Error {
         Error::new(Kind::Bind, None, cause, None)
     }
 
-    pub fn new_frame(cause: Option<Cause>, description: Option<String>,) -> Self {
+    pub fn new_frame(cause: Option<Cause>, description: Option<String>) -> Self {
         Error::new(Kind::Frame, description, cause, None)
     }
 
