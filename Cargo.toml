@@ -2,11 +2,13 @@
 members = [ 
     "yiilian-core", 
     "yiilian-raw", 
+    "yiilian-dht", "yiilian-crawler", 
 ]
 resolver = "2"
 
 [patch.crates-io]
 yiilian-core = { path = "./yiilian-core" }
+yiilian-dht = { path = "./yiilian-dht" }
 
 [profile.bench]
 lto = "fat"

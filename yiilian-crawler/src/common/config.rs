@@ -1,12 +1,11 @@
+#![allow(dead_code)]
+
 use std::{net::IpAddr, fs, collections::HashSet};
 
 use serde::{Deserialize, Serialize};
+use yiilian_core::{net::block_list::BlockAddr, common::util::atoi};
 
-use crate::net::block_list::BlockAddr;
-
-use super::util::atoi;
-
-pub const DEFAULT_CONFIG_FILE: &str = "yiilian.yml";
+pub const DEFAULT_CONFIG_FILE: &str = "yiilian-crawler.yml";
 
 #[derive(Deserialize, Default)]
 pub struct Config {
