@@ -21,25 +21,6 @@ macro_rules! arcmut {
     };
 }
 
-/// 用于将 Vec<Bytes> 类型的数据连接并转换成 bytes::Bytes
-#[macro_export]
-macro_rules! extract_frame_map {
-    {$map: ident, $field: expr, $frame: ident} => {
-        {
-            use crate::*;
-            if let Some(value) = $map.get($field.as_bytes()) {
-                // Ok(value.as_bstr().expect(&format!("err: {:?}", value)).clone())
-                Ok(value.as_bstr().expect(&format!("err: {:?}", value)).clone())
-            } else {
-                Error::new_frame(
-                    Some(Box::new(e)),
-                    Some(format!("Reply frame is error, frame: {}",$frame.to_string()))
-                )
-            }
-        }
-    };
-}
-
 /// convert string slice to int
 ///
 /// # Examples

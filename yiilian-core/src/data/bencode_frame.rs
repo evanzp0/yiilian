@@ -83,21 +83,6 @@ impl BencodeFrame {
         }
     }
 
-    pub fn extract_dict(&self, key: &'static str) -> Result<&BencodeFrame, Error> {
-        if let BencodeFrame::Map(m) = self {
-            let rst = m.get(&Bytes::from(key))
-                .ok_or(
-                    Error::new_frame(None, Some(format!("Can't find '{}' in the frame", key)))
-                )?;
-
-            Ok(rst)
-        } else {
-            Err(
-                Error::new_frame(None, Some(format!("extract_dict: not a invalid frame: {}", self.to_string())))
-            )
-        }
-    }
-
     fn to_string(&self) -> String {
         match self {
             BencodeFrame::Str(s) => {
@@ -450,6 +435,64 @@ impl Encode for BencodeFrame
             BencodeFrame::List(v) => v.encode(),
             BencodeFrame::Map(v) => v.encode(),
         }
+    }
+}
+
+impl TryFrom<BencodeFrame> for Bytes {
+    type Error = Error;
+
+    fn try_from(value: BencodeFrame) -> Result<Self, Self::Error> {
+        if let BencodeFrame::Str(val) = value {
+            Ok(val)
+        } else {
+            Err(Error::new_frame(None, Some(format!("convert frame to bytes error: {:?}", value))))
+        }
+    }
+}
+
+impl TryFrom<BencodeFrame> for i32 {
+    type Error = Error;
+
+    fn try_from(value: BencodeFrame) -> Result<Self, Self::Error> {
+        if let BencodeFrame::Int(val) = value {
+            Ok(val)
+        } else {
+            Err(Error::new_frame(None, Some(format!("convert frame to i32 error: {:?}", value))))
+        }
+    }
+}
+
+impl TryFrom<BencodeFrame> for Vec<BencodeFrame> {
+    type Error = Error;
+
+    fn try_from(value: BencodeFrame) -> Result<Self, Self::Error> {
+        if let BencodeFrame::List(val) = value {
+            Ok(val)
+        } else {
+            Err(Error::new_frame(None, Some(format!("convert frame to vec error: {:?}", value))))
+        }
+    }
+}
+
+impl TryFrom<BencodeFrame> for HashMap<Bytes, BencodeFrame> {
+    type Error = Error;
+
+    fn try_from(value: BencodeFrame) -> Result<Self, Self::Error> {
+        if let BencodeFrame::Map(val) = value {
+            Ok(val)
+        } else {
+            Err(Error::new_frame(None, Some(format!("convert frame to map error: {:?}", value))))
+        }
+    }
+}
+
+pub fn extract_dict_item(dict: &BencodeFrame, key: &'static str) -> Option<BencodeFrame> {
+    if let BencodeFrame::Map(m) = dict {
+        let rst = m.get(&Bytes::from(key));
+
+        rst.map(|val| val.to_owned())
+    } else {
+        None
     }
 }
 
