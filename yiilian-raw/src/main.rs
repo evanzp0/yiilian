@@ -9,7 +9,6 @@ async fn main() {
     setup_log();
     hook_panic();
 
-    let ctx_index = 0;
     let hello_service = service_fn(|mut req: Request<RawBody>| async move {
         let data = req.body.data();
         let s = String::from_utf8_lossy(&data);
@@ -28,11 +27,11 @@ async fn main() {
         ))
     });
     let svc = ServiceBuilder::new()
-        .layer(LogLayer::new(ctx_index))
+        .layer(LogLayer)
         .service(hello_service);
 
     let (mut shutdown_tx, shutdown_rx) = create_shutdown();
-    let server = Server::bind(ctx_index, "0.0.0.0:6578", svc, shutdown_rx).unwrap();
+    let server = Server::bind("0.0.0.0:6578", svc, shutdown_rx).unwrap();
     
     tokio::select! {
         _ = server.run_loop() => (),

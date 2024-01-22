@@ -23,7 +23,6 @@ pub struct Server<S> {
     pub socket: Arc<UdpSocket>,
     pub local_addr: SocketAddr,
     pub recv_service: S,
-    pub ctx_index: i32,
 }
 
 impl<S> Server<S>
@@ -32,7 +31,6 @@ where
     S::Error: Debug + Send,
 {
     pub fn new(
-        ctx_index: i32,
         socket: Arc<UdpSocket>,
         recv_filter: S,
         shutdown_rx: ShutdownReceiver,
@@ -52,7 +50,6 @@ where
         
         let local_addr = socket.local_addr().expect("Get local address error");
         Server {
-            ctx_index,
             socket,
             recv_service: recv_filter,
             local_addr,
@@ -61,7 +58,6 @@ where
 
     /// 通过绑定方式，生成 UdpIo
     pub fn bind<A: ToSocketAddrs>(
-        ctx_index: i32,
         socket_addr: A,
         recv_service: S,
         shutdown_rx: ShutdownReceiver,
@@ -76,10 +72,11 @@ where
             UdpSocket::from_std(std_sock).map_err(|e| Error::new_bind(Some(Box::new(e))))?;
         let socket = Arc::new(socket);
 
-        Ok(Server::new(ctx_index, socket, recv_service, shutdown_rx))
+        Ok(Server::new(socket, recv_service, shutdown_rx))
     }
 
     pub async fn run_loop(&self) {
+        let local_port = self.local_addr.port();
         loop {
             let mut buf = [0; 65000];
             let rst = self
@@ -93,8 +90,9 @@ where
                 Err(error) => {
                     log::debug!(
                         target: "yiilian_raw::net::server",
-                        "recv error: [index: {}] {:?}",
-                        self.ctx_index, error
+                        "recv error: [{}] {:?}",
+                        local_port, 
+                        error
                     );
                     continue;
                 }
@@ -105,7 +103,6 @@ where
 
             let service = self.recv_service.clone();
             let socket = self.socket.clone();
-            let ctx_index = self.ctx_index;
 
             // 每个收到的连接都会在独立的任务中处理
             tokio::spawn(async move {
@@ -117,8 +114,8 @@ where
                             {
                                 log::debug!(
                                     target: "yiilian_raw::net::server",
-                                    "send_to error: [index: {}] {:?}",
-                                    ctx_index,
+                                    "send_to error: [{}] {:?}",
+                                    local_port,
                                     error
                                 );
                             }
@@ -126,8 +123,8 @@ where
                         Err(error) => {
                             log::debug!(
                                 target: "yiilian_dht::net::server",
-                                "service error: [index: {}] {:?}",
-                                ctx_index, error
+                                "service error: [{}] {:?}",
+                                local_port, error
                             );
                         }
                     },
@@ -136,8 +133,8 @@ where
                         let (b, err) = trace_panic(&error);
                         log::debug!(
                             target: "yiilian_dht::net::server",
-                            "service panic: [index: {}] {}\ntrace:\n{:?}",
-                            ctx_index, err, b
+                            "service panic: [{}] {}\ntrace:\n{:?}",
+                            local_port, err, b
                         );
                     }
                 }

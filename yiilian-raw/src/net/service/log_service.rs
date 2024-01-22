@@ -8,13 +8,12 @@ use yiilian_core::{
 
 #[derive(Debug, Clone)]
 pub struct LogService<S> {
-    ctx_index: i32,
     inner: S,
 }
 
 impl<S> LogService<S> {
-    pub fn new(ctx_index: i32, inner: S) -> Self {
-        LogService { inner, ctx_index }
+    pub fn new(inner: S) -> Self {
+        LogService { inner }
     }
 }
 
@@ -30,11 +29,12 @@ where
         // if req.len() == 3 {
         //     panic!("req.len == 3")
         // }
+        let local_port = req.local_addr.port();
         log::trace!(
             target: "yiilian_raw::net",
-            "recv {} bytes from address: [index: {}] {}",
+            "recv {} bytes from address: [{}] {}",
             req.len(),
-            self.ctx_index,
+            req.local_addr.port(),
             req.remote_addr,
         );
 
@@ -43,9 +43,9 @@ where
             Ok(res) => {
                 log::trace!(
                     target: "yiilian_raw::net",
-                    "reply {} bytes to address: [index: {}] {}",
+                    "reply {} bytes to address: [{}] {}",
                     res.len(),
-                    self.ctx_index,
+                    local_port,
                     res.remote_addr,
                 );
             }
@@ -56,20 +56,12 @@ where
     }
 }
 
-pub struct LogLayer{
-    ctx_index: i32
-}
-
-impl LogLayer {
-    pub fn new(ctx_index: i32) -> Self {
-        LogLayer { ctx_index }
-    }
-}
+pub struct LogLayer;
 
 impl<S> Layer<S> for LogLayer {
     type Service = LogService<S>;
 
     fn layer(&self, inner: S) -> Self::Service {
-        LogService::new(self.ctx_index, inner)
+        LogService::new(inner)
     }
 }
