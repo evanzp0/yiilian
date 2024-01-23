@@ -22,7 +22,7 @@ impl BencodeFrame {
         if let BencodeFrame::Str(v) = self {
             Ok(v)
         } else {
-            Err(Error::new_frame(None, Some("error type for Frame's as_bstr()".to_owned())))?
+            Err(Error::new_frame(None, Some("Invalid type for Frame's as_bstr()".to_owned())))?
         }
     }
 
@@ -30,7 +30,7 @@ impl BencodeFrame {
         if let BencodeFrame::Int(v) = self {
             Ok(v.to_owned())
         } else {
-            Err(Error::new_frame(None, Some("error type for Frame's as_int()".to_owned())))?
+            Err(Error::new_frame(None, Some("Invalid type for Frame's as_int()".to_owned())))?
         }
     }
 
@@ -38,7 +38,7 @@ impl BencodeFrame {
         if let BencodeFrame::Map(v) = self {
             Ok(v)
         } else {
-            Err(Error::new_frame(None, Some("error type for Frame's as_map()".to_owned())))?
+            Err(Error::new_frame(None, Some("Invalid type for Frame's as_map()".to_owned())))?
         }
     }
 
@@ -46,7 +46,7 @@ impl BencodeFrame {
         if let BencodeFrame::List(v) = self {
             Ok(v)
         } else {
-            Err(Error::new_frame(None, Some("error type for Frame's as_list()".to_owned())))?
+            Err(Error::new_frame(None, Some("Invalid type for Frame's as_list()".to_owned())))?
         }
     }
 

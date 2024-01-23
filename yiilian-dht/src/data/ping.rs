@@ -1,15 +1,11 @@
 use std::{collections::HashMap, net::SocketAddr};
 
-use anyhow::anyhow;
 use bytes::Bytes;
-use yiilian_core::{YiiLianError, frame::Frame, extract_bencode_field_from_map};
+use yiilian_core::{common::error::Error, data::BencodeFrame as Frame};
 
-use crate::{
-    build_frame_common_field, 
-    extract_frame_common_field,
-    common::Id,
-    transaction::TransactionId,
-};
+use crate::{common::id::Id, gen_frame_common_field, transaction::TransactionId};
+
+use super::util::extract_frame_common_field;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Ping {
@@ -34,16 +30,27 @@ impl Ping {
 }
 
 impl TryFrom<Frame> for Ping {
-    type Error = YiiLianError;
+    type Error = Error;
 
     fn try_from(frame: Frame) -> Result<Self, Self::Error> {
-        let (t, v, ip, ro) = extract_frame_common_field!(frame);
+        let (t, v, ip, ro) = extract_frame_common_field(&frame)?;
         if !frame.verify_items(&[("y", "q"), ("q", "ping")]) {
-            return Err(YiiLianError::FrameParse(anyhow!("not valid frame for Ping, frame: {frame}")))
+            return Err(Error::new_frame(None, Some(format!("Invalid frame for Ping, frame: {frame}"))))
         }
-        let a = frame.extract_dict("a")?.as_map()?;
+        let a = frame.get_dict_item("a").ok_or(Error::new_frame(
+            None,
+            Some(format!("Field 'a' not found in frame: {frame}")),
+        ))?;
 
-        let id = extract_bencode_field_from_map!(a, "id", frame)?.into();
+        let id: Id = a
+            .get_dict_item("id")
+            .ok_or(Error::new_frame(
+                None,
+                Some(format!("Field 'id' not found in frame: {frame}")),
+            ))?
+            .as_bstr()?
+            .to_owned()
+            .into();
 
         Ok(Ping { t, v, ip, ro, id })
     }
@@ -52,7 +59,7 @@ impl TryFrom<Frame> for Ping {
 impl From<&Ping> for Frame {
     fn from(value: &Ping) -> Self {
         let mut rst: HashMap<Bytes, Frame> = HashMap::new();
-        build_frame_common_field!(rst, value);
+        gen_frame_common_field!(rst, value);
 
         rst.insert("y".into(), "q".into());
         rst.insert("q".into(), "ping".into());
@@ -68,9 +75,7 @@ impl From<&Ping> for Frame {
 #[cfg(test)]
 mod tests {
 
-    use yiilian_core::util::bytes_to_sockaddr;
-
-    use yiilian_core::frame::decode;
+    use yiilian_core::{common::util::bytes_to_sockaddr, data::decode};
 
     use super::*;
 
