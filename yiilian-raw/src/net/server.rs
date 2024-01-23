@@ -10,7 +10,7 @@ use tokio::time::sleep;
 use yiilian_core::common::error::{trace_panic, Error};
 use yiilian_core::common::shutdown::{ShutdownReceiver, spawn_with_shutdown};
 use yiilian_core::data::{Body, Request};
-use yiilian_core::net::io::send_to;
+use yiilian_core::net::udp::send_to;
 
 use crate::data::raw_body::RawBody;
 
