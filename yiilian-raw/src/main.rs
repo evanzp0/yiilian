@@ -10,7 +10,7 @@ async fn main() {
     hook_panic();
 
     let hello_service = service_fn(|mut req: Request<RawBody>| async move {
-        let data = req.body.data();
+        let data = req.body.get_data();
         let s = String::from_utf8_lossy(&data);
         let s = {
             let mut tmp = "hello ".to_owned() + &s;

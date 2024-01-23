@@ -67,8 +67,8 @@ impl TryFrom<Frame> for GetPeers {
     }
 }
 
-impl From<&GetPeers> for Frame {
-    fn from(value: &GetPeers) -> Self {
+impl From<GetPeers> for Frame {
+    fn from(value: GetPeers) -> Self {
         let mut rst: HashMap<Bytes, Frame> = HashMap::new();
         gen_frame_common_field!(rst, value);
         
@@ -102,7 +102,7 @@ mod tests {
             id: "id000000000000000001".into(),
             info_hash: "info0000000000000001".into(),
         };
-        let rst: Frame = (&af).into();
+        let rst: Frame = af.clone().into();
         let data = b"d1:v2:v11:t2:t12:roi1e1:y1:q2:ip6:\x7f\0\0\x01\0\x501:q9:get_peers1:ad2:id20:id0000000000000000019:info_hash20:info0000000000000001ee";
         let data_frame = decode(data.as_slice().into()).unwrap();
         assert_eq!(data_frame, rst);

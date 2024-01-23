@@ -113,8 +113,8 @@ impl TryFrom<Frame> for AnnouncePeer {
     }
 }
 
-impl From<&AnnouncePeer> for Frame {
-    fn from(value: &AnnouncePeer) -> Self {
+impl From<AnnouncePeer> for Frame {
+    fn from(value: AnnouncePeer) -> Self {
         let mut rst: HashMap<Bytes, Frame> = HashMap::new();
         gen_frame_common_field!(rst, value);
 
@@ -160,7 +160,7 @@ mod tests {
             port: 80,
             token: "01".into(),
         };
-        let rst: Frame = (&af).into();
+        let rst: Frame = af.clone().into();
 
         let data = b"d1:t2:t11:v2:v12:ip6:\x7f\0\0\x01\0\x502:roi1e1:q13:announce_peer1:ad2:id20:id0000000000000000019:info_hash20:info00000000000000014:porti80e5:token2:0112:implied_porti1ee1:y1:qe";
         let data_frame = decode(data.as_slice().into()).unwrap();

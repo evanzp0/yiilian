@@ -120,8 +120,8 @@ impl TryFrom<Frame> for GetPeersReply {
     }
 }
 
-impl From<&GetPeersReply> for Frame {
-    fn from(value: &GetPeersReply) -> Self {
+impl From<GetPeersReply> for Frame {
+    fn from(value: GetPeersReply) -> Self {
         let mut rst: HashMap<Bytes, Frame> = HashMap::new();
         gen_frame_common_field!(rst, value);
 
@@ -172,7 +172,7 @@ mod tests {
             values: vec![addr.clone(), addr.clone()],
             nodes: vec![],
         };
-        let rst: Frame = (&af).into();
+        let rst: Frame = af.clone().into();
 
         let data = b"d2:ip6:\x7f\0\0\x01\0P2:roi1e1:t2:t11:rd2:id20:id0000000000000000015:token7:token016:valuesl6:\xc0\xa8\0\x01\0P6:\xc0\xa8\0\x01\0Pe5:nodes0:e1:y1:r1:v2:v1e";
         let data_frame = decode(data).unwrap();

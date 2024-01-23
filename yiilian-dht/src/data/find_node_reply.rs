@@ -85,8 +85,8 @@ impl TryFrom<Frame> for FindNodeReply {
     }
 }
 
-impl From<&FindNodeReply> for Frame {
-    fn from(value: &FindNodeReply) -> Self {
+impl From<FindNodeReply> for Frame {
+    fn from(value: FindNodeReply) -> Self {
         let mut rst: HashMap<Bytes, Frame> = HashMap::new();
         gen_frame_common_field!(rst, value);
 
@@ -129,7 +129,7 @@ mod tests {
             id: "id000000000000000001".into(),
             nodes: vec![Node::new(id1, addr.clone()), Node::new(id2, addr.clone())],
         };
-        let rst: Frame = (&af).into();
+        let rst: Frame = af.clone().into();
 
         let data = b"d1:v2:v11:t2:t12:roi1e1:y1:r1:rd5:nodes52:node0000000000000001\xc0\xa8\0\x01\0\x01node0000000000000002\xc0\xa8\0\x01\0\x012:id20:id000000000000000001e2:ip6:\xc0\xa8\0\x01\0\x01e";
         let data_frame = decode(data.as_slice().into()).unwrap();

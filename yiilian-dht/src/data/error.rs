@@ -57,8 +57,8 @@ impl TryFrom<Frame> for RError {
     }
 }
 
-impl From<&RError> for Frame {
-    fn from(value: &RError) -> Self {
+impl From<RError> for Frame {
+    fn from(value: RError) -> Self {
         let mut rst: HashMap<Bytes, Frame> = HashMap::new();
         gen_frame_common_field!(rst, value);
 
@@ -90,7 +90,7 @@ mod tests {
             ro: Some(1),
             e: (200, "a_error".into()),
         };
-        let rst: Frame = (&af).into();
+        let rst: Frame = af.clone().into();
 
         let data = b"d1:v2:v11:t2:t12:ip6:\x7f\0\0\x01\0\x502:roi1e1:y1:e1:eli200e7:a_erroree";
         // let data = b"d1:eli202e12:Server Errore1:t2:&]1:y1:ee";

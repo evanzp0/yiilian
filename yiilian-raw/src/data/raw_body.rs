@@ -28,7 +28,7 @@ impl Default for RawBody {
 impl Body for RawBody {
     type Data = Bytes;
 
-    fn data(&mut self) -> Self::Data {
+    fn get_data(&mut self) -> Self::Data {
         let s = std::mem::take(&mut *self);
         s.data
     }

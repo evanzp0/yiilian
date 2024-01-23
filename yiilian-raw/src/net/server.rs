@@ -110,7 +110,7 @@ where
                 match rst {
                     Ok(rst) => match rst {
                         Ok(mut res) => {
-                            if let Err(error) = send_to(socket, &res.data(), res.remote_addr).await
+                            if let Err(error) = send_to(socket, &res.get_data(), res.remote_addr).await
                             {
                                 log::debug!(
                                     target: "yiilian_raw::net::server",

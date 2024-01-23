@@ -56,8 +56,8 @@ impl TryFrom<Frame> for Ping {
     }
 }
 
-impl From<&Ping> for Frame {
-    fn from(value: &Ping) -> Self {
+impl From<Ping> for Frame {
+    fn from(value: Ping) -> Self {
         let mut rst: HashMap<Bytes, Frame> = HashMap::new();
         gen_frame_common_field!(rst, value);
 
@@ -88,7 +88,7 @@ mod tests {
             ro: Some(1),
             id: "id000000000000000001".into(),
         };
-        let rst: Frame = (&af).into();
+        let rst: Frame = af.clone().into();
 
         let data = b"d1:v2:v11:t2:t12:ip6:\x7f\0\0\x01\0\x502:roi1e1:q4:ping1:y1:q1:ad2:id20:id000000000000000001ee";
         let data_frame = decode(data.as_slice().into()).unwrap();
