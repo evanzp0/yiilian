@@ -1,10 +1,11 @@
 use std::{collections::HashMap, net::SocketAddr};
 
-use anyhow::anyhow;
 use bytes::Bytes;
-use yiilian_core::{YiiLianError, frame::Frame, extract_bencode_field_from_map};
+use yiilian_core::{common::error::Error, data::BencodeFrame as Frame};
 
-use crate::{build_frame_common_field, transaction::TransactionId, common::Id, extract_frame_common_field};
+use crate::{common::id::Id, gen_frame_common_field, transaction::TransactionId};
+
+use super::util::extract_frame_common_field;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PingOrAnnounceReply {
@@ -26,17 +27,33 @@ pub struct PingOrAnnounceReply {
     pub id: Id,
 }
 impl TryFrom<Frame> for PingOrAnnounceReply {
-    type Error = YiiLianError;
+    type Error = Error;
 
     fn try_from(frame: Frame) -> Result<Self, Self::Error> {
-        let (t, v, ip, ro) = extract_frame_common_field!(frame);
+        let (t, v, ip, ro) = extract_frame_common_field(&frame)?;
 
         if !frame.verify_items(&[("y", "r")]) {
-            return Err(YiiLianError::FrameParse(anyhow!("not valid frame for PingFeedback, frame: {frame}")))
+            return Err(Error::new_frame(
+                None,
+                Some(format!("Invalid frame for PingOrAnnounceReply, frame: {frame}")),
+            ));
         }
+
         
-        let a = frame.extract_dict("r")?.as_map()?;
-        let id = extract_bencode_field_from_map!(a, "id", frame)?.into();
+        let r = frame.get_dict_item("r").ok_or(Error::new_frame(
+            None,
+            Some(format!("Field 'r' not found in frame: {frame}")),
+        ))?;
+
+        let id: Id = r
+            .get_dict_item("id")
+            .ok_or(Error::new_frame(
+                None,
+                Some(format!("Field 'id' not found in frame: {frame}")),
+            ))?
+            .as_bstr()?
+            .to_owned()
+            .into();
 
         Ok(PingOrAnnounceReply { t, v, ip, ro, id })
     }
@@ -45,7 +62,7 @@ impl TryFrom<Frame> for PingOrAnnounceReply {
 impl From<&PingOrAnnounceReply> for Frame {
     fn from(value: &PingOrAnnounceReply) -> Self {
         let mut rst: HashMap<Bytes, Frame> = HashMap::new();
-        build_frame_common_field!(rst, value);
+        gen_frame_common_field!(rst, value);
 
         rst.insert("y".into(), "r".into());
 
@@ -61,9 +78,7 @@ impl From<&PingOrAnnounceReply> for Frame {
 #[cfg(test)]
 mod tests {
 
-    use yiilian_core::util::bytes_to_sockaddr;
-
-    use yiilian_core::frame::decode;
+    use yiilian_core::{common::util::bytes_to_sockaddr, data::decode};
 
     use super::*;
 
