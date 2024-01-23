@@ -1,9 +1,9 @@
 use std::{collections::HashMap, net::SocketAddr};
 
 use bytes::Bytes;
-use yiilian_core::{common::error::Error, data::{extract_dict_item, BencodeFrame}};
+use yiilian_core::{common::error::Error, data::BencodeFrame};
 
-use crate::{build_frame_common_field, common::id::Id, transaction::TransactionId};
+use crate::{gen_frame_common_field, common::id::Id, transaction::TransactionId};
 
 use super::util::extract_frame_common_field;
 
@@ -50,34 +50,35 @@ impl TryFrom<BencodeFrame> for AnnouncePeer {
             ))?
         }
 
-        let a = extract_dict_item(&frame, "a")
+        let a = frame.get_dict_item("a")
             .ok_or(Error::new_frame(None, Some(format!("Field 'a' not found in frame: {frame}"))))?;
-        let id: Id = extract_dict_item(&a, "id")
+        let id: Id = a.get_dict_item("id")
             .ok_or(Error::new_frame(None, Some(format!("Field 'id' not found in frame: {frame}"))))?
             .as_bstr()?
             .to_owned()
             .into();
         
-        let info_hash: Id = extract_dict_item(&a, "info_hash")
+        let info_hash: Id = a.get_dict_item("info_hash")
             .ok_or(Error::new_frame(None, Some(format!("Field 'info_hash' not found in frame: {frame}"))))?
             .as_bstr()?
             .to_owned()
             .into();
 
         let implied_port = {
-            if let Some(implied_port) = extract_dict_item(&a, "implied_port") {
+            if let Some(implied_port) = a.get_dict_item("implied_port") {
                 Some(implied_port.as_int()? as u8)
             } else {
                 None
             }
         };
 
-        let port: u16 = extract_dict_item(&a, "port")
+        let port: u16 = a.get_dict_item("port")
             .ok_or(Error::new_frame(None, Some(format!("Field 'port' not found in frame: {frame}"))))?
             .as_int()? as u16;
 
-        let token: Bytes = extract_dict_item(&a, "token")
+        let token: Bytes = a.get_dict_item("token")
             .ok_or(Error::new_frame(None, Some(format!("Field 'token' not found in frame: {frame}"))))?
+            .to_owned()
             .try_into()?;
 
         Ok(AnnouncePeer {
@@ -97,7 +98,7 @@ impl TryFrom<BencodeFrame> for AnnouncePeer {
 impl From<&AnnouncePeer> for BencodeFrame {
     fn from(value: &AnnouncePeer) -> Self {
         let mut rst: HashMap<Bytes, BencodeFrame> = HashMap::new();
-        build_frame_common_field!(rst, value);
+        gen_frame_common_field!(rst, value);
 
         rst.insert("y".into(), "q".into());
         rst.insert("q".into(), "announce_peer".into());

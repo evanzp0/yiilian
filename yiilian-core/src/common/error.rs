@@ -122,10 +122,16 @@ impl UnwindSafe for Error {}
 
 impl fmt::Debug for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut f = f.debug_tuple("yiilian::Error");
+        let mut f = f.debug_tuple("yiilian_core::Error");
         f.field(&self.inner.kind);
         if let Some(ref cause) = self.inner.cause {
             f.field(cause);
+        }
+        if let Some(ref connect_info) = self.inner.connect_info {
+            f.field(connect_info);
+        }
+        if let Some(ref description) = self.description {
+            f.field(description);
         }
         f.finish()
     }
