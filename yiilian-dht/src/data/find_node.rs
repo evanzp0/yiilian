@@ -1,10 +1,13 @@
 use std::{collections::HashMap, net::SocketAddr};
 
-use anyhow::anyhow;
 use bytes::Bytes;
-use yiilian_core::{YiiLianError, frame::Frame, extract_bencode_field_from_map};
+use yiilian_core::common::error::Error;
 
-use crate::{build_frame_common_field, transaction::TransactionId, common::Id, extract_frame_common_field};
+use yiilian_core::data::BencodeFrame as Frame;
+
+use crate::{common::id::Id, gen_frame_common_field, transaction::TransactionId};
+
+use super::util::extract_frame_common_field;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FindNode {
@@ -30,18 +33,37 @@ pub struct FindNode {
 }
 
 impl TryFrom<Frame> for FindNode {
-    type Error = YiiLianError;
+    type Error = Error;
 
     fn try_from(frame: Frame) -> Result<Self, Self::Error> {
-        let (t, v, ip, ro) = extract_frame_common_field!(frame);
+        let (t, v, ip, ro) = extract_frame_common_field(&frame)?;
         if !frame.verify_items(&[("y", "q"), ("q", "find_node")]) {
-            return Err(YiiLianError::FrameParse(anyhow!("not valid frame for FindNode, frame: {frame}")))
+            return Err(Error::new_frame(None, Some(format!("Invalid frame for FindNode, frame: {frame}"))))
         }
 
-        let a = frame.extract_dict("a")?.as_map()?;
-        let id = extract_bencode_field_from_map!(a, "id", frame)?.into();
+        let a = frame.get_dict_item("a").ok_or(Error::new_frame(
+            None,
+            Some(format!("Field 'a' not found in frame: {frame}")),
+        ))?;
+        let id: Id = a
+            .get_dict_item("id")
+            .ok_or(Error::new_frame(
+                None,
+                Some(format!("Field 'id' not found in frame: {frame}")),
+            ))?
+            .as_bstr()?
+            .to_owned()
+            .into();
 
-        let target = extract_bencode_field_from_map!(a, "target", frame)?.into();
+        let target: Id = a
+            .get_dict_item("target")
+            .ok_or(Error::new_frame(
+                None,
+                Some(format!("Field 'target' not found in frame: {frame}")),
+            ))?
+            .as_bstr()?
+            .to_owned()
+            .into();
 
         Ok(FindNode { t, v, ip, ro, id, target })
     }
@@ -50,7 +72,7 @@ impl TryFrom<Frame> for FindNode {
 impl From<&FindNode> for Frame {
     fn from(value: &FindNode) -> Self {
         let mut rst: HashMap<Bytes, Frame> = HashMap::new();
-        build_frame_common_field!(rst, value);
+        gen_frame_common_field!(rst, value);
         
         rst.insert("y".into(), "q".into());
         rst.insert("q".into(), "find_node".into());
@@ -67,10 +89,7 @@ impl From<&FindNode> for Frame {
 
 #[cfg(test)]
 mod tests {
-
-    use yiilian_core::util::bytes_to_sockaddr;
-
-    use yiilian_core::frame::decode;
+    use yiilian_core::{common::util::bytes_to_sockaddr, data::decode};
 
     use super::*;
 

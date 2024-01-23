@@ -1,7 +1,7 @@
 use std::{collections::HashMap, net::SocketAddr};
 
 use bytes::Bytes;
-use yiilian_core::{common::error::Error, data::BencodeFrame};
+use yiilian_core::{common::error::Error, data::BencodeFrame as Frame};
 
 use crate::{gen_frame_common_field, transaction::TransactionId};
 
@@ -30,13 +30,13 @@ pub struct RError {
 impl RError {
 }
 
-impl TryFrom<BencodeFrame> for RError {
+impl TryFrom<Frame> for RError {
     type Error = Error;
 
-    fn try_from(frame: BencodeFrame) -> Result<Self, Self::Error> {
+    fn try_from(frame: Frame) -> Result<Self, Self::Error> {
         let (t, v, ip, ro) = extract_frame_common_field(&frame)?;
         if !frame.verify_items(&[("y", "e")]) {
-            return Err(Error::new_frame(None, Some(format!("Field 'y' and 'e' not found in frame: {frame}"))))
+            return Err(Error::new_frame(None, Some(format!("Invalid frame for Error, frame: {frame}"))))
         }
         let e = frame.get_dict_item("e")
             .ok_or(Error::new_frame(None, Some(format!("Field 'e' not found in frame: {frame}"))))?
@@ -57,20 +57,20 @@ impl TryFrom<BencodeFrame> for RError {
     }
 }
 
-impl From<&RError> for BencodeFrame {
+impl From<&RError> for Frame {
     fn from(value: &RError) -> Self {
-        let mut rst: HashMap<Bytes, BencodeFrame> = HashMap::new();
+        let mut rst: HashMap<Bytes, Frame> = HashMap::new();
         gen_frame_common_field!(rst, value);
 
         rst.insert("y".into(), "e".into());
 
-        let mut e: Vec<BencodeFrame> = Vec::new();
-        e.push(BencodeFrame::Int(value.e.0));
-        e.push(BencodeFrame::Str(value.e.1.clone()));
+        let mut e: Vec<Frame> = Vec::new();
+        e.push(Frame::Int(value.e.0));
+        e.push(Frame::Str(value.e.1.clone()));
         
         rst.insert("e".into(), e.into());
 
-        BencodeFrame::Map(rst)
+        Frame::Map(rst)
     }
 }
 
@@ -90,7 +90,7 @@ mod tests {
             ro: Some(1),
             e: (200, "a_error".into()),
         };
-        let rst: BencodeFrame = (&af).into();
+        let rst: Frame = (&af).into();
 
         let data = b"d1:v2:v11:t2:t12:ip6:\x7f\0\0\x01\0\x502:roi1e1:y1:e1:eli200e7:a_erroree";
         // let data = b"d1:eli202e12:Server Errore1:t2:&]1:y1:ee";

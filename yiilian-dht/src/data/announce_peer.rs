@@ -1,9 +1,9 @@
 use std::{collections::HashMap, net::SocketAddr};
 
 use bytes::Bytes;
-use yiilian_core::{common::error::Error, data::BencodeFrame};
+use yiilian_core::{common::error::Error, data::BencodeFrame as Frame};
 
-use crate::{gen_frame_common_field, common::id::Id, transaction::TransactionId};
+use crate::{common::id::Id, gen_frame_common_field, transaction::TransactionId};
 
 use super::util::extract_frame_common_field;
 
@@ -38,28 +38,38 @@ pub struct AnnouncePeer {
     pub token: Bytes,
 }
 
-impl TryFrom<BencodeFrame> for AnnouncePeer {
+impl TryFrom<Frame> for AnnouncePeer {
     type Error = Error;
 
-    fn try_from(frame: BencodeFrame) -> Result<Self, Self::Error> {
+    fn try_from(frame: Frame) -> Result<Self, Self::Error> {
         let (t, v, ip, ro) = extract_frame_common_field(&frame)?;
         if !frame.verify_items(&[("y", "q"), ("q", "announce_peer")]) {
             Err(Error::new_frame(
                 None,
-                Some(format!("not valid frame for AnnouncePeer, frame: {frame}")),
+                Some(format!("Invalid frame for AnnouncePeer, frame: {frame}")),
             ))?
         }
 
-        let a = frame.get_dict_item("a")
-            .ok_or(Error::new_frame(None, Some(format!("Field 'a' not found in frame: {frame}"))))?;
-        let id: Id = a.get_dict_item("id")
-            .ok_or(Error::new_frame(None, Some(format!("Field 'id' not found in frame: {frame}"))))?
+        let a = frame.get_dict_item("a").ok_or(Error::new_frame(
+            None,
+            Some(format!("Field 'a' not found in frame: {frame}")),
+        ))?;
+        let id: Id = a
+            .get_dict_item("id")
+            .ok_or(Error::new_frame(
+                None,
+                Some(format!("Field 'id' not found in frame: {frame}")),
+            ))?
             .as_bstr()?
             .to_owned()
             .into();
-        
-        let info_hash: Id = a.get_dict_item("info_hash")
-            .ok_or(Error::new_frame(None, Some(format!("Field 'info_hash' not found in frame: {frame}"))))?
+
+        let info_hash: Id = a
+            .get_dict_item("info_hash")
+            .ok_or(Error::new_frame(
+                None,
+                Some(format!("Field 'info_hash' not found in frame: {frame}")),
+            ))?
             .as_bstr()?
             .to_owned()
             .into();
@@ -72,12 +82,20 @@ impl TryFrom<BencodeFrame> for AnnouncePeer {
             }
         };
 
-        let port: u16 = a.get_dict_item("port")
-            .ok_or(Error::new_frame(None, Some(format!("Field 'port' not found in frame: {frame}"))))?
+        let port: u16 = a
+            .get_dict_item("port")
+            .ok_or(Error::new_frame(
+                None,
+                Some(format!("Field 'port' not found in frame: {frame}")),
+            ))?
             .as_int()? as u16;
 
-        let token: Bytes = a.get_dict_item("token")
-            .ok_or(Error::new_frame(None, Some(format!("Field 'token' not found in frame: {frame}"))))?
+        let token: Bytes = a
+            .get_dict_item("token")
+            .ok_or(Error::new_frame(
+                None,
+                Some(format!("Field 'token' not found in frame: {frame}")),
+            ))?
             .to_owned()
             .try_into()?;
 
@@ -95,15 +113,15 @@ impl TryFrom<BencodeFrame> for AnnouncePeer {
     }
 }
 
-impl From<&AnnouncePeer> for BencodeFrame {
+impl From<&AnnouncePeer> for Frame {
     fn from(value: &AnnouncePeer) -> Self {
-        let mut rst: HashMap<Bytes, BencodeFrame> = HashMap::new();
+        let mut rst: HashMap<Bytes, Frame> = HashMap::new();
         gen_frame_common_field!(rst, value);
 
         rst.insert("y".into(), "q".into());
         rst.insert("q".into(), "announce_peer".into());
 
-        let mut a: HashMap<Bytes, BencodeFrame> = HashMap::new();
+        let mut a: HashMap<Bytes, Frame> = HashMap::new();
         a.insert("id".into(), value.id.get_bytes().into());
         a.insert("info_hash".into(), value.info_hash.get_bytes().into());
         if let Some(implied_port) = value.implied_port {
@@ -114,7 +132,7 @@ impl From<&AnnouncePeer> for BencodeFrame {
 
         rst.insert("a".into(), a.into());
 
-        BencodeFrame::Map(rst)
+        Frame::Map(rst)
     }
 }
 
@@ -142,7 +160,7 @@ mod tests {
             port: 80,
             token: "01".into(),
         };
-        let rst: BencodeFrame = (&af).into();
+        let rst: Frame = (&af).into();
 
         let data = b"d1:t2:t11:v2:v12:ip6:\x7f\0\0\x01\0\x502:roi1e1:q13:announce_peer1:ad2:id20:id0000000000000000019:info_hash20:info00000000000000014:porti80e5:token2:0112:implied_porti1ee1:y1:qe";
         let data_frame = decode(data.as_slice().into()).unwrap();
