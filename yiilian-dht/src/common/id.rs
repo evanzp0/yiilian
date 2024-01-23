@@ -1,11 +1,10 @@
 use std::{collections::HashSet, net::IpAddr};
 
 use bytes::Bytes;
-use crc::{Crc, CRC_32_ISCSI};
 use rand::{thread_rng, Rng};
 use yiilian_core::common::error::Error;
 
-pub const CASTAGNOLI: Crc<u32> = Crc::<u32>::new(&CRC_32_ISCSI);
+use super::util::CASTAGNOLI;
 
 pub const ID_SIZE: usize = 20;
 
