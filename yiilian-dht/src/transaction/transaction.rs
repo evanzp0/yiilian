@@ -5,7 +5,7 @@ use chrono::{DateTime, Utc};
 use tokio::sync::oneshot;
 use yiilian_core::common::util::random_bytes;
 
-use crate::common::id::Id;
+use crate::{common::id::Id, data::body::{Query, Reply}};
 
 #[derive(Debug)]
 /// 对外发送请求时，需要记录事务，当对方有 feedback 时，需要将该事务核销
@@ -13,9 +13,9 @@ pub struct Transaction {
     pub(crate) id: TransactionId,
     pub(crate) node_id: Option<Id>,
     pub(crate) addr: SocketAddr,
-    // pub(crate) message: Query,
+    pub(crate) message: Query,
     pub(crate) created_at: DateTime<Utc>,
-    // pub(crate) response_channel: Option<oneshot::Sender<Reply>>,
+    pub(crate) response_channel: Option<oneshot::Sender<Reply>>,
 }
 
 impl Transaction {
@@ -23,16 +23,16 @@ impl Transaction {
         id: TransactionId,
         node_id: Option<Id>,
         addr: SocketAddr,
-        // message: Query,
-        // response_channel: Option<oneshot::Sender<Reply>>,
+        message: Query,
+        response_channel: Option<oneshot::Sender<Reply>>,
     ) -> Self {
         Transaction {
             id,
             node_id,
             addr,
-            // message,
+            message,
             created_at: Utc::now(),
-            // response_channel,
+            response_channel,
         }
     }
 
