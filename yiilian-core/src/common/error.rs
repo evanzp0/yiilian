@@ -64,7 +64,7 @@ pub enum Kind {
     File,
 
     /// Indicates that the remote address is in the block list
-    BlockList
+    Block
 }
 
 impl Error {
@@ -77,6 +77,10 @@ impl Error {
                 connect_info,
             }),
         }
+    }
+
+    pub fn new_block(description: &str)-> Self {
+        Error::new(Kind::Block, Some(description.to_owned()), None, None)
     }
 
     pub fn new_general(description: &str) -> Self {
