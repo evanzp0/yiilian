@@ -240,3 +240,57 @@ impl From<Reply> for Frame {
         }
     }
 }
+
+impl From<BodyKind> for Frame {
+    fn from(value: BodyKind) -> Self {
+        match value {
+            BodyKind::Empty => Frame::Map(HashMap::new()),
+            BodyKind::Query(val) => val.into(),
+            BodyKind::Reply(val) => val.into(),
+            BodyKind::RError(val) => val.into(),
+        }
+    }
+}
+
+impl From<KrpcBody> for Frame {
+    fn from(value: KrpcBody) -> Self {
+        match value.kind {
+            BodyKind::Empty => Frame::Map(HashMap::new()),
+            BodyKind::Query(val) => val.into(),
+            BodyKind::Reply(val) => val.into(),
+            BodyKind::RError(val) => val.into(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bytes::Bytes;
+    use yiilian_core::data::{BencodeFrame as Frame, Encode};
+
+    use crate::data::announce_peer::AnnouncePeer;
+
+    use super::KrpcBody;
+
+    #[test]
+    fn test_bytes_to_body() {
+        let af = AnnouncePeer::new(
+            "id000000000000000001".into(),
+            "info0000000000000001".into(),
+            Some(1),
+            80,
+            "01".into(),
+            "t1".into(),
+            Some("v1".into()),
+            Some("127.0.0.1:80".parse().unwrap()),
+            Some(1),
+        );
+
+        let frame: Frame = af.clone().into();
+        let data: Bytes = frame.encode();
+        let body = KrpcBody::from_bytes(data).unwrap();
+        let rst: Frame = body.into();
+
+        assert_eq!(frame, rst)
+    }
+}

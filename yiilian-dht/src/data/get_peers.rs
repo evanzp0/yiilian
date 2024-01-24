@@ -2,8 +2,8 @@ use std::{collections::HashMap, net::SocketAddr};
 
 use bytes::Bytes;
 
-use yiilian_core::{common::error::Error, data::BencodeFrame as Frame};
 use crate::{common::id::Id, gen_frame_common_field, transaction::TransactionId};
+use yiilian_core::{common::error::Error, data::BencodeFrame as Frame};
 
 use super::util::extract_frame_common_field;
 
@@ -22,11 +22,30 @@ pub struct GetPeers {
     pub ro: Option<i32>,
 
     // ----------------------------
-
     /// sender node id
     pub id: Id,
 
     pub info_hash: Id,
+}
+
+impl GetPeers {
+    pub fn new(
+        id: Id,
+        info_hash: Id,
+        t: TransactionId,
+        v: Option<Bytes>,
+        ip: Option<SocketAddr>,
+        ro: Option<i32>,
+    ) -> Self {
+        Self {
+            id,
+            info_hash,
+            t,
+            v,
+            ip,
+            ro,
+        }
+    }
 }
 
 impl TryFrom<Frame> for GetPeers {
@@ -35,7 +54,10 @@ impl TryFrom<Frame> for GetPeers {
     fn try_from(frame: Frame) -> Result<Self, Self::Error> {
         let (t, v, ip, ro) = extract_frame_common_field(&frame)?;
         if !frame.verify_items(&[("y", "q"), ("q", "get_peers")]) {
-            return Err(Error::new_frame(None, Some(format!("Invalid frame for GetPeers, frame: {frame}"))))
+            return Err(Error::new_frame(
+                None,
+                Some(format!("Invalid frame for GetPeers, frame: {frame}")),
+            ));
         }
 
         let a = frame.get_dict_item("a").ok_or(Error::new_frame(
@@ -63,7 +85,7 @@ impl TryFrom<Frame> for GetPeers {
             .to_owned()
             .into();
 
-        Ok(GetPeers { t, v, ip, ro, id, info_hash })
+        Ok(GetPeers::new(id, info_hash, t, v, ip, ro))
     }
 }
 
@@ -71,7 +93,7 @@ impl From<GetPeers> for Frame {
     fn from(value: GetPeers) -> Self {
         let mut rst: HashMap<Bytes, Frame> = HashMap::new();
         gen_frame_common_field!(rst, value);
-        
+
         rst.insert("y".into(), "q".into());
         rst.insert("q".into(), "get_peers".into());
 
@@ -80,7 +102,7 @@ impl From<GetPeers> for Frame {
         a.insert("info_hash".into(), value.info_hash.get_bytes().into());
 
         rst.insert("a".into(), a.into());
-        
+
         Frame::Map(rst)
     }
 }
@@ -88,20 +110,20 @@ impl From<GetPeers> for Frame {
 #[cfg(test)]
 mod tests {
 
-    use yiilian_core::{common::util::bytes_to_sockaddr, data::decode};
+    use yiilian_core::data::decode;
 
     use super::*;
 
     #[test]
     fn test() {
-        let af = GetPeers {
-            t: "t1".into(),
-            v: Some("v1".into()),
-            ip: Some(bytes_to_sockaddr(&vec![127, 0, 0, 1, 0,80]).unwrap().into()),
-            ro: Some(1),
-            id: "id000000000000000001".into(),
-            info_hash: "info0000000000000001".into(),
-        };
+        let af = GetPeers::new(
+            "id000000000000000001".into(),
+            "info0000000000000001".into(),
+            "t1".into(),
+            Some("v1".into()),
+            Some("127.0.0.1:80".parse().unwrap()),
+            Some(1),
+        );
         let rst: Frame = af.clone().into();
         let data = b"d1:v2:v11:t2:t12:roi1e1:y1:q2:ip6:\x7f\0\0\x01\0\x501:q9:get_peers1:ad2:id20:id0000000000000000019:info_hash20:info0000000000000001ee";
         let data_frame = decode(data.as_slice().into()).unwrap();

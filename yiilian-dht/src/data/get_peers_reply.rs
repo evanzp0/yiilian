@@ -49,6 +49,30 @@ pub struct GetPeersReply {
     pub values: Vec<SocketAddr>,
 }
 
+impl GetPeersReply {
+    pub fn new(
+        id: Id,
+        token: Bytes,
+        nodes: Vec<Node>,
+        values: Vec<SocketAddr>,
+        t: TransactionId,
+        v: Option<Bytes>,
+        ip: Option<SocketAddr>,
+        ro: Option<i32>,
+    ) -> Self {
+        Self {
+            id,
+            token,
+            nodes,
+            values,
+            t,
+            v,
+            ip,
+            ro,
+        }
+    }
+}
+
 impl TryFrom<Frame> for GetPeersReply {
     type Error = Error;
 
@@ -107,16 +131,7 @@ impl TryFrom<Frame> for GetPeersReply {
             vec![]
         };
 
-        Ok(GetPeersReply {
-            t,
-            v,
-            ip,
-            ro,
-            id,
-            token,
-            nodes,
-            values,
-        })
+        Ok(GetPeersReply::new(id, token, nodes, values, t, v, ip, ro))
     }
 }
 
@@ -158,20 +173,16 @@ mod tests {
     #[test]
     fn test() {
         let addr: SocketAddr = "192.168.0.1:80".parse().unwrap();
-        let af = GetPeersReply {
-            t: "t1".into(),
-            v: Some("v1".into()),
-            ip: Some(
-                bytes_to_sockaddr(&vec![127, 0, 0, 1, 0, 80])
-                    .unwrap()
-                    .into(),
-            ),
-            ro: Some(1),
-            id: "id000000000000000001".into(),
-            token: "token01".into(),
-            values: vec![addr.clone(), addr.clone()],
-            nodes: vec![],
-        };
+        let af = GetPeersReply::new(
+            "id000000000000000001".into(),
+            "token01".into(),
+            vec![],
+            vec![addr.clone(), addr.clone()],
+            "t1".into(),
+            Some("v1".into()),
+            Some("127.0.0.1:80".parse().unwrap()),
+            Some(1),
+        );
         let rst: Frame = af.clone().into();
 
         let data = b"d2:ip6:\x7f\0\0\x01\0P2:roi1e1:t2:t11:rd2:id20:id0000000000000000015:token7:token016:valuesl6:\xc0\xa8\0\x01\0P6:\xc0\xa8\0\x01\0Pe5:nodes0:e1:y1:r1:v2:v1e";

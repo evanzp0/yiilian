@@ -7,7 +7,10 @@ use crate::{
     common::{
         id::{Id, ID_SIZE},
         util::bytes_to_nodes4,
-    }, gen_frame_common_field, merge_node_bytes, routing_table::Node, transaction::TransactionId
+    },
+    gen_frame_common_field, merge_node_bytes,
+    routing_table::Node,
+    transaction::TransactionId,
 };
 
 use super::util::extract_frame_common_field;
@@ -33,6 +36,26 @@ pub struct FindNodeReply {
     /// feedback params
     // pub nodes: Vec<Bytes>,
     pub nodes: Vec<Node>,
+}
+
+impl FindNodeReply {
+    pub fn new(
+        id: Id,
+        nodes: Vec<Node>,
+        t: TransactionId,
+        v: Option<Bytes>,
+        ip: Option<SocketAddr>,
+        ro: Option<i32>,
+    ) -> Self {
+        Self {
+            id,
+            nodes,
+            t,
+            v,
+            ip,
+            ro,
+        }
+    }
 }
 
 impl TryFrom<Frame> for FindNodeReply {
@@ -74,14 +97,7 @@ impl TryFrom<Frame> for FindNodeReply {
             }
         };
 
-        Ok(FindNodeReply {
-            t,
-            v,
-            ip,
-            ro,
-            id,
-            nodes,
-        })
+        Ok(FindNodeReply::new(id, nodes, t, v, ip, ro))
     }
 }
 
@@ -108,7 +124,7 @@ impl From<FindNodeReply> for Frame {
 #[cfg(test)]
 mod tests {
 
-    use yiilian_core::{common::util::bytes_to_sockaddr, data::decode};
+    use yiilian_core::data::decode;
 
     use super::*;
 
@@ -117,18 +133,15 @@ mod tests {
         let id1 = Id::from_bytes(b"node0000000000000001");
         let id2 = Id::from_bytes(b"node0000000000000002");
         let addr: SocketAddr = "192.168.0.1:1".parse().unwrap();
-        let af = FindNodeReply {
-            t: "t1".into(),
-            v: Some("v1".into()),
-            ip: Some(
-                bytes_to_sockaddr(&vec![192, 168, 0, 1, 0, 1])
-                    .unwrap()
-                    .into(),
-            ),
-            ro: Some(1),
-            id: "id000000000000000001".into(),
-            nodes: vec![Node::new(id1, addr.clone()), Node::new(id2, addr.clone())],
-        };
+        let af = FindNodeReply::new(
+            "id000000000000000001".into(),
+            vec![Node::new(id1, addr.clone()), Node::new(id2, addr.clone())],
+            "t1".into(),
+            Some("v1".into()),
+            Some("192.168.0.1:1".parse().unwrap()),
+            Some(1),
+        );
+
         let rst: Frame = af.clone().into();
 
         let data = b"d1:v2:v11:t2:t12:roi1e1:y1:r1:rd5:nodes52:node0000000000000001\xc0\xa8\0\x01\0\x01node0000000000000002\xc0\xa8\0\x01\0\x012:id20:id000000000000000001e2:ip6:\xc0\xa8\0\x01\0\x01e";

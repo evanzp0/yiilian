@@ -27,6 +27,15 @@ pub struct Ping {
 }
 
 impl Ping {
+    pub fn new(
+        id: Id,
+        t: TransactionId,
+        v: Option<Bytes>,
+        ip: Option<SocketAddr>,
+        ro: Option<i32>,
+    ) -> Self {
+        Self { id, t, v, ip, ro }
+    }
 }
 
 impl TryFrom<Frame> for Ping {
@@ -52,7 +61,7 @@ impl TryFrom<Frame> for Ping {
             .to_owned()
             .into();
 
-        Ok(Ping { t, v, ip, ro, id })
+        Ok(Ping::new(id, t, v, ip, ro))
     }
 }
 
@@ -75,19 +84,19 @@ impl From<Ping> for Frame {
 #[cfg(test)]
 mod tests {
 
-    use yiilian_core::{common::util::bytes_to_sockaddr, data::decode};
+    use yiilian_core::data::decode;
 
     use super::*;
 
     #[test]
     fn test() {
-        let af = Ping {
-            t: "t1".into(),
-            v: Some("v1".into()),
-            ip: Some(bytes_to_sockaddr(&vec![127, 0, 0, 1, 0,80]).unwrap().into()),
-            ro: Some(1),
-            id: "id000000000000000001".into(),
-        };
+        let af = Ping::new(
+            "id000000000000000001".into(),
+            "t1".into(),
+            Some("v1".into()),
+            Some("127.0.0.1:80".parse().unwrap()),
+            Some(1),
+        );
         let rst: Frame = af.clone().into();
 
         let data = b"d1:v2:v11:t2:t12:ip6:\x7f\0\0\x01\0\x502:roi1e1:q4:ping1:y1:q1:ad2:id20:id000000000000000001ee";

@@ -22,10 +22,22 @@ pub struct PingOrAnnounceReply {
     pub ro: Option<i32>,
 
     // ----------------------------
-    
     /// sender node id
     pub id: Id,
 }
+
+impl PingOrAnnounceReply {
+    pub fn new(
+        id: Id,
+        t: TransactionId,
+        v: Option<Bytes>,
+        ip: Option<SocketAddr>,
+        ro: Option<i32>,
+    ) -> Self {
+        Self { id, t, v, ip, ro }
+    }
+}
+
 impl TryFrom<Frame> for PingOrAnnounceReply {
     type Error = Error;
 
@@ -35,11 +47,12 @@ impl TryFrom<Frame> for PingOrAnnounceReply {
         if !frame.verify_items(&[("y", "r")]) {
             return Err(Error::new_frame(
                 None,
-                Some(format!("Invalid frame for PingOrAnnounceReply, frame: {frame}")),
+                Some(format!(
+                    "Invalid frame for PingOrAnnounceReply, frame: {frame}"
+                )),
             ));
         }
 
-        
         let r = frame.get_dict_item("r").ok_or(Error::new_frame(
             None,
             Some(format!("Field 'r' not found in frame: {frame}")),
@@ -55,7 +68,7 @@ impl TryFrom<Frame> for PingOrAnnounceReply {
             .to_owned()
             .into();
 
-        Ok(PingOrAnnounceReply { t, v, ip, ro, id })
+        Ok(PingOrAnnounceReply::new(id, t, v, ip, ro))
     }
 }
 
@@ -68,9 +81,9 @@ impl From<PingOrAnnounceReply> for Frame {
 
         let mut r: HashMap<Bytes, Frame> = HashMap::new();
         r.insert("id".into(), value.id.get_bytes().into());
-        
+
         rst.insert("r".into(), r.into());
-        
+
         Frame::Map(rst)
     }
 }
@@ -78,19 +91,19 @@ impl From<PingOrAnnounceReply> for Frame {
 #[cfg(test)]
 mod tests {
 
-    use yiilian_core::{common::util::bytes_to_sockaddr, data::decode};
+    use yiilian_core::data::decode;
 
     use super::*;
 
     #[test]
     fn test() {
-        let af = PingOrAnnounceReply {
-            t: "t1".into(),
-            v: Some("v1".into()),
-            ip: Some(bytes_to_sockaddr(&vec![127, 0, 0, 1, 0,80]).unwrap().into()),
-            ro: Some(1),
-            id: "id000000000000000001".into(),
-        };
+        let af = PingOrAnnounceReply::new(
+            "id000000000000000001".into(),
+            "t1".into(),
+            Some("v1".into()),
+            Some("127.0.0.1:80".parse().unwrap()),
+            Some(1),
+        );
         let rst: Frame = af.clone().into();
 
         let data = b"d1:t2:t11:y1:r1:rd2:id20:id000000000000000001e2:roi1e2:ip6:\x7f\0\0\x01\0\x501:v2:v1e";

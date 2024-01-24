@@ -38,6 +38,32 @@ pub struct AnnouncePeer {
     pub token: Bytes,
 }
 
+impl AnnouncePeer {
+    pub fn new(
+        id: Id,
+        info_hash: Id,
+        implied_port: Option<u8>,
+        port: u16,
+        token: Bytes,
+        t: TransactionId,
+        v: Option<Bytes>,
+        ip: Option<SocketAddr>,
+        ro: Option<i32>,
+    ) -> Self {
+        Self {
+            id,
+            info_hash,
+            implied_port,
+            port,
+            token,
+            t,
+            v,
+            ip,
+            ro,
+        }
+    }
+}
+
 impl TryFrom<Frame> for AnnouncePeer {
     type Error = Error;
 
@@ -99,17 +125,17 @@ impl TryFrom<Frame> for AnnouncePeer {
             .to_owned()
             .try_into()?;
 
-        Ok(AnnouncePeer {
-            t,
-            v,
-            ip,
-            ro,
+        Ok(AnnouncePeer::new(
             id,
             info_hash,
             implied_port,
             port,
             token,
-        })
+            t,
+            v,
+            ip,
+            ro,
+        ))
     }
 }
 
@@ -139,7 +165,7 @@ impl From<AnnouncePeer> for Frame {
 #[cfg(test)]
 mod tests {
 
-    use yiilian_core::{common::util::bytes_to_sockaddr, data::decode};
+    use yiilian_core::data::decode;
 
     use super::*;
 
@@ -148,11 +174,7 @@ mod tests {
         let af = AnnouncePeer {
             t: "t1".into(),
             v: Some("v1".into()),
-            ip: Some(
-                bytes_to_sockaddr(&vec![127, 0, 0, 1, 0, 80])
-                    .unwrap()
-                    .into(),
-            ),
+            ip: Some("127.0.0.1:80".parse().unwrap()),
             ro: Some(1),
             id: "id000000000000000001".into(),
             info_hash: "info0000000000000001".into(),
