@@ -22,7 +22,7 @@ struct ErrorImpl {
     connect_info: Option<SocketAddr>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum Kind {
     // Failure to parse bytes of a frame
     Frame,
@@ -79,6 +79,18 @@ impl Error {
         }
     }
 
+    pub fn new_token(description: &str)-> Self {
+        Error::new(Kind::Token, Some(description.to_owned()), None, None)
+    }
+
+    pub fn new_timeout(description: &str)-> Self {
+        Error::new(Kind::Timeout, Some(description.to_owned()), None, None)
+    }
+
+    pub fn new_transaction(description: &str)-> Self {
+        Error::new(Kind::Transatcion, Some(description.to_owned()), None, None)
+    }
+
     pub fn new_block(description: &str)-> Self {
         Error::new(Kind::Block, Some(description.to_owned()), None, None)
     }
@@ -107,6 +119,10 @@ impl Error {
         matches!(self.inner.kind, Kind::Timeout)
     }
 
+    pub fn get_kind(&self) -> Kind {
+        self.inner.kind
+    }
+
     pub(crate) fn find_source<E: StdError + 'static>(&self) -> Option<&E> {
         let mut cause = self.source();
         while let Some(err) = cause {
@@ -119,7 +135,6 @@ impl Error {
         // else
         None
     }
-
 }
 
 impl UnwindSafe for Error {}

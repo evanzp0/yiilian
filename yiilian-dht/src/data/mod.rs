@@ -7,4 +7,4 @@ pub mod get_peers_reply;
 pub mod ping;
 pub mod ping_announce_replay;
 pub mod error;
-mod util;
+pub mod util;

@@ -1,8 +1,7 @@
 use std::sync::{Mutex, RwLock};
 
 use crate::{
-    event::EventManager, peer::PeerManager, routing_table::RoutingTable,
-    transaction::TransactionManager,
+    event::EventManager, net::Client, peer::PeerManager, routing_table::RoutingTable, transaction::TransactionManager
 };
 
 use super::{setting::Settings, state::State};
@@ -14,6 +13,7 @@ pub struct Context {
     peer_manager: Mutex<PeerManager>,
     transaction_manager: TransactionManager,
     event_manager: EventManager,
+    client: Client,
 }
 
 impl Context {
@@ -24,6 +24,7 @@ impl Context {
         peer_manager: Mutex<PeerManager>,
         transaction_manager: TransactionManager,
         event_manager: EventManager,
+        client: Client,
     ) -> Self {
         Context {
             settings,
@@ -32,6 +33,7 @@ impl Context {
             peer_manager,
             transaction_manager,
             event_manager,
+            client,
         }
     }
 
@@ -57,5 +59,9 @@ impl Context {
 
     pub fn event_manager(&self) -> &EventManager {
         &self.event_manager
+    }
+
+    pub fn client(&self) -> &Client {
+        &self.client
     }
 }
