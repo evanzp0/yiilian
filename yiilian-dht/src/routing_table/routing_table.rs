@@ -1,9 +1,6 @@
 use std::{
     collections::HashSet,
-    fs::File,
-    io::Write,
     net::{IpAddr, SocketAddr},
-    path::PathBuf,
     sync::Arc,
     time::Duration,
 };
@@ -11,13 +8,13 @@ use std::{
 use chrono::Utc;
 use log::trace;
 use yiilian_core::{
-    common::{error::Error, shutdown::ShutdownReceiver},
+    common::error::Error,
     net::block_list::BlockList,
 };
 
 use crate::common::{context::Context, id::Id};
 
-use super::{Buckets, Node, Persist};
+use super::{Buckets, Node};
 
 #[derive(Debug)]
 pub struct RoutingTable {
