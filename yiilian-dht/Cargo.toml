@@ -16,3 +16,4 @@ derivative = "2"
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.9"
 lru = "0.12"
+async-trait = "0.1"
