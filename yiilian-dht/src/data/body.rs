@@ -1,9 +1,8 @@
-
 use std::collections::HashMap;
 use std::net::SocketAddr;
 
 use bytes::Bytes;
-use yiilian_core::data::{Body, Encode};
+use yiilian_core::data::{decode, Body, Encode};
 use yiilian_core::{common::error::Error, data::BencodeFrame as Frame};
 
 use crate::common::id::Id;
@@ -22,7 +21,7 @@ pub struct KrpcBody {
 }
 
 impl KrpcBody {
-    pub fn new(kind: BodyKind) ->  Self {
+    pub fn new(kind: BodyKind) -> Self {
         let data = {
             let data: Frame = match kind.clone() {
                 BodyKind::Empty => Frame::Map(HashMap::new()),
@@ -33,11 +32,16 @@ impl KrpcBody {
 
             data.encode()
         };
-        
-        Self {
-            kind,
-            data,
-        }
+
+        Self { kind, data }
+    }
+
+    pub fn from_bytes(data: Bytes) -> Result<Self, Error> {
+        let frame: Frame = decode(&*data)?;
+
+        let kind: BodyKind = frame.try_into()?;
+
+        Ok(Self { kind, data })
     }
 
     pub fn get_kind(&self) -> &BodyKind {
@@ -76,7 +80,10 @@ impl Default for BodyKind {
 
 impl Default for KrpcBody {
     fn default() -> Self {
-        Self { kind: BodyKind::default(), data: Default::default() }
+        Self {
+            kind: BodyKind::default(),
+            data: Default::default(),
+        }
     }
 }
 
@@ -167,37 +174,49 @@ impl Reply {
     }
 }
 
-impl TryFrom<Frame> for KrpcBody {
+impl TryFrom<Frame> for BodyKind {
     type Error = Error;
 
     fn try_from(frame: Frame) -> Result<Self, Self::Error> {
         if let Frame::Map(ref m) = frame {
             if frame.verify_items(&[("y", "q")]) {
                 if frame.verify_items(&[("q", "ping")]) {
-                    return Ok(KrpcBody::new(BodyKind::Query(Query::Ping(frame.try_into()?))));
+                    return Ok(BodyKind::Query(Query::Ping(frame.try_into()?)));
                 } else if frame.verify_items(&[("q", "find_node")]) {
-                    return Ok(KrpcBody::new(BodyKind::Query(Query::FindNode(frame.try_into()?))));
+                    return Ok(BodyKind::Query(Query::FindNode(frame.try_into()?)));
                 } else if frame.verify_items(&[("q", "get_peers")]) {
-                    return Ok(KrpcBody::new(BodyKind::Query(Query::GetPeers(frame.try_into()?))));
+                    return Ok(BodyKind::Query(Query::GetPeers(frame.try_into()?)));
                 } else if frame.verify_items(&[("q", "announce_peer")]) {
-                    return Ok(KrpcBody::new(BodyKind::Query(Query::AnnouncePeer(frame.try_into()?))));
+                    return Ok(BodyKind::Query(Query::AnnouncePeer(frame.try_into()?)));
                 }
             } else if frame.verify_items(&[("y", "r")]) {
                 if let Some(params) = m.get(&b"r"[..]) {
                     if params.has_key("token") {
-                        return Ok(KrpcBody::new(BodyKind::Reply(Reply::GetPeers(frame.try_into()?))));
+                        return Ok(BodyKind::Reply(Reply::GetPeers(frame.try_into()?)));
                     } else if params.has_key("nodes") {
-                        return Ok(KrpcBody::new(BodyKind::Reply(Reply::FindNode(frame.try_into()?))));
+                        return Ok(BodyKind::Reply(Reply::FindNode(frame.try_into()?)));
                     } else {
-                        return Ok(KrpcBody::new(BodyKind::Reply(Reply::PingOrAnnounce(frame.try_into()?))));
+                        return Ok(BodyKind::Reply(Reply::PingOrAnnounce(frame.try_into()?)));
                     }
                 }
             } else if frame.verify_items(&[("y", "e")]) {
-                return Ok(KrpcBody::new(BodyKind::RError(frame.try_into()?)));
+                return Ok(BodyKind::RError(frame.try_into()?));
             }
         }
 
-        Err(Error::new_frame(None, Some(format!("convert Frame to KrpcBody failed: {frame}"))))
+        Err(Error::new_frame(
+            None,
+            Some(format!("convert Frame to KrpcBody failed: {frame}")),
+        ))
+    }
+}
+
+impl TryFrom<Frame> for KrpcBody {
+    type Error = Error;
+
+    fn try_from(frame: Frame) -> Result<Self, Self::Error> {
+        let kind: BodyKind = frame.try_into()?;
+        Ok(KrpcBody::new(kind))
     }
 }
 
