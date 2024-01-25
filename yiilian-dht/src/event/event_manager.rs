@@ -78,9 +78,7 @@ fn run_event_loop(shutdown: ShutdownReceiver, mut event_rx: mpsc::Receiver<Event
                                     // 使用新任务是为了防止 listener.apply() 时，任务内部发送不可捕获的异常导致消息通道被破坏
                                     tokio::spawn(async move {
                                         tokio::select! {
-                                            _ = async {
-                                                listener.apply(event)
-                                            } => (),
+                                            _ = listener.apply(event) => (),
                                             _= shutdown.watch() => (),
                                         }
                                     });
