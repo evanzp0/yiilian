@@ -1,57 +1,46 @@
-use std::fmt::Debug;
 use std::net::ToSocketAddrs;
-use std::time::Duration;
 use std::{net::SocketAddr, sync::Arc};
+use std::fmt::Debug;
 
 use bytes::Bytes;
 use futures::FutureExt;
 use tokio::net::UdpSocket;
-use tokio::time::sleep;
-use yiilian_core::common::error::{trace_panic, Error};
-use yiilian_core::common::shutdown::{ShutdownReceiver, spawn_with_shutdown};
+use yiilian_core::common::error::trace_panic;
+use yiilian_core::common::error::Error;
 use yiilian_core::data::{Body, Request};
 use yiilian_core::net::udp::send_to;
 
-use crate::data::raw_body::RawBody;
+use crate::common::context::Context;
+use crate::data::body::KrpcBody;
 
-use super::service::raw_service::RawService;
+use super::service::KrpcService;
 
 type Result<T> = std::result::Result<T, Error>;
 
 pub struct Server<S> {
-    pub socket: Arc<UdpSocket>,
-    pub local_addr: SocketAddr,
-    pub recv_service: S,
+    socket: Arc<UdpSocket>,
+    local_addr: SocketAddr,
+    recv_service: S,
+    ctx: Arc<Context>,
 }
 
 impl<S> Server<S>
 where
-    S: RawService<RawBody, ResBody = RawBody> + Clone + Send + 'static,
+    S: KrpcService<KrpcBody, ResBody = KrpcBody> + Clone + Send + 'static,
     S::Error: Debug + Send,
 {
     pub fn new(
         socket: Arc<UdpSocket>,
         recv_filter: S,
-        shutdown_rx: ShutdownReceiver,
+        ctx: Arc<Context>,
     ) -> Self {
-        // 后台发送监听任务
-        spawn_with_shutdown(
-            shutdown_rx.clone(),
-            async {
-                loop {
-                    println!("zzZZZ ~~~");
-                    sleep(Duration::from_secs(5)).await;
-                }
-            },
-            "sleep and loop",
-            None,
-        );
-        
+
         let local_addr = socket.local_addr().expect("Get local address error");
         Server {
             socket,
             recv_service: recv_filter,
             local_addr,
+            ctx,
         }
     }
 
@@ -59,7 +48,7 @@ where
     pub fn bind<A: ToSocketAddrs>(
         socket_addr: A,
         recv_service: S,
-        shutdown_rx: ShutdownReceiver,
+        ctx: Arc<Context>,
     ) -> Result<Self> {
         let std_sock = std::net::UdpSocket::bind(socket_addr)
             .map_err(|e| Error::new_bind(Some(Box::new(e))))?;
@@ -71,7 +60,7 @@ where
             UdpSocket::from_std(std_sock).map_err(|e| Error::new_bind(Some(Box::new(e))))?;
         let socket = Arc::new(socket);
 
-        Ok(Server::new(socket, recv_service, shutdown_rx))
+        Ok(Server::new(socket, recv_service, ctx))
     }
 
     pub async fn run_loop(&self) {
@@ -88,7 +77,7 @@ where
                 Ok(rst) => rst,
                 Err(error) => {
                     log::debug!(
-                        target: "yiilian_raw::net::server",
+                        target: "yiilian_dht::net::server",
                         "recv error: [{}] {:?}",
                         local_port, 
                         error
@@ -98,7 +87,20 @@ where
             };
             let local_addr = self.local_addr;
             let data: Bytes = buf[..len].to_owned().into();
-            let req = Request::new(RawBody::new(data), remote_addr, local_addr);
+            let req = {
+                let body = match KrpcBody::from_bytes(data) {
+                    Ok(val) => val,
+                    Err(error) => {
+                        log::debug!(
+                            target: "yiilian_dht::net::server",
+                            "Parse krpc body error: [{}] {:?}",
+                            local_port, error
+                        );
+                        continue;
+                    },
+                };
+                Request::new(body, remote_addr, local_addr)
+            };
 
             let service = self.recv_service.clone();
             let socket = self.socket.clone();
@@ -112,7 +114,7 @@ where
                             if let Err(error) = send_to(socket, &res.get_data(), res.remote_addr).await
                             {
                                 log::debug!(
-                                    target: "yiilian_raw::net::server",
+                                    target: "yiilian_dht::net::server",
                                     "send_to error: [{}] {:?}",
                                     local_port,
                                     error

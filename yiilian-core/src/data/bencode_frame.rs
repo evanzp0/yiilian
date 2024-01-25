@@ -212,13 +212,11 @@ pub fn decode_string(data: &[u8], start: usize) -> Result<(BencodeFrame, usize),
         );
     }
 
-    let idx = find(data, start, b':');
-    if idx == None {
-        return Err(
-            Error::new_frame(None, Some("':' not found when decode string".to_owned())));
-    }
-
-    let idx = idx.unwrap();
+    let idx = match find(data, start, b':') {
+        Some(val) => val,
+        None => Err(Error::new_frame(None, Some("':' not found when decode string".to_owned())))?,
+    };
+    
     let length = atoi(&data[start..idx])?;
     let index = idx + 1 + (length as usize);
 
@@ -239,13 +237,12 @@ pub fn decode_int(data: &[u8], start: usize) -> Result<(BencodeFrame, usize), Er
     }
 
     let start = start + 1;
-    let idx = find(data, start, b'e');
-    if idx == None {
-        return Err(
-            Error::new_frame(None, Some("'e' not found when decode string".to_owned())));
-    }
 
-    let idx = idx.unwrap();
+    let idx = match find(data, start, b'e') {
+        Some(val) => val,
+        None => Err(Error::new_frame(None, Some("'e' not found when decode string".to_owned())))?,
+    };
+    
     let s = String::from_utf8_lossy(&data[start..idx]);
     let rst = if let Ok(v) = s.parse::<i32>() {
         v
