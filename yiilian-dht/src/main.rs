@@ -12,13 +12,7 @@ use yiilian_dht::{
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    
-    let make_service = make_service_fn(|ctx: Arc<Context>| async {
-        let dummy = DummyService::new(ctx.clone());
-        let svc = ServiceBuilder::new().service(dummy);
-
-        svc
-    });
+    setup_log();
 
     let (mut _shutdown_tx, shutdown_rx) = create_shutdown();
 
@@ -68,7 +62,15 @@ async fn main() -> Result<(), Error> {
     );
     let ctx = Arc::new(ctx);
     
+    let make_service = make_service_fn(|ctx: Arc<Context>| async move {
+        let dummy = DummyService::new(ctx.clone());
+        let svc = ServiceBuilder::new().service(dummy);
+
+        Ok::<_, Error>(svc)
+    });
+
     let server = Server::new(socket.clone(), make_service, ctx);
+    server.run_loop().await;
 
     Ok(())
 }
@@ -133,4 +135,9 @@ fn build_socket(socket_addr: SocketAddr) -> Result<UdpSocket, Error> {
         UdpSocket::from_std(std_sock).map_err(|e| Error::new_bind(Some(Box::new(e))))?;
 
     Ok(socket)
+}
+
+fn setup_log() {
+    dotenv::dotenv().ok();
+    env_logger::init();
 }

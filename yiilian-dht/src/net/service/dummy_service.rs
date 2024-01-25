@@ -1,4 +1,4 @@
-use std::{panic::{RefUnwindSafe, UnwindSafe}, sync::Arc};
+use std::sync::Arc;
 
 use yiilian_core::{
     common::error::Error,
@@ -8,6 +8,7 @@ use yiilian_core::{
 
 use crate::{common::context::Context, data::body::KrpcBody};
 
+#[allow(unused)]
 #[derive(Clone)]
 pub struct DummyService {
     ctx: Arc<Context>,
@@ -29,5 +30,3 @@ impl Service<Request<KrpcBody>> for DummyService {
         Ok(Response::new(req.body, req.remote_addr, req.local_addr))
     }
 }
-
-impl RefUnwindSafe for DummyService {}

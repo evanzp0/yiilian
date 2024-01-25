@@ -1,4 +1,4 @@
-use std::sync::{Mutex, RwLock};
+use std::{panic::RefUnwindSafe, sync::{Mutex, RwLock}};
 
 use crate::{
     event::EventManager, net::Client, peer::PeerManager, routing_table::RoutingTable, transaction::TransactionManager
@@ -65,3 +65,5 @@ impl Context {
         &self.client
     }
 }
+
+impl RefUnwindSafe for Context {}

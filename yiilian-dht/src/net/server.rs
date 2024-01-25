@@ -1,4 +1,4 @@
-use std::net::ToSocketAddrs;
+
 use std::{net::SocketAddr, sync::Arc};
 use std::fmt::Debug;
 
@@ -14,8 +14,6 @@ use crate::common::context::Context;
 use crate::data::body::KrpcBody;
 
 use super::service::{KrpcService, MakeServiceRef};
-
-type Result<T> = std::result::Result<T, Error>;
 
 pub struct Server<S> {
     socket: Arc<UdpSocket>,
