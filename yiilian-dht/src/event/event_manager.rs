@@ -15,7 +15,7 @@ pub struct EventManager {
 
 impl EventManager {
     // 生成 EventManager，并开启任务监听循环
-    pub fn new(ctx: Arc<Context>, shutdown: ShutdownReceiver) -> EventManager {
+    pub fn new(shutdown: ShutdownReceiver) -> EventManager {
         let (event_tx, event_rx) = mpsc::channel::<EventCommand>(1);
 
         let evt_mgr = EventManager {
@@ -23,7 +23,7 @@ impl EventManager {
         };
 
         // 事件循环
-        run_event_loop(ctx, shutdown, event_rx);
+        run_event_loop(shutdown, event_rx);
 
         evt_mgr
     }
@@ -47,7 +47,7 @@ impl EventManager {
 }
 
 /// 事件循环
-fn run_event_loop(ctx: Arc<Context>, shutdown: ShutdownReceiver, mut event_rx: mpsc::Receiver<EventCommand>) {
+fn run_event_loop(shutdown: ShutdownReceiver, mut event_rx: mpsc::Receiver<EventCommand>) {
     spawn_with_shutdown(
         shutdown.clone(),
         async move {
@@ -74,13 +74,12 @@ fn run_event_loop(ctx: Arc<Context>, shutdown: ShutdownReceiver, mut event_rx: m
                                     let listener = (*listener).clone();
                                     let event = event.clone();
                                     let shutdown = shutdown.clone();
-                                    let ctx = ctx.clone();
 
                                     // 使用新任务是为了防止 listener.apply() 时，任务内部发送不可捕获的异常导致消息通道被破坏
                                     tokio::spawn(async move {
                                         tokio::select! {
                                             _ = async {
-                                                listener.apply(event, ctx)
+                                                listener.apply(event)
                                             } => (),
                                             _= shutdown.watch() => (),
                                         }

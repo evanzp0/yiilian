@@ -2,7 +2,10 @@ use std::future::Future;
 use std::error::Error as StdError;
 use std::panic::UnwindSafe;
 use std::sync::Arc;
+use yiilian_core::data::Body;
 use yiilian_core::service::Service;
+
+use super::KrpcService;
 
 #[derive(Clone, Copy)]
 pub struct MakeServiceFn<F> {
@@ -29,3 +32,29 @@ where
     }
 }
 
+// Just a sort-of "trait alias" of `MakeService`, not to be implemented
+// by anyone, only used as bounds.
+pub trait MakeServiceRef<Target, ReqBody> {
+    type ResBody: Body;
+    type Error: Into<Box<dyn StdError + Send + Sync>>;
+    type Service: KrpcService<ReqBody, ResBody = Self::ResBody, Error = Self::Error>;
+
+    fn make_service_ref(&self, target: Arc<Target>) -> impl Future<Output = Result<Self::Service, Self::Error>> + Send + UnwindSafe;
+}
+
+impl<T, Target, E, S, IB, OB> MakeServiceRef<Target, IB> for T
+where
+    T: Service<Arc<Target>, Error = E, Response = S>,
+    E: Into<Box<dyn StdError + Send + Sync>>,
+    S: KrpcService<IB, ResBody = OB, Error = E>,
+    IB: Body,
+    OB: Body,
+{
+    type Error = E;
+    type Service = S;
+    type ResBody = OB;
+
+    fn make_service_ref(&self, target: Arc<Target>) -> impl Future<Output = Result<Self::Service, Self::Error>> + Send + UnwindSafe {
+        self.call(target)
+    }
+}

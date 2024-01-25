@@ -79,6 +79,10 @@ impl Error {
         }
     }
 
+    pub fn new_path(cause: Option<Cause>, description: Option<String>) -> Self {
+        Error::new(Kind::Path, description, cause, None)
+    }
+
     pub fn new_token(description: &str)-> Self {
         Error::new(Kind::Token, Some(description.to_owned()), None, None)
     }
@@ -100,7 +104,7 @@ impl Error {
     }
 
     pub fn new_id(cause: Option<Cause>, description: Option<String>) -> Self {
-        Error::new(Kind::Id, None, cause, None)
+        Error::new(Kind::Id, description, cause, None)
     }
 
     pub fn new_io(cause: Option<Cause>, connect_info: Option<SocketAddr>) -> Self {

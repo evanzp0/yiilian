@@ -54,7 +54,7 @@ where
 {
     type Response = Response<ResBody>;
     type Error = E;
-
+    
     async fn call(&self, req: Request<ReqBody>) -> Result<Self::Response, Self::Error> {
         (self.f)(req).await
     }

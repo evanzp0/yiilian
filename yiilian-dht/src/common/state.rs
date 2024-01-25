@@ -1,4 +1,4 @@
-use std::{path::PathBuf, os::unix::net::SocketAddr};
+use std::{net::SocketAddr, path::PathBuf};
 
 use super::{id::Id, ip::IPV4Consensus};
 

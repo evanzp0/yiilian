@@ -13,7 +13,7 @@ use yiilian_core::net::udp::send_to;
 use crate::common::context::Context;
 use crate::data::body::KrpcBody;
 
-use super::service::KrpcService;
+use super::service::{KrpcService, MakeServiceRef};
 
 type Result<T> = std::result::Result<T, Error>;
 
@@ -26,41 +26,24 @@ pub struct Server<S> {
 
 impl<S> Server<S>
 where
-    S: KrpcService<KrpcBody, ResBody = KrpcBody> + Clone + Send + 'static,
+    // S: KrpcService<KrpcBody, ResBody = KrpcBody> + Clone + Send + 'static,
+    S: MakeServiceRef<Context, KrpcBody, ResBody = KrpcBody>,
+    S::Service: Send + 'static,
     S::Error: Debug + Send,
 {
     pub fn new(
         socket: Arc<UdpSocket>,
-        recv_filter: S,
+        recv_service: S,
         ctx: Arc<Context>,
     ) -> Self {
 
         let local_addr = socket.local_addr().expect("Get local address error");
         Server {
             socket,
-            recv_service: recv_filter,
+            recv_service,
             local_addr,
             ctx,
         }
-    }
-
-    /// 通过绑定方式，生成 UdpIo
-    pub fn bind<A: ToSocketAddrs>(
-        socket_addr: A,
-        recv_service: S,
-        ctx: Arc<Context>,
-    ) -> Result<Self> {
-        let std_sock = std::net::UdpSocket::bind(socket_addr)
-            .map_err(|e| Error::new_bind(Some(Box::new(e))))?;
-        std_sock
-            .set_nonblocking(true)
-            .map_err(|e| Error::new_bind(Some(Box::new(e))))?;
-
-        let socket =
-            UdpSocket::from_std(std_sock).map_err(|e| Error::new_bind(Some(Box::new(e))))?;
-        let socket = Arc::new(socket);
-
-        Ok(Server::new(socket, recv_service, ctx))
     }
 
     pub async fn run_loop(&self) {
@@ -102,7 +85,21 @@ where
                 Request::new(body, remote_addr, local_addr)
             };
 
-            let service = self.recv_service.clone();
+            // let service = self.recv_service.clone();
+            let service = {
+                match self.recv_service.make_service_ref(self.ctx.clone()).await {
+                    Ok(svc) => svc,
+                    Err(error) => {
+                        log::error!(
+                            target: "yiilian_dht::net::server",
+                            "make service error: [{}] {:?}",
+                            local_port, error
+                        );
+                        panic!("make service error");
+                    },
+                }
+            };
+
             let socket = self.socket.clone();
 
             // 每个收到的连接都会在独立的任务中处理

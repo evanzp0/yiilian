@@ -150,7 +150,7 @@ impl Default for Settings {
 
 #[derive(Clone, Default)]
 /// Builder for DHTSettings
-pub struct DHTSettingsBuilder {
+pub struct SettingsBuilder {
     settings: Settings,
 }
 
@@ -163,8 +163,8 @@ macro_rules! make_builder_method {
     };
 }
 
-impl DHTSettingsBuilder {
-    pub fn new() -> DHTSettingsBuilder {
+impl SettingsBuilder {
+    pub fn new() -> SettingsBuilder {
         Self::default()
     }
     make_builder_method!(ctx_index, i32);
