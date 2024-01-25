@@ -44,7 +44,7 @@ where
         }
     }
 
-    pub async fn run_loop(&self) {
+    pub async fn run_loop(&self) -> Result<(), Error> {
         let local_port = self.local_addr.port();
         loop {
             let mut buf = [0; 65000];
@@ -83,7 +83,6 @@ where
                 Request::new(body, remote_addr, local_addr)
             };
 
-            // let service = self.recv_service.clone();
             let service = {
                 match self.recv_service.make_service_ref(self.ctx.clone()).await {
                     Ok(svc) => svc,
@@ -93,7 +92,8 @@ where
                             "make service error: [{}] {:?}",
                             local_port, error
                         );
-                        panic!("make service error");
+                        
+                        Err(Error::new_general("make service error"))?
                     },
                 }
             };

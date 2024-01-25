@@ -70,7 +70,7 @@ async fn main() -> Result<(), Error> {
     });
 
     let server = Server::new(socket.clone(), make_service, ctx);
-    server.run_loop().await;
+    server.run_loop().await?;
 
     Ok(())
 }
