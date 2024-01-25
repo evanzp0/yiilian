@@ -6,7 +6,7 @@ use yiilian_core::{
 };
 use yiilian_dht::{
     common::{context::Context, id::Id, ip::IPV4Consensus, setting::SettingsBuilder, state::State}, event::EventManager, net::{
-        service::{make_service_fn, DummyService}, Client, Server
+        service::{make_service_fn, DummyService, LogLayer, LogService}, Client, Server
     }, peer::PeerManager, routing_table::RoutingTable, transaction::TransactionManager
 };
 
@@ -64,7 +64,9 @@ async fn main() -> Result<(), Error> {
     
     let make_service = make_service_fn(|ctx: Arc<Context>| async move {
         let dummy = DummyService::new(ctx.clone());
-        let svc = ServiceBuilder::new().service(dummy);
+        let svc = ServiceBuilder::new()
+            .layer(LogLayer)
+            .service(dummy);
 
         Ok::<_, Infallible>(svc)
     });
