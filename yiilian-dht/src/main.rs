@@ -1,4 +1,4 @@
-use std::{collections::HashSet, net::SocketAddr, sync::{Arc, Mutex, RwLock}};
+use std::{collections::HashSet, convert::Infallible, net::SocketAddr, sync::{Arc, Mutex, RwLock}};
 
 use tokio::net::UdpSocket;
 use yiilian_core::{
@@ -66,7 +66,7 @@ async fn main() -> Result<(), Error> {
         let dummy = DummyService::new(ctx.clone());
         let svc = ServiceBuilder::new().service(dummy);
 
-        Ok::<_, Error>(svc)
+        Ok::<_, Infallible>(svc)
     });
 
     let server = Server::new(socket.clone(), make_service, ctx);
