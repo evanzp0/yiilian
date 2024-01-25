@@ -267,6 +267,11 @@ impl RoutingTable {
             .expect("Get writable state failed")
             .is_join_kad = self.verified.count() > 0;
     }
+
+    pub fn set_id(&mut self, new_id: Id) {
+        self.verified.set_id(new_id);
+        self.unverified.set_id(new_id);
+    }
 }
 
 // /// save nodes to file
