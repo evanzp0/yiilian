@@ -24,7 +24,6 @@ pub struct Server<S> {
 
 impl<S> Server<S>
 where
-    // S: KrpcService<KrpcBody, ResBody = KrpcBody> + Clone + Send + 'static,
     S: MakeServiceRef<Context, KrpcBody, ResBody = KrpcBody>,
     S::Service: Send + 'static,
     S::Error: Debug + Send,
