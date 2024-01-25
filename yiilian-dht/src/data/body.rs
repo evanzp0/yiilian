@@ -263,6 +263,18 @@ impl From<KrpcBody> for Frame {
     }
 }
 
+impl From<Query> for KrpcBody {
+    fn from(value: Query) -> Self {
+        KrpcBody::new(BodyKind::Query(value))
+    }
+}
+
+impl From<Reply> for KrpcBody {
+    fn from(value: Reply) -> Self {
+        KrpcBody::new(BodyKind::Reply(value))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use bytes::Bytes;

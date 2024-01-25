@@ -6,7 +6,7 @@ use yiilian_core::{
 };
 use yiilian_dht::{
     common::{context::Context, id::Id, ip::IPV4Consensus, setting::SettingsBuilder, state::State}, event::EventManager, net::{
-        service::{make_service_fn, DummyService, LogLayer, LogService}, Client, Server
+        service::{make_service_fn, DummyService, LogLayer}, Client, Server
     }, peer::PeerManager, routing_table::RoutingTable, transaction::TransactionManager
 };
 
