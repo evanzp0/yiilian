@@ -1,7 +1,7 @@
 use std::panic::{RefUnwindSafe, UnwindSafe};
 use std::error::Error as StdError;
 
-use yiilian_core::{
+use crate::{
     data::{Body, Request, Response},
     service::{Service, Layer},
 };
@@ -30,7 +30,7 @@ where
     async fn call(&self, req: Request<B1>) -> Result<Self::Response, Self::Error> {
         let local_port = req.local_addr.port();
         log::trace!(
-            target: "yiilian_dht::net",
+            target: "yiilian_core::net",
             "recv {} bytes from address: [{}] {}",
             req.len(),
             req.local_addr.port(),
@@ -41,7 +41,7 @@ where
         match &rst {
             Ok(res) => {
                 log::trace!(
-                    target: "yiilian_dht::net",
+                    target: "yiilian_core::net",
                     "reply {} bytes to address: [{}] {}",
                     res.len(),
                     local_port,

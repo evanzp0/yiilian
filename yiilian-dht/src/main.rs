@@ -2,11 +2,11 @@ use std::{collections::HashSet, net::SocketAddr, sync::{Arc, Mutex, RwLock}};
 
 use tokio::net::UdpSocket;
 use yiilian_core::{
-    common::{error::Error, shutdown::create_shutdown, util::random_bytes}, net::block_list::{BlockAddr, BlockList}, service::ServiceBuilder
+    common::{error::Error, shutdown::create_shutdown, util::random_bytes}, net::block_list::{BlockAddr, BlockList}, service::{LogLayer, ServiceBuilder}
 };
 use yiilian_dht::{
     common::{context::Context, id::Id, ip::IPV4Consensus, setting::SettingsBuilder, state::State}, event::EventManager, net::{
-        service::{make_service_fn, LogLayer, RouterService}, Client, Server
+        service::{make_service_fn, RouterService}, Client, Server
     }, peer::PeerManager, routing_table::RoutingTable, transaction::TransactionManager
 };
 

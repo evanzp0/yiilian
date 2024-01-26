@@ -1,8 +1,9 @@
+
 use std::{net::SocketAddr, sync::Arc};
 
 use tokio::net::UdpSocket;
-use yiilian_core::{common::error::Error, data::Request};
-use yiilian_dht::{data::{body::{KrpcBody, Query}, ping::Ping}, net::Client};
+use yiilian_core::{common::error::Error, data::{BencodeFrame, Encode, Request}};
+use yiilian_dht::{data::{body::{BodyKind, KrpcBody, Reply}, ping_announce_replay::PingOrAnnounceReply}, net::Client};
 
 
 #[tokio::main]
@@ -13,18 +14,31 @@ async fn main() {
     let client = Client::new(socket);
 
     let remote_addr: SocketAddr = "127.0.0.1:6578".parse().unwrap();
-    let ping = Ping::new(
+    // let ping = Ping::new(
+    //     "id000000000000000001".into(),
+    //     "t1".into(),
+    //     Some("v1".into()),
+    //     Some("127.0.0.1:80".parse().unwrap()),
+    //     Some(1),
+    // );
+
+    let ping_reply = PingOrAnnounceReply::new(
         "id000000000000000001".into(),
         "t1".into(),
         Some("v1".into()),
         Some("127.0.0.1:80".parse().unwrap()),
         Some(1),
     );
-    let body: KrpcBody = Query::Ping(ping).into();
+    
+    let body: KrpcBody = Reply::PingOrAnnounce(ping_reply).into();
     let req = Request::new(body, remote_addr, local_addr);
 
     let cnt = client.send(req).await.unwrap();
     println!("send {cnt} bytes");
+
+    let a: BencodeFrame = BodyKind::Empty.into();
+    let a = a.encode();
+    println!("{:?}", a);
 }
 
 fn build_socket(socket_addr: SocketAddr) -> Result<UdpSocket, Error> {

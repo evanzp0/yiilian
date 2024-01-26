@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::net::SocketAddr;
 
 use bytes::Bytes;
@@ -24,7 +23,7 @@ impl KrpcBody {
     pub fn new(kind: BodyKind) -> Self {
         let data = {
             let data: Frame = match kind.clone() {
-                BodyKind::Empty => Frame::Str("".into()),
+                BodyKind::Empty => Frame::Empty,
                 BodyKind::Query(val) => val.into(),
                 BodyKind::Reply(val) => val.into(),
                 BodyKind::RError(val) => val.into(),
@@ -244,7 +243,7 @@ impl From<Reply> for Frame {
 impl From<BodyKind> for Frame {
     fn from(value: BodyKind) -> Self {
         match value {
-            BodyKind::Empty => Frame::Str("".into()),
+            BodyKind::Empty => Frame::Empty,
             BodyKind::Query(val) => val.into(),
             BodyKind::Reply(val) => val.into(),
             BodyKind::RError(val) => val.into(),
@@ -255,7 +254,7 @@ impl From<BodyKind> for Frame {
 impl From<KrpcBody> for Frame {
     fn from(value: KrpcBody) -> Self {
         match value.kind {
-            BodyKind::Empty => Frame::Str("".into()),
+            BodyKind::Empty => Frame::Empty,
             BodyKind::Query(val) => val.into(),
             BodyKind::Reply(val) => val.into(),
             BodyKind::RError(val) => val.into(),

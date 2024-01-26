@@ -6,6 +6,7 @@ use crate::common::{util::atoi, error::Error};
 /// Frame 的帧
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum BencodeFrame {
+    Empty,
     Str(Bytes),
     Int(i32),
     List(Vec<BencodeFrame>),
@@ -110,6 +111,9 @@ impl BencodeFrame {
                 rst += &format!("}}");
 
                 rst
+            },
+            BencodeFrame::Empty => {
+                "".to_owned()
             }
         }
     }
@@ -442,6 +446,7 @@ impl Encode for BencodeFrame
             BencodeFrame::Int(v) => v.encode(),
             BencodeFrame::List(v) => v.encode(),
             BencodeFrame::Map(v) => v.encode(),
+            BencodeFrame::Empty => "".into(),
         }
     }
 }
