@@ -59,18 +59,18 @@ async fn main() -> Result<(), Error> {
     let client = Client::new(socket.clone());
 
     let ctx = Context::new(
+        local_addr,
         settings,
         state,
         routing_table,
         peer_manager,
         transaction_manager,
         client,
-        shutdown_rx,
     );
     let ctx = Arc::new(ctx);
 
     let make_service = make_service_fn(|ctx: Arc<Context>| async move {
-        let firewall_layer = FirewallLayer::new(ctx.clone(), 30, 20, ctx.shutdown_rx());
+        let firewall_layer = FirewallLayer::new(ctx.clone(), 2, 20);
         let router = RouterService::new(ctx.clone());
         let svc = ServiceBuilder::new()
             .layer(firewall_layer)
@@ -81,6 +81,8 @@ async fn main() -> Result<(), Error> {
     });
 
     let server = Server::new(socket.clone(), make_service, ctx);
+    drop(shutdown_rx);
+
     tokio::select! {
         _ = server.run_loop() => (),
         _ = tokio::signal::ctrl_c() => {
@@ -122,7 +124,6 @@ fn build_state(
         local_id,
         IPV4Consensus::new(2, 10),
         token_secret,
-        local_addr,
         nodes_file,
     ))
 }

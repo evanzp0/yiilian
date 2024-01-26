@@ -1,6 +1,4 @@
-use std::{panic::RefUnwindSafe, sync::{Mutex, RwLock}};
-
-use yiilian_core::common::shutdown::ShutdownReceiver;
+use std::{net::SocketAddr, panic::RefUnwindSafe, sync::{Mutex, RwLock}};
 
 use crate::{
     net::Client, peer::PeerManager, routing_table::RoutingTable, transaction::TransactionManager
@@ -9,34 +7,38 @@ use crate::{
 use super::{setting::Settings, state::State};
 
 pub struct Context {
+    local_addr: SocketAddr,
     settings: Settings,
     state: RwLock<State>,
     routing_table: Mutex<RoutingTable>,
     peer_manager: Mutex<PeerManager>,
     transaction_manager: TransactionManager,
     client: Client,
-    shutdown_rx: ShutdownReceiver,
 }
 
 impl Context {
     pub fn new(
+        local_addr: SocketAddr,
         settings: Settings,
         state: RwLock<State>,
         routing_table: Mutex<RoutingTable>,
         peer_manager: Mutex<PeerManager>,
         transaction_manager: TransactionManager,
         client: Client,
-        shutdown_rx: ShutdownReceiver,
     ) -> Self {
         Context {
+            local_addr,
             settings,
             state,
             routing_table,
             peer_manager,
             transaction_manager,
             client,
-            shutdown_rx,
         }
+    }
+
+    pub fn local_addr(&self) -> SocketAddr {
+        self.local_addr
     }
 
     pub fn settings(&self) -> &Settings {
@@ -61,10 +63,6 @@ impl Context {
 
     pub fn client(&self) -> &Client {
         &self.client
-    }
-
-    pub fn shutdown_rx(&self) -> ShutdownReceiver {
-        self.shutdown_rx.clone()
     }
 }
 

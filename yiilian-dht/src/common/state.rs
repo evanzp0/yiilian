@@ -1,4 +1,4 @@
-use std::{net::SocketAddr, path::PathBuf};
+use std::path::PathBuf;
 
 use super::{id::Id, ip::IPV4Consensus};
 
@@ -20,9 +20,6 @@ pub struct State {
     /// 是否已加入 kad
     pub is_join_kad: bool,
 
-    /// 本地地址
-    pub local_addr: SocketAddr,
-
     /// 保存 dht routing_table 已验证节点的文件
     pub nodes_file: PathBuf,
 }
@@ -32,7 +29,6 @@ impl State {
         local_id: Id,
         ip4_source: IPV4Consensus,
         token_secret: Vec<u8>,
-        local_addr: SocketAddr,
         nodes_file: PathBuf,
     ) -> Self {
         State {
@@ -41,7 +37,6 @@ impl State {
             old_token_secret: token_secret.clone(),
             token_secret,
             is_join_kad: false,
-            local_addr,
             nodes_file,
         }
     }

@@ -1,14 +1,14 @@
 
-use std::{net::SocketAddr, sync::Arc};
+use std::{net::SocketAddr, sync::Arc, time::Duration};
 
-use tokio::net::UdpSocket;
+use tokio::{net::UdpSocket, time::sleep};
 use yiilian_core::{common::error::Error, data::Request};
 use yiilian_dht::{data::{body::{KrpcBody, Query, Reply}, ping::Ping, ping_announce_replay::PingOrAnnounceReply }, net::Client};
 
 
 #[tokio::main]
 async fn main() {
-    let local_addr: SocketAddr = "0.0.0.0:0".parse().unwrap();
+    let local_addr: SocketAddr = "0.0.0.0:34636".parse().unwrap();
     let socket = Arc::new(build_socket(local_addr).unwrap());
 
     let client = Client::new(socket);
@@ -25,6 +25,8 @@ async fn main() {
     let req = Request::new(body, remote_addr, local_addr);
     let cnt = client.send(req).await.unwrap();
     println!("send {cnt} bytes");
+
+    sleep(Duration::from_secs(2)).await;
 
     let ping_reply = PingOrAnnounceReply::new(
         "id000000000000000001".into(),

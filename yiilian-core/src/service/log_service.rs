@@ -31,9 +31,9 @@ where
         let local_port = req.local_addr.port();
         log::trace!(
             target: "yiilian_core::service::log_service",
-            "[{}]recv {} bytes from address: {}",
-            req.len(),
+            "[{}] recv {} bytes from address: {}",
             req.local_addr.port(),
+            req.len(),
             req.remote_addr,
         );
 
@@ -43,8 +43,8 @@ where
                 log::trace!(
                     target: "yiilian_core::service::log_service",
                     "[{}] reply {} bytes to address:  {}",
-                    res.len(),
                     local_port,
+                    res.len(),
                     res.remote_addr,
                 );
             }

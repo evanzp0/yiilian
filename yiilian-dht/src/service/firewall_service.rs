@@ -1,45 +1,48 @@
 use std::{
     collections::HashMap,
     net::SocketAddr,
+    num::NonZeroUsize,
     panic::{RefUnwindSafe, UnwindSafe},
-    sync::{Arc, RwLock},
+    sync::Arc,
     time::Duration,
 };
 
 use chrono::{DateTime, Utc};
-use tokio::time::sleep;
+use lru::LruCache;
+use once_cell::sync::OnceCell;
 use yiilian_core::{
-    common::{
-        error::Error,
-        shutdown::{spawn_with_shutdown, ShutdownReceiver},
-        util::hash_it,
-    },
+    common::error::Error,
     data::{Request, Response},
     service::{Layer, Service},
 };
 
 use crate::common::context::Context;
 
+pub static mut TRACK_STATE_MAP: OnceCell<HashMap<u16, TrackState>> = OnceCell::new();
+
 pub struct FirewallService<S> {
     ctx: Arc<Context>,
-    rqs_state: Arc<RwLock<RecvQueryState>>,
     limit_per_sec: i64,
     inner: S,
 }
 
 impl<F> FirewallService<F> {
-    pub fn new(
-        inner: F,
-        ctx: Arc<Context>,
-        window_size_sec: i64,
-        limit_per_sec: i64,
-        shutdown: ShutdownReceiver,
-    ) -> Self {
-        let rqs_state = RecvQueryState::new(window_size_sec, shutdown);
+    pub fn new(inner: F, ctx: Arc<Context>, max_tracks: usize, limit_per_sec: i64) -> Self {
+        unsafe {
+            TRACK_STATE_MAP.get_or_init(|| {
+                HashMap::new()
+            });
+
+            let local_port = ctx.local_addr().port();
+            let map = TRACK_STATE_MAP.get_mut().expect("Get TRACK_STATE_MAP failed");
+            if map.get(&local_port).is_none() {
+                let rqs_state = TrackState::new(max_tracks);
+                map.insert(local_port, rqs_state);
+            }
+        };
 
         FirewallService {
             ctx,
-            rqs_state,
             limit_per_sec,
             inner,
         }
@@ -59,12 +62,12 @@ where
             .ctx
             .routing_table()
             .lock()
-            .expect("lock routing_table failed")
+            .expect("Lock routing_table failed")
             .is_blocked(&req.remote_addr);
         if is_blocked {
             log::debug!(
-                target: "yiilian_dht::service::firewall_service", 
-                "Address is blocked: [{}] {:?}", 
+                target: "yiilian_dht::service::firewall_service",
+                "Address is blocked: [{}] {:?}",
                 req.local_addr.port(), req.remote_addr
             );
 
@@ -72,43 +75,47 @@ where
             Err(e)?
         }
 
-        let track_id = self
-            .rqs_state
-            .write()
-            .unwrap()
-            .add_track_times(&req.remote_addr);
+        let local_port = self.ctx.local_addr().port();
+        let track_state_map = unsafe {
+            TRACK_STATE_MAP
+                .get_mut()
+                .expect("Get TRACK_STATE_MAP failed in FirewallService.call()")
+        };
+        
+        if let Some(track_state) = track_state_map.get_mut(&local_port) {
+            track_state.add_track_times(req.remote_addr);
 
-        let over_limit = self
-            .rqs_state
-            .write()
-            .unwrap()
-            .is_over_limit(track_id, self.limit_per_sec);
-        if let Some((is_over_limit, track)) = over_limit {
-            log::trace!(
-                target: "yiilian_dht::service::firewall_service",
-                "[{}] address {} request {} times, rps: {}",
-                req.local_addr.port(), req.remote_addr, track.access_times, track.rps(self.limit_per_sec)
-            );
-
-            // 超出防火墙限制，加入黑名单并返回
-            if is_over_limit {
-                let block_sec = self.ctx.settings().firewall_block_duration_sec;
-                self.ctx.routing_table().lock().unwrap().add_block_list(
-                    req.remote_addr,
-                    None,
-                    Some(Duration::from_secs(block_sec)),
-                    self.ctx.clone(),
+            let over_limit = track_state.is_over_limit(req.remote_addr, self.limit_per_sec);
+    
+            if let Some((is_over_limit, track)) = over_limit {
+                log::trace!(
+                    target: "yiilian_dht::service::firewall_service",
+                    "[{}] address {} request {} times, rps: {}",
+                    req.local_addr.port(), req.remote_addr, track.access_times, track.rps()
                 );
-
-                let e = Error::new_block(&format!(
-                    "address: {:?}, rps: {}",
-                    req.remote_addr,
-                    track.rps(self.limit_per_sec)
-                ));
-
-                log::debug!(target: "yiilian_dht::service::firewall_service", "[{}] Firewall block address: {}, access {} times, rps: {}", 
-                    req.local_addr.port(), req.remote_addr, track.access_times, track.rps(self.limit_per_sec));
-                Err(e)?
+    
+                // 超出防火墙限制，加入黑名单并返回
+                if is_over_limit {
+                    let block_sec = self.ctx.settings().firewall_block_duration_sec;
+                    self.ctx.routing_table().lock().unwrap().add_block_list(
+                        req.remote_addr,
+                        None,
+                        Some(Duration::from_secs(block_sec)),
+                        self.ctx.clone(),
+                    );
+    
+                    let e = Error::new_block(&format!(
+                        "address: {:?}, rps: {}",
+                        req.remote_addr,
+                        track.rps()
+                    ));
+    
+                    log::debug!(
+                        target: "yiilian_dht::service::firewall_service", 
+                        "[{}] Firewall block address: {}, access {} times, rps: {}", 
+                        req.local_addr.port(), req.remote_addr, track.access_times, track.rps());
+                    Err(e)?
+                }
             }
         }
 
@@ -117,80 +124,58 @@ where
 }
 
 #[derive(Debug)]
-struct RecvQueryState {
-    window_size_sec: i64,
-    track_map: HashMap<u64, AccessTrack>,
+pub struct TrackState {
+    track_cache: LruCache<SocketAddr, AccessTrack>,
 }
 
-impl RecvQueryState {
-    fn new(window_size_sec: i64, shutdown: ShutdownReceiver) -> Arc<RwLock<RecvQueryState>> {
-        let track_map = HashMap::new();
-
-        let rs = RecvQueryState {
-            window_size_sec,
-            track_map,
-        };
-        let rs = Arc::new(RwLock::new(rs));
-        let rs1 = rs.clone();
-
-        spawn_with_shutdown(
-            shutdown,
-            async move {
-                loop {
-                    rs1.write().unwrap().prune();
-                    sleep(Duration::from_secs(20)).await;
-                }
-            },
-            "firewall service prune loop",
-            None,
+impl TrackState {
+    fn new(max_tracks: usize) -> TrackState {
+        let track_cache = LruCache::new(
+            NonZeroUsize::new(max_tracks).expect("Failed to init LruCache for RecvQueryState"),
         );
 
-        rs
+        TrackState { track_cache }
     }
 
     /// 增加 addr 对应 track 上的访问次数，如果 track 不存在，则新建一个 track
-    fn add_track_times(&mut self, addr: &SocketAddr) -> u64 {
-        let track_id = hash_it(addr);
-        let track_exist = self.get_track(track_id).is_some();
-
+    fn add_track_times(&mut self, track_addr: SocketAddr) {
+        let track_exist = self.get_track(track_addr).is_some();
         if track_exist {
-            self.get_track_mut(hash_it(addr))
-                .expect("add_track_times should got the track")
-                .add_times()
-                .id()
+            if let Some(track) = self.get_track_mut(track_addr) {
+                track.add_times();
+            }
         } else {
-            self.inser_track(addr).id()
+            self.inser_track(track_addr);
         }
     }
 
-    fn inser_track(&mut self, addr: &SocketAddr) -> &mut AccessTrack {
-        let track = AccessTrack::new(addr);
-        let track_id = track.id();
-        self.track_map.insert(track_id, track);
-
-        self.track_map
-            .get_mut(&track_id)
-            .expect("inser_track should return track")
+    fn inser_track(&mut self, track_addr: SocketAddr) {
+        let track = AccessTrack::new(track_addr);
+        self.track_cache.put(track_addr, track);
     }
 
-    fn get_track_mut(&mut self, track_id: u64) -> Option<&mut AccessTrack> {
-        let track = self.track_map.get_mut(&track_id);
+    fn get_track_mut(&mut self, track_addr: SocketAddr) -> Option<&mut AccessTrack> {
+        let track = self.track_cache.get_mut(&track_addr);
 
         track
     }
 
-    fn get_track(&self, track_id: u64) -> Option<&AccessTrack> {
-        let track = self.track_map.get(&track_id);
+    fn get_track(&mut self, track_addr: SocketAddr) -> Option<&AccessTrack> {
+        let track = self.track_cache.get(&track_addr);
 
         track
     }
 
     /// 返回 None 意味着对应 address 没有 track 记录
-    fn is_over_limit(&self, track_id: u64, limit_per_sec: i64) -> Option<(bool, AccessTrack)> {
-        if let Some(track) = self.get_track(track_id) {
-            if track.access_times <= 10 {
+    fn is_over_limit(
+        &mut self,
+        remote_addr: SocketAddr,
+        limit_per_sec: i64,
+    ) -> Option<(bool, AccessTrack)> {
+        if let Some(track) = self.get_track(remote_addr) {
+            if track.access_times <= limit_per_sec {
                 Some((false, track.clone()))
-            } else if track.rps(limit_per_sec) > limit_per_sec {
+            } else if track.rps() > limit_per_sec as f64 {
                 Some((true, track.clone()))
             } else {
                 Some((false, track.clone()))
@@ -199,46 +184,25 @@ impl RecvQueryState {
             None
         }
     }
-
-    fn prune(&mut self) {
-        let mut rst: Vec<u64> = vec![];
-        let now = Utc::now();
-        for (key, val) in &mut self.track_map {
-            if (now - val.update_time).num_seconds() > self.window_size_sec {
-                rst.push(*key);
-            } else {
-                val.reset();
-            }
-        }
-
-        rst.iter().for_each(|key| {
-            self.track_map.remove(key);
-        });
-    }
 }
 
 #[derive(Debug, Clone)]
 struct AccessTrack {
-    id: u64,
+    _addr: SocketAddr,
     window_begin_time: DateTime<Utc>,
     update_time: DateTime<Utc>,
     access_times: i64,
 }
 
 impl AccessTrack {
-    fn new(addr: &SocketAddr) -> Self {
+    fn new(_addr: SocketAddr) -> Self {
         let now = Utc::now();
-        let id = hash_it(addr);
         AccessTrack {
-            id,
+            _addr,
             window_begin_time: now,
             update_time: now,
             access_times: 1,
         }
-    }
-
-    fn id(&self) -> u64 {
-        self.id
     }
 
     fn add_times(&mut self) -> &mut Self {
@@ -248,49 +212,31 @@ impl AccessTrack {
         self
     }
 
-    fn reset(&mut self) -> &mut Self {
-        self.window_begin_time = self.update_time;
-        self.access_times = 1;
-
-        self
-    }
-
-    fn rps(&self, limit_per_sec: i64) -> i64 {
-        if self.access_times <= limit_per_sec {
-            return self.access_times;
-        }
-
+    fn rps(&self) -> f64 {
         let now = Utc::now();
         let elapsed = (now - self.window_begin_time).num_milliseconds();
         if elapsed > 0 {
-            let tps = ((self.access_times as f64 / elapsed as f64) * 1000.0) as i64;
-
+            let tps = (self.access_times as f64 / elapsed as f64) * 1000.0;
+            println!("{} {}", self.access_times, elapsed);
             tps
         } else {
-            i64::MAX
+            0.0
         }
     }
 }
 
 pub struct FirewallLayer {
     ctx: Arc<Context>,
-    window_size_sec: i64,
-    limit_per_sec: i64,
-    shutdown: ShutdownReceiver,
+    max_tracks: usize,
+    limit_qps: i64,
 }
 
 impl FirewallLayer {
-    pub fn new(
-        ctx: Arc<Context>,
-        window_size_sec: i64,
-        limit_per_sec: i64,
-        shutdown: ShutdownReceiver,
-    ) -> Self {
+    pub fn new(ctx: Arc<Context>, max_tracks: usize, limit_qps: i64) -> Self {
         FirewallLayer {
             ctx,
-            window_size_sec,
-            limit_per_sec,
-            shutdown: shutdown,
+            max_tracks,
+            limit_qps,
         }
     }
 }
@@ -299,12 +245,6 @@ impl<F> Layer<F> for FirewallLayer {
     type Service = FirewallService<F>;
 
     fn layer(&self, inner: F) -> Self::Service {
-        FirewallService::new(
-            inner,
-            self.ctx.clone(),
-            self.window_size_sec,
-            self.limit_per_sec,
-            self.shutdown.clone(),
-        )
+        FirewallService::new(inner, self.ctx.clone(), self.max_tracks, self.limit_qps)
     }
 }
