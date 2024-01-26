@@ -13,7 +13,7 @@ use yiilian_core::net::udp::send_to;
 use crate::common::context::Context;
 use crate::data::body::{BodyKind, KrpcBody};
 
-use super::service::{KrpcService, MakeServiceRef};
+use crate::service::{KrpcService, MakeServiceRef};
 
 pub struct Server<S> {
     socket: Arc<UdpSocket>,

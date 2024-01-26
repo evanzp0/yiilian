@@ -1,4 +1,4 @@
-use std::{future::Future, time::Duration};
+use std::{future::Future, panic::UnwindSafe, time::Duration};
 
 use log::{error, trace, warn};
 use tokio::{sync::{mpsc, watch}, time::sleep};
@@ -23,6 +23,9 @@ impl ShutdownReceiver {
         }
     }
 }
+
+// unsafe impl Send for ShutdownReceiver {}
+// impl UnwindSafe for ShutdownReceiver {}
 
 /// 包含了将"关闭信号"，发送给异步任务的方法
 pub struct ShutdownSender {

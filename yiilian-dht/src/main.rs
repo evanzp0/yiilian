@@ -1,20 +1,29 @@
-use std::{collections::HashSet, net::SocketAddr, sync::{Arc, Mutex, RwLock}};
+use std::{
+    collections::HashSet,
+    net::SocketAddr,
+    sync::{Arc, Mutex, RwLock},
+};
 
 use tokio::net::UdpSocket;
 use yiilian_core::{
-    common::{error::Error, shutdown::create_shutdown, util::random_bytes}, net::block_list::{BlockAddr, BlockList}, service::{LogLayer, ServiceBuilder}
+    common::{error::Error, shutdown::create_shutdown, util::random_bytes},
+    net::block_list::{BlockAddr, BlockList},
+    service::{LogLayer, ServiceBuilder},
 };
 use yiilian_dht::{
-    common::{context::Context, id::Id, ip::IPV4Consensus, setting::SettingsBuilder, state::State}, event::EventManager, net::{
-        service::{make_service_fn, RouterService}, Client, Server
-    }, peer::PeerManager, routing_table::RoutingTable, transaction::TransactionManager
+    common::{context::Context, id::Id, ip::IPV4Consensus, setting::SettingsBuilder, state::State},
+    net::{Client, Server},
+    peer::PeerManager,
+    routing_table::RoutingTable,
+    service::{make_service_fn, FirewallLayer, RouterService},
+    transaction::TransactionManager,
 };
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     setup_log();
 
-    let (mut _shutdown_tx, shutdown_rx) = create_shutdown();
+    let (mut shutdown_tx, shutdown_rx) = create_shutdown();
 
     let local_addr: SocketAddr = "0.0.0.0:6578".parse().unwrap();
     let local_id = Id::from_ip(&local_addr.ip());
@@ -25,16 +34,16 @@ async fn main() -> Result<(), Error> {
 
     let node_file_prefix = Some("dht".to_owned());
     let state = RwLock::new(build_state(
-        local_addr, 
-        local_id, 
-        settings.token_secret_size, 
-        &node_file_prefix
+        local_addr,
+        local_id,
+        settings.token_secret_size,
+        &node_file_prefix,
     )?);
 
     let block_list = None;
     let routing_table = Mutex::new(build_routing_table(
         local_id,
-        settings.block_list_max_size, 
+        settings.block_list_max_size,
         settings.bucket_size,
         block_list,
     )?);
@@ -46,8 +55,6 @@ async fn main() -> Result<(), Error> {
 
     let transaction_manager = TransactionManager::new(local_addr, shutdown_rx.clone());
 
-    let event_manager = EventManager::new(shutdown_rx.clone());
-
     let socket = Arc::new(build_socket(local_addr)?);
     let client = Client::new(socket.clone());
 
@@ -57,14 +64,16 @@ async fn main() -> Result<(), Error> {
         routing_table,
         peer_manager,
         transaction_manager,
-        event_manager,
-        client
+        client,
+        shutdown_rx,
     );
     let ctx = Arc::new(ctx);
-    
+
     let make_service = make_service_fn(|ctx: Arc<Context>| async move {
+        let firewall_layer = FirewallLayer::new(ctx.clone(), 30, 20, ctx.shutdown_rx());
         let router = RouterService::new(ctx.clone());
         let svc = ServiceBuilder::new()
+            .layer(firewall_layer)
             .layer(LogLayer)
             .service(router);
 
@@ -72,7 +81,15 @@ async fn main() -> Result<(), Error> {
     });
 
     let server = Server::new(socket.clone(), make_service, ctx);
-    server.run_loop().await?;
+    tokio::select! {
+        _ = server.run_loop() => (),
+        _ = tokio::signal::ctrl_c() => {
+            drop(server);
+            shutdown_tx.shutdown().await;
+            
+            println!("\nCtrl + c shutdown");
+        },
+    }
 
     Ok(())
 }
@@ -112,29 +129,24 @@ fn build_state(
 
 fn build_routing_table(
     local_id: Id,
-    block_list_max_size: i32, 
+    block_list_max_size: i32,
     bucket_size: usize,
-    block_list: Option<HashSet<BlockAddr>>
+    block_list: Option<HashSet<BlockAddr>>,
 ) -> Result<RoutingTable, Error> {
     let block_list = BlockList::new(block_list_max_size, block_list);
-    let routing_table = RoutingTable::new(
-        bucket_size,
-        block_list,
-        local_id,
-    );
+    let routing_table = RoutingTable::new(bucket_size, block_list, local_id);
 
     Ok(routing_table)
 }
 
 fn build_socket(socket_addr: SocketAddr) -> Result<UdpSocket, Error> {
-    let std_sock = std::net::UdpSocket::bind(socket_addr)
-        .map_err(|e| Error::new_bind(Some(Box::new(e))))?;
+    let std_sock =
+        std::net::UdpSocket::bind(socket_addr).map_err(|e| Error::new_bind(Some(Box::new(e))))?;
     std_sock
         .set_nonblocking(true)
         .map_err(|e| Error::new_bind(Some(Box::new(e))))?;
 
-    let socket =
-        UdpSocket::from_std(std_sock).map_err(|e| Error::new_bind(Some(Box::new(e))))?;
+    let socket = UdpSocket::from_std(std_sock).map_err(|e| Error::new_bind(Some(Box::new(e))))?;
 
     Ok(socket)
 }

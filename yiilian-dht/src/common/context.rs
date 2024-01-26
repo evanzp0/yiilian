@@ -1,7 +1,9 @@
 use std::{panic::RefUnwindSafe, sync::{Mutex, RwLock}};
 
+use yiilian_core::common::shutdown::ShutdownReceiver;
+
 use crate::{
-    event::EventManager, net::Client, peer::PeerManager, routing_table::RoutingTable, transaction::TransactionManager
+    net::Client, peer::PeerManager, routing_table::RoutingTable, transaction::TransactionManager
 };
 
 use super::{setting::Settings, state::State};
@@ -12,8 +14,8 @@ pub struct Context {
     routing_table: Mutex<RoutingTable>,
     peer_manager: Mutex<PeerManager>,
     transaction_manager: TransactionManager,
-    event_manager: EventManager,
     client: Client,
+    shutdown_rx: ShutdownReceiver,
 }
 
 impl Context {
@@ -23,8 +25,8 @@ impl Context {
         routing_table: Mutex<RoutingTable>,
         peer_manager: Mutex<PeerManager>,
         transaction_manager: TransactionManager,
-        event_manager: EventManager,
         client: Client,
+        shutdown_rx: ShutdownReceiver,
     ) -> Self {
         Context {
             settings,
@@ -32,8 +34,8 @@ impl Context {
             routing_table,
             peer_manager,
             transaction_manager,
-            event_manager,
             client,
+            shutdown_rx,
         }
     }
 
@@ -57,12 +59,12 @@ impl Context {
         &self.transaction_manager
     }
 
-    pub fn event_manager(&self) -> &EventManager {
-        &self.event_manager
-    }
-
     pub fn client(&self) -> &Client {
         &self.client
+    }
+
+    pub fn shutdown_rx(&self) -> ShutdownReceiver {
+        self.shutdown_rx.clone()
     }
 }
 

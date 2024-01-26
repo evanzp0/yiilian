@@ -30,8 +30,8 @@ where
     async fn call(&self, req: Request<B1>) -> Result<Self::Response, Self::Error> {
         let local_port = req.local_addr.port();
         log::trace!(
-            target: "yiilian_core::net",
-            "recv {} bytes from address: [{}] {}",
+            target: "yiilian_core::service::log_service",
+            "[{}]recv {} bytes from address: {}",
             req.len(),
             req.local_addr.port(),
             req.remote_addr,
@@ -41,8 +41,8 @@ where
         match &rst {
             Ok(res) => {
                 log::trace!(
-                    target: "yiilian_core::net",
-                    "reply {} bytes to address: [{}] {}",
+                    target: "yiilian_core::service::log_service",
+                    "[{}] reply {} bytes to address:  {}",
                     res.len(),
                     local_port,
                     res.remote_addr,
