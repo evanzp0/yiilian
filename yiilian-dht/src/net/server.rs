@@ -11,7 +11,7 @@ use yiilian_core::data::{Body, Request};
 use yiilian_core::net::udp::send_to;
 
 use crate::common::context::Context;
-use crate::data::body::KrpcBody;
+use crate::data::body::{BodyKind, KrpcBody};
 
 use super::service::{KrpcService, MakeServiceRef};
 
@@ -105,14 +105,19 @@ where
                 match rst {
                     Ok(rst) => match rst {
                         Ok(mut res) => {
-                            if let Err(error) = send_to(socket, &res.get_data(), res.remote_addr).await
-                            {
-                                log::debug!(
-                                    target: "yiilian_dht::net::server",
-                                    "send_to error: [{}] {:?}",
-                                    local_port,
-                                    error
-                                );
+                            match res.body.get_kind() {
+                                BodyKind::Empty => {}, // response body 为空则不需要 send_to
+                                _=> {
+                                    if let Err(error) = send_to(socket, &res.get_data(), res.remote_addr).await
+                                    {
+                                        log::debug!(
+                                            target: "yiilian_dht::net::server",
+                                            "send_to error: [{}] {:?}",
+                                            local_port,
+                                            error
+                                        );
+                                    }
+                                },
                             }
                         }
                         Err(error) => {

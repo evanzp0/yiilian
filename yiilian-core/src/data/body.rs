@@ -47,3 +47,22 @@ impl Body for String {
         self.len()
     }
 }
+
+impl<T: Body + Default> Body for Option<T> 
+{
+    type Data = T::Data;
+
+    fn get_data(&mut self) -> Self::Data {
+        match self {
+            Some(val) => val.get_data(),
+            None => T::default().get_data(),
+        }
+    }
+
+    fn len(&self) -> usize {
+        match self {
+            Some(val) => val.len(),
+            None => 0,
+        }
+    }
+}

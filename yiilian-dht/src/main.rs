@@ -1,4 +1,4 @@
-use std::{collections::HashSet, convert::Infallible, net::SocketAddr, sync::{Arc, Mutex, RwLock}};
+use std::{collections::HashSet, net::SocketAddr, sync::{Arc, Mutex, RwLock}};
 
 use tokio::net::UdpSocket;
 use yiilian_core::{
@@ -6,7 +6,7 @@ use yiilian_core::{
 };
 use yiilian_dht::{
     common::{context::Context, id::Id, ip::IPV4Consensus, setting::SettingsBuilder, state::State}, event::EventManager, net::{
-        service::{make_service_fn, DummyService, LogLayer}, Client, Server
+        service::{make_service_fn, LogLayer, RouterService}, Client, Server
     }, peer::PeerManager, routing_table::RoutingTable, transaction::TransactionManager
 };
 
@@ -63,12 +63,12 @@ async fn main() -> Result<(), Error> {
     let ctx = Arc::new(ctx);
     
     let make_service = make_service_fn(|ctx: Arc<Context>| async move {
-        let dummy = DummyService::new(ctx.clone());
+        let router = RouterService::new(ctx.clone());
         let svc = ServiceBuilder::new()
             .layer(LogLayer)
-            .service(dummy);
+            .service(router);
 
-        Ok::<_, Infallible>(svc)
+        Ok::<_, Error>(svc)
     });
 
     let server = Server::new(socket.clone(), make_service, ctx);
