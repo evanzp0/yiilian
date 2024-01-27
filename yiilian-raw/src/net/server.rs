@@ -12,10 +12,7 @@ use yiilian_core::common::shutdown::{ShutdownReceiver, spawn_with_shutdown};
 use yiilian_core::data::{Body, Request};
 use yiilian_core::net::udp::send_to;
 
-use crate::data::raw_body::RawBody;
-
-use super::service::raw_service::RawService;
-
+use crate::{data::raw_body::RawBody, service::raw_service::RawService};
 type Result<T> = std::result::Result<T, Error>;
 
 pub struct Server<S> {
