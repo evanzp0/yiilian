@@ -178,7 +178,7 @@ impl TransactionManager {
             Err(e) => {
                 // 超时时删除对应事务(正常返回的 reply 的事务，在 handle_reply 中已经被删除了)
                 self.remove_transcation(&tran_id);
-                log::error!(target: "yiilian_dht::transaction::send_query_no_wait", "[{}] Address {:?}, {:?} ", self.local_addr.port(), dest, e);
+                // log::error!(target: "yiilian_dht::transaction::send_query_no_wait", "[{}] Address {:?}, {:?} ", self.local_addr.port(), dest, e);
 
                 Err(e)
             }
@@ -568,7 +568,7 @@ impl TransactionManager {
         &self,
         target_id: Id,
         ctx: Arc<Context>,
-    ) -> Result<Vec<Node>, Error> {
+    ) -> Vec<Node> {
         // buckets 中存放的是 routing_table 中已验证的节点，以及本次 find_node 以来对方反馈的 nodes 节点
         let local_id = ctx
             .state()
@@ -603,9 +603,6 @@ impl TransactionManager {
             }
 
             let best_ids_current: Vec<Id> = nearest.iter().map(|node| node.id.clone()).collect();
-
-            // log::debug!(target: "yiilian_dht::transaction::find_node", "best_ids: {:#?}", best_ids);
-            // log::debug!(target: "yiilian_dht::transaction::find_node", "best_ids_current: {:#?}", best_ids);
 
             if best_ids == best_ids_current {
                 // 直到找不到更近的节点，则退出循环
@@ -689,7 +686,7 @@ impl TransactionManager {
                             }
                         }
                         _ => {
-                            log::debug!(target: "yiilian_dht::transaction::find_node", "[{}] Address {:?} got wrong frame type back: {:?}", self.local_addr.port(), dest_addr, reply);
+                            log::trace!(target: "yiilian_dht::transaction::find_node", "[{}] Address {:?} got wrong frame type back: {:?}", self.local_addr.port(), dest_addr, reply);
 
                             let reply_error_block_duration_sec =
                                 ctx.settings().reply_error_block_duration_sec;
@@ -728,7 +725,7 @@ impl TransactionManager {
             .map(|node| node.clone())
             .collect();
 
-        Ok(nodes)
+        nodes
     }
 
     /// Use the DHT to retrieve peers for the given info_hash.

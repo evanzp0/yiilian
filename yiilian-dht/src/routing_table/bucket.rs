@@ -221,6 +221,7 @@ impl Buckets {
         all
     }
 
+    #[allow(unused)]
     pub fn len(&self) -> usize {
         let mut n = 0;
         for bucket in &self.buckets {

@@ -1,4 +1,4 @@
-use std::{future::Future, panic::UnwindSafe, time::Duration};
+use std::{future::Future, time::Duration};
 
 use log::{error, trace, warn};
 use tokio::{sync::{mpsc, watch}, time::sleep};

@@ -64,7 +64,10 @@ pub enum Kind {
     File,
 
     /// Indicates that the remote address is in the block list
-    Block
+    Block,
+
+    /// Indicates Network error
+    Net,
 }
 
 impl Error {
@@ -105,6 +108,14 @@ impl Error {
 
     pub fn new_id(cause: Option<Cause>, description: Option<String>) -> Self {
         Error::new(Kind::Id, description, cause, None)
+    }
+
+    pub fn new_file(cause: Option<Cause>, description: Option<String>) -> Self {
+        Error::new(Kind::File, description, cause, None)
+    }
+
+    pub fn new_net(cause: Option<Cause>, description: Option<String>, connect_info: Option<SocketAddr>) -> Self {
+        Error::new(Kind::Net, description, cause, connect_info)
     }
 
     pub fn new_io(cause: Option<Cause>, connect_info: Option<SocketAddr>) -> Self {

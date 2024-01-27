@@ -28,7 +28,7 @@ where
 {
     pub fn new(
         socket: Arc<UdpSocket>,
-        recv_filter: S,
+        recv_service: S,
         shutdown_rx: ShutdownReceiver,
     ) -> Self {
         // 后台发送监听任务
@@ -47,7 +47,7 @@ where
         let local_addr = socket.local_addr().expect("Get local address error");
         Server {
             socket,
-            recv_service: recv_filter,
+            recv_service,
             local_addr,
         }
     }

@@ -29,16 +29,10 @@ async fn main() -> Result<(), Error> {
     let local_id = Id::from_ip(&local_addr.ip());
 
     let settings = SettingsBuilder::new()
-        // .routers(&config.dht.routers)
         .build();
 
-    let node_file_prefix = Some("dht".to_owned());
-    let state = RwLock::new(build_state(
-        local_addr,
-        local_id,
-        settings.token_secret_size,
-        &node_file_prefix,
-    )?);
+
+    let transaction_manager = TransactionManager::new(local_addr, shutdown_rx.clone());
 
     let block_list = None;
     let routing_table = Mutex::new(build_routing_table(
@@ -48,12 +42,18 @@ async fn main() -> Result<(), Error> {
         block_list,
     )?);
 
+    let node_file_prefix = Some("dht".to_owned());
+    let state = RwLock::new(build_state(
+        local_addr,
+        local_id,
+        settings.token_secret_size,
+        &node_file_prefix,
+    )?);
+
     let peer_manager = Mutex::new(PeerManager::new(
         settings.max_resources,
         settings.max_peers_per_resource,
     ));
-
-    let transaction_manager = TransactionManager::new(local_addr, shutdown_rx.clone());
 
     let socket = Arc::new(build_socket(local_addr)?);
     let client = Client::new(socket.clone());
@@ -70,7 +70,7 @@ async fn main() -> Result<(), Error> {
     let ctx = Arc::new(ctx);
 
     let make_service = make_service_fn(|ctx: Arc<Context>| async move {
-        let firewall_layer = FirewallLayer::new(ctx.clone(), 2, 20);
+        let firewall_layer = FirewallLayer::new(ctx.clone(), 1000, 20);
         let router = RouterService::new(ctx.clone());
         let svc = ServiceBuilder::new()
             .layer(firewall_layer)
