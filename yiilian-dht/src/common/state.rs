@@ -6,7 +6,7 @@ use super::{id::Id, ip::IPV4Consensus};
 /// 存放当前 DHT 的各项状态参数
 pub struct State {
     /// local node id
-    pub local_id: Id,
+    local_id: Id,
 
     /// 有群体投票决策权重的 IP 列表
     pub ip4_source: IPV4Consensus,
@@ -39,5 +39,13 @@ impl State {
             is_join_kad: false,
             nodes_file,
         }
+    }
+
+    pub fn get_local_id(&self) -> Id {
+        self.local_id
+    }
+
+    pub fn set_local_id(&mut self, local_id: Id) {
+        self.local_id = local_id;
     }
 }

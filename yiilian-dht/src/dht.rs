@@ -348,7 +348,7 @@ where
 
                 // 生成一个和本机 ID 接近的新 ID （只有后 4 个字节不同）
                 except_result!(dht_ctx_state(self.ctx_index).read(), "dht_ctx_state.read() failed")
-                    .local_id
+                    .get_local_id()
                     .make_mutant(4)
                     .unwrap()
             };
@@ -378,14 +378,17 @@ where
                 // 取出被投票数最多的外网 ipv4 地址，如果获取的投票数没超过阈值，则返回 None
                 let ip = IpAddr::V4(ip);
                 let local_id = except_result!(dht_ctx_state(self.ctx_index).read(), "dht_ctx_state.read() failed")
-                    .local_id.clone();
+                    .get_local_id();
+
                 // 如果本机外网 ip 地址和 本机节点 id 没有有效匹配，则生成一个新的有效匹配的本机 node id
-                if !local_id
-                    .is_valid_for_ip(&ip, &except_result!(dht_ctx_routing_tbl(self.ctx_index).lock(), "dht_ctx_routing_tbl.lock() failed").white_list)
-                {
+                let is_not_valid = !local_id.is_valid_for_ip(&ip, &except_result!(dht_ctx_routing_tbl(self.ctx_index).lock(), "dht_ctx_routing_tbl.lock() failed").white_list);
+
+                if is_not_valid {
                     let new_id = Id::from_ip(&ip);
                     except_result!(dht_ctx_state(self.ctx_index).write(), "dht_ctx_state.write() failed")
-                        .local_id = new_id;
+                        .set_local_id(new_id);
+                    except_result!(dht_ctx_routing_tbl(self.ctx_index).lock(), "dht_ctx_routing_tbl.lock() failed")
+                        .set_id(new_id);
                 }
             }
         }
