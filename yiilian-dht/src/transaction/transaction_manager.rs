@@ -712,11 +712,18 @@ impl TransactionManager {
                                     )
                                     .add_or_update(node.clone(), false)
                                     {
-                                        log::debug!(target: "yiilian_dht::transaction::find_node", "[{}] Add node {:?} to buckets failed, err: {}", self.local_addr.port(), node, e);
+                                        log::debug!(
+                                            target: "yiilian_dht::transaction::find_node", 
+                                            "[{}] Add node {:?} to buckets failed, error: {}", 
+                                            self.local_addr.port(), node, e
+                                        );
                                     }
                                 }
                                 if !buckets.contains(&node.id) {
-                                    log::trace!(target: "yiilian_dht::transaction::find_node", "[{}] Node (id: {:?}, {:?}) is a candidate for buckets", self.local_addr.port(), node.id, node.address);
+                                    log::trace!(target: "yiilian_dht::transaction::find_node", 
+                                        "[{}] Node (id: {:?}, {:?}) is a candidate for buckets", 
+                                        self.local_addr.port(), node.id, node.address
+                                    );
 
                                     buckets.add(node.clone(), None).ok();
                                 }
