@@ -1,7 +1,6 @@
 use std::{
     collections::HashSet,
     net::{IpAddr, SocketAddr},
-    sync::Arc,
     time::Duration,
 };
 
@@ -12,12 +11,13 @@ use yiilian_core::{
     net::block_list::BlockList,
 };
 
-use crate::common::{context::Context, id::Id};
+use crate::{common::{context::dht_ctx_state, id::Id}, except_result};
 
 use super::{Buckets, Node};
 
 #[derive(Debug)]
 pub struct RoutingTable {
+    ctx_index: u16,
     verified: Buckets,
     unverified: Buckets,
 
@@ -30,6 +30,7 @@ pub struct RoutingTable {
 
 impl RoutingTable {
     pub fn new(
+        ctx_index: u16,
         k: usize,
         block_list: BlockList,
         local_id: Id,
@@ -45,6 +46,7 @@ impl RoutingTable {
         // });
 
         RoutingTable {
+            ctx_index,
             verified: Buckets::new(k, local_id),
             unverified: Buckets::new(k, local_id),
             block_list,
@@ -68,7 +70,6 @@ impl RoutingTable {
         &mut self,
         node: Node,
         verified: bool,
-        ctx: Arc<Context>,
     ) -> Result<(), Error> {
         // // 入口节点不需要加入 routing_table
         // if self.white_list.contains(&node.address.ip()) {
@@ -89,9 +90,7 @@ impl RoutingTable {
             self.add_or_update_last_seen(node)?;
         }
 
-        ctx.state()
-            .write()
-            .expect("Get writable state failed")
+        except_result!(dht_ctx_state(self.ctx_index).write(), "Get writable state failed")
             .is_join_kad = self.verified.count() > 0;
 
         Ok(())
@@ -168,7 +167,8 @@ impl RoutingTable {
     }
 
     /// 移除节点
-    pub fn remove(&mut self, node_id: &Id, ctx: Arc<Context>) -> Option<Node> {
+    pub fn remove(&mut self, node_id: &Id) -> Option<Node> {
+
         let node_v = self.verified.remove(&node_id);
         let node_u = self.unverified.remove(&node_id);
 
@@ -178,9 +178,7 @@ impl RoutingTable {
             return node_u;
         }
 
-        ctx.state()
-            .write()
-            .expect("Get writable state failed")
+        except_result!(dht_ctx_state(self.ctx_index).write(), "Get writable state failed")
             .is_join_kad = self.verified.count() > 0;
 
         None
@@ -192,7 +190,6 @@ impl RoutingTable {
         dest_addr: SocketAddr,
         dest_id: Option<Id>,
         duration: Option<Duration>,
-        ctx: Arc<Context>,
     ) {
         if self.white_list.contains(&dest_addr.ip()) {
             return;
@@ -210,7 +207,7 @@ impl RoutingTable {
 
         // 从路由表中删除该节点
         if let Some(dest_id) = dest_id {
-            self.remove(&dest_id, ctx);
+            self.remove(&dest_id);
         }
     }
 
@@ -233,7 +230,6 @@ impl RoutingTable {
         &mut self,
         grace_period: Duration,
         unverified_grace_period: Duration,
-        ctx: Arc<Context>,
     ) {
         let now = Utc::now();
         let time = now - grace_period;
@@ -262,9 +258,7 @@ impl RoutingTable {
             false
         });
 
-        ctx.state()
-            .write()
-            .expect("Get writable state failed")
+        except_result!(dht_ctx_state(self.ctx_index).write(), "Get writable state failed")
             .is_join_kad = self.verified.count() > 0;
     }
 

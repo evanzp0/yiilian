@@ -3,7 +3,6 @@ use std::{
     net::SocketAddr,
     num::NonZeroUsize,
     panic::{RefUnwindSafe, UnwindSafe},
-    sync::Arc,
     time::Duration,
 };
 
@@ -16,25 +15,26 @@ use yiilian_core::{
     service::{Layer, Service},
 };
 
-use crate::common::context::Context;
+use crate::{common::context::{dht_ctx_routing_tbl, dht_ctx_settings}, except_option, except_result};
 
 pub static mut TRACK_STATE_MAP: OnceCell<HashMap<u16, TrackState>> = OnceCell::new();
 
+#[derive(Clone)]
 pub struct FirewallService<S> {
-    ctx: Arc<Context>,
+    local_addr: SocketAddr, 
     limit_per_sec: i64,
     inner: S,
 }
 
 impl<F> FirewallService<F> {
-    pub fn new(inner: F, ctx: Arc<Context>, max_tracks: usize, limit_per_sec: i64) -> Self {
+    pub fn new(inner: F, local_addr: SocketAddr, max_tracks: usize, limit_per_sec: i64) -> Self {
         unsafe {
             TRACK_STATE_MAP.get_or_init(|| {
                 HashMap::new()
             });
 
-            let local_port = ctx.local_addr().port();
-            let map = TRACK_STATE_MAP.get_mut().expect("Get TRACK_STATE_MAP failed");
+            let local_port = local_addr.port();
+            let map = except_option!(TRACK_STATE_MAP.get_mut(), "Get TRACK_STATE_MAP failed");
             if map.get(&local_port).is_none() {
                 let rqs_state = TrackState::new(max_tracks);
                 map.insert(local_port, rqs_state);
@@ -42,7 +42,7 @@ impl<F> FirewallService<F> {
         };
 
         FirewallService {
-            ctx,
+            local_addr, 
             limit_per_sec,
             inner,
         }
@@ -58,11 +58,8 @@ where
     type Error = S::Error;
 
     async fn call(&self, req: Request<B1>) -> Result<Self::Response, Self::Error> {
-        let is_blocked = self
-            .ctx
-            .routing_table()
-            .lock()
-            .expect("Lock routing_table failed")
+        let ctx_index = self.local_addr.port();
+        let is_blocked = except_result!(dht_ctx_routing_tbl(ctx_index).lock(), "Lock routing_table failed")
             .is_blocked(&req.remote_addr);
         if is_blocked {
             log::debug!(
@@ -75,11 +72,9 @@ where
             Err(e)?
         }
 
-        let local_port = self.ctx.local_addr().port();
+        let local_port = self.local_addr.port();
         let track_state_map = unsafe {
-            TRACK_STATE_MAP
-                .get_mut()
-                .expect("Get TRACK_STATE_MAP failed in FirewallService.call()")
+            except_option!(TRACK_STATE_MAP.get_mut(),"Get TRACK_STATE_MAP failed in FirewallService.call()")
         };
         
         if let Some(track_state) = track_state_map.get_mut(&local_port) {
@@ -96,13 +91,13 @@ where
     
                 // 超出防火墙限制，加入黑名单并返回
                 if is_over_limit {
-                    let block_sec = self.ctx.settings().firewall_block_duration_sec;
-                    self.ctx.routing_table().lock().unwrap().add_block_list(
-                        req.remote_addr,
-                        None,
-                        Some(Duration::from_secs(block_sec)),
-                        self.ctx.clone(),
-                    );
+                    let block_sec = dht_ctx_settings(ctx_index).firewall_block_duration_sec;
+                    except_result!(dht_ctx_routing_tbl(ctx_index).lock(), "Lock context routing_table error")
+                        .add_block_list(
+                            req.remote_addr,
+                            None,
+                            Some(Duration::from_secs(block_sec)),
+                        );
     
                     let e = Error::new_block(&format!(
                         "address: {:?}, rps: {}",
@@ -226,15 +221,15 @@ impl AccessTrack {
 }
 
 pub struct FirewallLayer {
-    ctx: Arc<Context>,
+    local_addr: SocketAddr, 
     max_tracks: usize,
     limit_qps: i64,
 }
 
 impl FirewallLayer {
-    pub fn new(ctx: Arc<Context>, max_tracks: usize, limit_qps: i64) -> Self {
+    pub fn new(local_addr: SocketAddr, max_tracks: usize, limit_qps: i64) -> Self {
         FirewallLayer {
-            ctx,
+            local_addr,
             max_tracks,
             limit_qps,
         }
@@ -245,6 +240,6 @@ impl<F> Layer<F> for FirewallLayer {
     type Service = FirewallService<F>;
 
     fn layer(&self, inner: F) -> Self::Service {
-        FirewallService::new(inner, self.ctx.clone(), self.max_tracks, self.limit_qps)
+        FirewallService::new(inner, self.local_addr, self.max_tracks, self.limit_qps)
     }
 }

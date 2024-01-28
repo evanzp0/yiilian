@@ -4,13 +4,7 @@ use super::{Identity, Stack, Layer};
 
 #[derive(Clone)]
 pub struct ServiceBuilder<L> {
-    layer: L,
-}
-
-impl Default for ServiceBuilder<Identity> {
-    fn default() -> Self {
-        Self::new()
-    }
+    pub layer: L,
 }
 
 impl ServiceBuilder<Identity> {
@@ -19,6 +13,12 @@ impl ServiceBuilder<Identity> {
         ServiceBuilder {
             layer: Identity::new(),
         }
+    }
+}
+
+impl Default for ServiceBuilder<Identity> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
