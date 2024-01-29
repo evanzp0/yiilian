@@ -4,11 +4,7 @@ pub use dht_builder::DhtBuilder;
 use chrono::Utc;
 use futures::{stream::FuturesUnordered, StreamExt};
 use std::{
-    collections::HashSet,
-    fs,
-    net::{IpAddr, SocketAddr},
-    sync::{Arc, Mutex, RwLock},
-    time::Duration,
+    collections::HashSet, fs, net::{IpAddr, SocketAddr}, path::PathBuf, sync::{Arc, Mutex, RwLock}, time::Duration
 };
 use tokio::{
     net::{lookup_host, UdpSocket},
@@ -21,23 +17,34 @@ use yiilian_core::{
 
 use crate::{
     common::{
-        context::{dht_ctx_insert, dht_ctx_routing_tbl, dht_ctx_settings, dht_ctx_state, dht_ctx_trans_mgr, Context},
+        context::{
+            dht_ctx_insert, dht_ctx_routing_tbl, dht_ctx_settings, dht_ctx_state,
+            dht_ctx_trans_mgr, Context,
+        },
         id::Id,
         ip::IPV4Consensus,
         setting::{Settings, SettingsBuilder},
         state::State,
-    }, data::body::KrpcBody, except_result, net::{Client, Server}, peer::PeerManager, routing_table::{Persist, RoutingTable}, service::KrpcService, transaction::TransactionManager
+    },
+    data::body::KrpcBody,
+    except_result,
+    net::{Client, Server},
+    peer::PeerManager,
+    routing_table::{Persist, RoutingTable},
+    service::KrpcService,
+    transaction::TransactionManager,
 };
 pub struct Dht<S> {
     ctx_index: u16,
+
     server: Server<S>,
+
+    /// 保存 dht routing_table 已验证节点的文件
+    nodes_file: PathBuf,
 }
 
 impl<S> Dht<S>
 where
-    // S: MakeServiceRef<Context, KrpcBody, ResBody = KrpcBody>,
-    // S::Service: Send + 'static,
-    // S::Error: Debug + Send,
     S: KrpcService<KrpcBody, ResBody = KrpcBody, Error = Error> + Clone + Send + 'static,
 {
     pub fn init(
@@ -56,7 +63,8 @@ where
             SettingsBuilder::new().build()
         };
 
-        let transaction_manager = TransactionManager::new(local_addr.port(), local_addr, shutdown_rx.clone());
+        let transaction_manager =
+            TransactionManager::new(local_addr.port(), local_addr, shutdown_rx.clone());
 
         let routing_table = build_routing_table(
             ctx_index,
@@ -66,7 +74,7 @@ where
             block_list,
         );
 
-        let state = build_state(ctx_index, local_id, settings.token_secret_size)?;
+        let state = build_state(local_id, settings.token_secret_size)?;
 
         let peer_manager = Mutex::new(PeerManager::new(
             settings.max_resources,
@@ -90,7 +98,14 @@ where
 
         let server = Server::new(socket.clone(), service);
 
-        Ok(Dht { ctx_index, server })
+        let nodes_file = home::home_dir()
+            .map_or(
+                Err(Error::new_path(None, Some("<user home> not found".to_owned()))),
+                |v| Ok(v),
+            )?
+            .join(format!(".yiilian/dht/{}.txt", ctx_index));
+
+        Ok( Dht { ctx_index, server, nodes_file } )
     }
 
     pub async fn run_loop(&self) {
@@ -100,7 +115,7 @@ where
         // tokio::try_join! 全部完成或有一个 Err 时退出
         match tokio::try_join!(
             self.server.run_loop(),
-            // self.ping_persist_once(),
+            self.ping_persist_once(),
             self.periodic_router_ping(),
             self.periodic_buddy_ping(),
             self.periodic_find_node(),
@@ -118,8 +133,7 @@ where
     /// Build and send a ping to a target. Doesn't wait for a response
     /// 生成并发任务执行 ping 请求，并等待响应
     async fn ping_persist_once(&self) -> Result<(), Error> {
-        let nodes_file = except_result!(dht_ctx_state(self.ctx_index).read(), "dht_ctx_state.read() failed").nodes_file.clone();
-        match fs::read_to_string(&nodes_file) {
+        match fs::read_to_string(&self.nodes_file) {
             Ok(val) => {
                 if let Ok(persist) = serde_yaml::from_str::<Persist>(&val) {
                     log::trace!(target: "yiilian_dht::dht::ping_persist_once", " [{}] Enter ping_persist_once", self.ctx_index);
@@ -131,17 +145,20 @@ where
 
                         match rst {
                             Err(e) => {
-                                log::debug!(target: "yiilian_dht::dht::ping_persist_once", "[{}] ping_no_wait error: {:?}", self.ctx_index, e);
+                                log::debug!(target: "yiilian_dht::dht::ping_persist_once", "[{}] ping_no_wait error: {}", self.ctx_index, e);
                             }
                             _ => (),
                         }
                         sleep(Duration::from_millis(10)).await;
                     }
                 } else {
-                    log::debug!(target: "yiilian_dht::dht::ping_persist_once", "[{}] Parsing file {:?} error", self.ctx_index, nodes_file.as_os_str());
+                    log::debug!(target: "yiilian_dht::dht::ping_persist_once", "[{}] Parsing node file {:?} error", self.ctx_index, self.nodes_file.as_os_str());
                 }
             }
-            Err(e) => Err(Error::new_file(Some(e.into()), None))?,
+            Err(e) => {
+                // 第一次运行的时候肯定是不存在 node_file 的
+                log::debug!(target: "yiilian_dht::dht::ping_persist_once", "[{}] read node file error: {}", self.ctx_index, e);
+            },
         }
 
         Ok(())
@@ -151,7 +168,11 @@ where
     /// 同时，在 ping 反馈时，我们也会将对方加入 routing table
     async fn periodic_router_ping(&self) -> Result<(), Error> {
         loop {
-            let is_join_kad = except_result!(dht_ctx_state(self.ctx_index).read(), "dht_ctx_state.read() failed").is_join_kad;
+            let is_join_kad = except_result!(
+                dht_ctx_state(self.ctx_index).read(),
+                "dht_ctx_state.read() failed"
+            )
+            .is_join_kad;
             let router_ping_interval_sec = {
                 if is_join_kad {
                     dht_ctx_settings(self.ctx_index).router_ping_interval_secs
@@ -213,9 +234,12 @@ where
                 // 对解析出的 ip 地址，并发发送 ping 请求并处理其响应
                 for socket_addr in val {
                     if socket_addr.is_ipv4() {
-                        except_result!(dht_ctx_routing_tbl(self.ctx_index).lock(), "dht_ctx_routing_tbl.lock() failed")
-                            .white_list
-                            .insert(socket_addr.ip());
+                        except_result!(
+                            dht_ctx_routing_tbl(self.ctx_index).lock(),
+                            "dht_ctx_routing_tbl.lock() failed"
+                        )
+                        .white_list
+                        .insert(socket_addr.ip());
 
                         // 生成并发任务执行 ping 请求，并等待响应
                         dht_ctx_trans_mgr(self.ctx_index)
@@ -238,7 +262,12 @@ where
         loop {
             sleep(Duration::from_secs(ping_check_interval_secs)).await; // 由于有这个 sleep，在它挂起任务时，就有机会优雅退出
 
-            if !except_result!(dht_ctx_state(self.ctx_index).read(), "dht_ctx_state.read() failed").is_join_kad {
+            if !except_result!(
+                dht_ctx_state(self.ctx_index).read(),
+                "dht_ctx_state.read() failed"
+            )
+            .is_join_kad
+            {
                 continue;
             }
 
@@ -246,15 +275,20 @@ where
 
             // 将需要状态的东西打包到一个块中，这样 Rust 就不会抱怨 MutexGuard 跨 .await 了
             let reverify_interval_secs = {
-                let reverify_grace_period_secs = dht_ctx_settings(self.ctx_index).reverify_grace_period_secs;
-                let verify_grace_period_secs = dht_ctx_settings(self.ctx_index).verify_grace_period_secs;
+                let reverify_grace_period_secs =
+                    dht_ctx_settings(self.ctx_index).reverify_grace_period_secs;
+                let verify_grace_period_secs =
+                    dht_ctx_settings(self.ctx_index).verify_grace_period_secs;
 
                 // 将过期没再次校验的节点从 buckets 中删除
-                except_result!(dht_ctx_routing_tbl(self.ctx_index).lock(), "dht_ctx_routing_tbl.lock() failed")
-                    .prune(
-                        Duration::from_secs(reverify_grace_period_secs), // 每隔 14 分钟一次
-                        Duration::from_secs(verify_grace_period_secs),   // 每隔 1 分钟一次
-                    );
+                except_result!(
+                    dht_ctx_routing_tbl(self.ctx_index).lock(),
+                    "dht_ctx_routing_tbl.lock() failed"
+                )
+                .prune(
+                    Duration::from_secs(reverify_grace_period_secs), // 每隔 14 分钟一次
+                    Duration::from_secs(verify_grace_period_secs),   // 每隔 1 分钟一次
+                );
 
                 // 验证的有效时间为 15 分钟
                 dht_ctx_settings(self.ctx_index).reverify_interval_secs
@@ -265,10 +299,16 @@ where
             let ping_if_older_than = Utc::now() - Duration::from_secs(reverify_interval_secs);
 
             let (unverified, verified) = {
-                let unverified = except_result!(dht_ctx_routing_tbl(self.ctx_index).lock(), "dht_ctx_routing_tbl.lock() failed")
-                    .get_all_unverified();
-                let verified = except_result!(dht_ctx_routing_tbl(self.ctx_index).lock(), "dht_ctx_routing_tbl.lock() failed")
-                    .get_all_verified();
+                let unverified = except_result!(
+                    dht_ctx_routing_tbl(self.ctx_index).lock(),
+                    "dht_ctx_routing_tbl.lock() failed"
+                )
+                .get_all_unverified();
+                let verified = except_result!(
+                    dht_ctx_routing_tbl(self.ctx_index).lock(),
+                    "dht_ctx_routing_tbl.lock() failed"
+                )
+                .get_all_verified();
 
                 (unverified, verified)
             };
@@ -324,14 +364,22 @@ where
         loop {
             sleep(Duration::from_secs(find_node_interval_secs)).await;
 
-            if !except_result!(dht_ctx_state(self.ctx_index).read(), "dht_ctx_state.read() failed").is_join_kad {
+            if !except_result!(
+                dht_ctx_state(self.ctx_index).read(),
+                "dht_ctx_state.read() failed"
+            )
+            .is_join_kad
+            {
                 continue;
             }
 
             log::trace!(target: "yiilian_dht::dht::periodic_find_node", "[{}] Enter periodic_find_node", self.ctx_index);
 
-            let (count_unverified, count_verified) =
-                except_result!(dht_ctx_routing_tbl(self.ctx_index).lock(), "dht_ctx_routing_tbl.lock() failed").count();
+            let (count_unverified, count_verified) = except_result!(
+                dht_ctx_routing_tbl(self.ctx_index).lock(),
+                "dht_ctx_routing_tbl.lock() failed"
+            )
+            .count();
 
             // 如果路由表中没有 node ，则 ping 入口 router。
             // 当我们已经睡了一段时间并且失去了所有节点，这会很有帮助。
@@ -347,10 +395,13 @@ where
                 }
 
                 // 生成一个和本机 ID 接近的新 ID （只有后 4 个字节不同）
-                except_result!(dht_ctx_state(self.ctx_index).read(), "dht_ctx_state.read() failed")
-                    .get_local_id()
-                    .make_mutant(4)
-                    .unwrap()
+                except_result!(
+                    dht_ctx_state(self.ctx_index).read(),
+                    "dht_ctx_state.read() failed"
+                )
+                .get_local_id()
+                .make_mutant(4)
+                .unwrap()
             };
 
             // 向这些附近节点中发送 find_node 本机节点的请求
@@ -362,33 +413,58 @@ where
 
     /// 每隔 10 秒，周期性维护 IPv4 （使用本机的最佳外网IP地址生成本机节点 ID）
     async fn periodic_ip4_maintenance(&self) -> Result<(), Error> {
-        let ip4_maintenance_interval_sec = dht_ctx_settings(self.ctx_index).ip4_maintenance_interval_sec;
+        let ip4_maintenance_interval_sec =
+            dht_ctx_settings(self.ctx_index).ip4_maintenance_interval_sec;
 
         loop {
             sleep(Duration::from_secs(ip4_maintenance_interval_sec)).await;
             log::trace!(target: "yiilian_dht::dht::periodic_ip4_maintenance", "[{}] Enter periodic_ip4_maintenance", self.ctx_index);
 
             // 每隔 10 秒，将各 ip 投票数 - 1
-            except_result!(dht_ctx_state(self.ctx_index).write(), "dht_ctx_state.write() failed")
-                .ip4_source.decay();
+            except_result!(
+                dht_ctx_state(self.ctx_index).write(),
+                "dht_ctx_state.write() failed"
+            )
+            .ip4_source
+            .decay();
 
-            let best_ipv4 = except_result!(dht_ctx_state(self.ctx_index).read(), "dht_ctx_state.read() failed")
-                .ip4_source.get_best_ipv4();
+            let best_ipv4 = except_result!(
+                dht_ctx_state(self.ctx_index).read(),
+                "dht_ctx_state.read() failed"
+            )
+            .ip4_source
+            .get_best_ipv4();
             if let Some(ip) = best_ipv4 {
                 // 取出被投票数最多的外网 ipv4 地址，如果获取的投票数没超过阈值，则返回 None
                 let ip = IpAddr::V4(ip);
-                let local_id = except_result!(dht_ctx_state(self.ctx_index).read(), "dht_ctx_state.read() failed")
-                    .get_local_id();
+                let local_id = except_result!(
+                    dht_ctx_state(self.ctx_index).read(),
+                    "dht_ctx_state.read() failed"
+                )
+                .get_local_id();
 
                 // 如果本机外网 ip 地址和 本机节点 id 没有有效匹配，则生成一个新的有效匹配的本机 node id
-                let is_not_valid = !local_id.is_valid_for_ip(&ip, &except_result!(dht_ctx_routing_tbl(self.ctx_index).lock(), "dht_ctx_routing_tbl.lock() failed").white_list);
+                let is_not_valid = !local_id.is_valid_for_ip(
+                    &ip,
+                    &except_result!(
+                        dht_ctx_routing_tbl(self.ctx_index).lock(),
+                        "dht_ctx_routing_tbl.lock() failed"
+                    )
+                    .white_list,
+                );
 
                 if is_not_valid {
                     let new_id = Id::from_ip(&ip);
-                    except_result!(dht_ctx_state(self.ctx_index).write(), "dht_ctx_state.write() failed")
-                        .set_local_id(new_id);
-                    except_result!(dht_ctx_routing_tbl(self.ctx_index).lock(), "dht_ctx_routing_tbl.lock() failed")
-                        .set_id(new_id);
+                    except_result!(
+                        dht_ctx_state(self.ctx_index).write(),
+                        "dht_ctx_state.write() failed"
+                    )
+                    .set_local_id(new_id);
+                    except_result!(
+                        dht_ctx_routing_tbl(self.ctx_index).lock(),
+                        "dht_ctx_routing_tbl.lock() failed"
+                    )
+                    .set_id(new_id);
                 }
             }
         }
@@ -396,7 +472,8 @@ where
 
     /// 定期维护 token
     async fn periodic_token_rotation(&self) -> Result<(), Error> {
-        let token_refresh_interval_sec = dht_ctx_settings(self.ctx_index).token_refresh_interval_sec;
+        let token_refresh_interval_sec =
+            dht_ctx_settings(self.ctx_index).token_refresh_interval_sec;
 
         loop {
             log::trace!(target: "yiilian_dht::dht::periodic_token_rotation", "[{}] Enter periodic_token_rotation", self.ctx_index);
@@ -409,10 +486,23 @@ where
     /// 更新 token_secret
     fn rotate_token_secrets(&self) {
         let new_token_secret = random_bytes(dht_ctx_settings(self.ctx_index).token_secret_size);
-        let old_token_secret = except_result!(dht_ctx_state(self.ctx_index).read(), "dht_ctx_state.read() failed").token_secret.clone();
+        let old_token_secret = except_result!(
+            dht_ctx_state(self.ctx_index).read(),
+            "dht_ctx_state.read() failed"
+        )
+        .token_secret
+        .clone();
 
-        except_result!(dht_ctx_state(self.ctx_index).write(), "dht_ctx_state.read() failed").old_token_secret = old_token_secret;
-        except_result!(dht_ctx_state(self.ctx_index).write(), "dht_ctx_state.read() failed").token_secret = new_token_secret;
+        except_result!(
+            dht_ctx_state(self.ctx_index).write(),
+            "dht_ctx_state.read() failed"
+        )
+        .old_token_secret = old_token_secret;
+        except_result!(
+            dht_ctx_state(self.ctx_index).write(),
+            "dht_ctx_state.read() failed"
+        )
+        .token_secret = new_token_secret;
     }
 }
 
@@ -430,33 +520,21 @@ fn build_routing_table(
 }
 
 fn build_state(
-    ctx_index: u16,
     local_id: Id,
     token_secret_size: usize,
 ) -> Result<RwLock<State>, Error> {
     let token_secret = random_bytes(token_secret_size);
 
-    let nodes_file = home::home_dir()
-        .map_or(
-            Err(Error::new_path(
-                None,
-                Some(format!("<user home> not found")),
-            )),
-            |v| Ok(v),
-        )?
-        .join(format!(".yiilian/dht/{}.txt", ctx_index));
-
     Ok(RwLock::new(State::new(
         local_id,
         IPV4Consensus::new(2, 10),
         token_secret,
-        nodes_file,
     )))
 }
 
 fn build_socket(socket_addr: SocketAddr) -> Result<UdpSocket, Error> {
     println!("{socket_addr}");
-    
+
     let std_sock =
         std::net::UdpSocket::bind(socket_addr).map_err(|e| Error::new_bind(Some(Box::new(e))))?;
     std_sock
