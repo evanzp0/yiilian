@@ -34,17 +34,7 @@ impl RoutingTable {
         k: usize,
         block_list: BlockList,
         local_id: Id,
-        // shutdown: ShutdownReceiver,
     ) -> RoutingTable {
-        // tokio::spawn(async move {
-        //     log::trace!(target: "yiilian_dht::routing_table", "Task '{}' starting up", "watch_shutdown");
-        //     tokio::select! {
-        //         _ = shutdown.watch() => {
-        //             save_nodes(local_port).await;
-        //         },
-        //     }
-        // });
-
         RoutingTable {
             ctx_index,
             verified: Buckets::new(k, local_id),
@@ -195,13 +185,6 @@ impl RoutingTable {
             return;
         }
 
-        // let setting = &global_context(self.ctx_index).settings;
-        // let duration = if duration.is_none() {
-        //     Some(Duration::from_secs(setting.block_duration_sec))
-        // } else {
-        //     duration
-        // };
-
         self.block_list
             .insert(dest_addr.ip(), dest_addr.port().into(), duration);
 
@@ -267,25 +250,3 @@ impl RoutingTable {
         self.unverified.set_id(new_id);
     }
 }
-
-// /// save nodes to file
-// pub async fn save_nodes(nodes: Vec<Node>, nodes_file: &PathBuf) {
-
-//     let node_addrs: Vec<SocketAddr> = nodes.into_iter().map(|node| node.address).collect();
-
-//     let persist = Persist { node_addrs };
-
-//     let persist = serde_yaml::to_string(&persist).unwrap();
-
-//     let parent_path = nodes_file.parent().unwrap();
-
-//     match std::fs::create_dir_all(&parent_path) {
-//         Ok(_) => {
-//             let mut f = File::create(&nodes_file).unwrap();
-//             f.write_all(persist.as_bytes()).unwrap();
-//         }
-//         Err(e) => {
-//             log::error!(target:"yiilian_dht::routing_table::save_nodes", "Path create {:?} error: {}", parent_path, e);
-//         }
-//     }
-// }

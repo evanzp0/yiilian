@@ -4,14 +4,14 @@ pub use dht_builder::DhtBuilder;
 use chrono::Utc;
 use futures::{stream::FuturesUnordered, StreamExt};
 use std::{
-    collections::HashSet, fs, net::{IpAddr, SocketAddr}, path::PathBuf, sync::{Arc, Mutex, RwLock}, time::Duration
+    collections::HashSet, fs::{self, File}, io::Write, net::{IpAddr, SocketAddr}, path::PathBuf, sync::{Arc, Mutex, RwLock}, time::Duration
 };
 use tokio::{
     net::{lookup_host, UdpSocket},
     time::sleep,
 };
 use yiilian_core::{
-    common::{error::Error, shutdown::ShutdownReceiver, util::random_bytes},
+    common::{error::Error, shutdown::{spawn_with_shutdown, ShutdownReceiver}, util::random_bytes},
     net::block_list::{BlockAddr, BlockList},
 };
 
@@ -25,14 +25,7 @@ use crate::{
         ip::IPV4Consensus,
         setting::{Settings, SettingsBuilder},
         state::State,
-    },
-    data::body::KrpcBody,
-    except_result,
-    net::{Client, Server},
-    peer::PeerManager,
-    routing_table::{Persist, RoutingTable},
-    service::KrpcService,
-    transaction::TransactionManager,
+    }, data::body::KrpcBody, except_option, except_result, net::{Client, Server}, peer::PeerManager, routing_table::{Persist, RoutingTable}, service::KrpcService, transaction::TransactionManager
 };
 pub struct Dht<S> {
     ctx_index: u16,
@@ -41,6 +34,8 @@ pub struct Dht<S> {
 
     /// 保存 dht routing_table 已验证节点的文件
     nodes_file: PathBuf,
+
+    shutdown_rx: ShutdownReceiver,
 }
 
 impl<S> Dht<S>
@@ -105,17 +100,28 @@ where
             )?
             .join(format!(".yiilian/dht/{}.txt", ctx_index));
 
-        Ok( Dht { ctx_index, server, nodes_file } )
+        Ok( Dht { ctx_index, server, nodes_file, shutdown_rx } )
     }
 
     pub async fn run_loop(&self) {
         let ctx_index = self.ctx_index;
+        let shutdown_rx = self.shutdown_rx.clone();
+        let nodes_file = self.nodes_file.clone();
+
+        tokio::spawn(async move {
+            log::trace!(target: "yiilian_dht::dht::run_loop", "Task '{}' starting up", "persist nodes on exit");
+            tokio::select! {
+                _ = shutdown_rx.watch() => {
+                    persist_nodes(ctx_index, nodes_file.clone()).await;
+                },
+            }
+        });
 
         // 各种周期性的 future
         // tokio::try_join! 全部完成或有一个 Err 时退出
         match tokio::try_join!(
             self.server.run_loop(),
-            self.ping_persist_once(),
+            self.ping_persist_nodes_once(),
             self.periodic_router_ping(),
             self.periodic_buddy_ping(),
             self.periodic_find_node(),
@@ -132,7 +138,7 @@ where
 
     /// Build and send a ping to a target. Doesn't wait for a response
     /// 生成并发任务执行 ping 请求，并等待响应
-    async fn ping_persist_once(&self) -> Result<(), Error> {
+    async fn ping_persist_nodes_once(&self) -> Result<(), Error> {
         match fs::read_to_string(&self.nodes_file) {
             Ok(val) => {
                 if let Ok(persist) = serde_yaml::from_str::<Persist>(&val) {
@@ -395,13 +401,15 @@ where
                 }
 
                 // 生成一个和本机 ID 接近的新 ID （只有后 4 个字节不同）
-                except_result!(
+                let id_near = except_result!(
                     dht_ctx_state(self.ctx_index).read(),
                     "dht_ctx_state.read() failed"
                 )
                 .get_local_id()
-                .make_mutant(4)
-                .unwrap()
+                .make_mutant(4);
+                let id_near = except_result!(id_near, "make_mutant() error");
+
+                id_near
             };
 
             // 向这些附近节点中发送 find_node 本机节点的请求
@@ -544,4 +552,27 @@ fn build_socket(socket_addr: SocketAddr) -> Result<UdpSocket, Error> {
     let socket = UdpSocket::from_std(std_sock).map_err(|e| Error::new_bind(Some(Box::new(e))))?;
 
     Ok(socket)
+}
+
+/// save nodes to file
+async fn persist_nodes(ctx_index: u16, nodes_file: PathBuf) {
+    let mut nodes = except_result!(dht_ctx_routing_tbl(ctx_index).lock(), "dht_ctx_routing_tbl.lock() failed").get_all_verified();
+    nodes.extend(except_result!(dht_ctx_routing_tbl(ctx_index).lock(), "dht_ctx_routing_tbl.lock() failed").get_all_unverified());
+
+    let node_addrs: Vec<SocketAddr> = nodes.into_iter().map(|node| node.address).collect();
+
+    let persist = Persist { node_addrs };
+
+    let persist = except_result!(serde_yaml::to_string(&persist), "serde_yaml::to_string() failed");
+    let parent_path = except_option!(nodes_file.parent(), "nodes_file.parent() is none");
+
+    match std::fs::create_dir_all(&parent_path) {
+        Ok(_) => {
+            let mut f = except_result!(File::create(&nodes_file), "File::create() node file failed");
+            except_result!(f.write_all(persist.as_bytes()), "f.write_all() nodes failed");
+        },
+        Err(e) => {
+            log::error!(target:"yiilian_dht::routing_table::save_nodes", "Path create {:?} error: {}", parent_path, e);
+        },
+    }
 }

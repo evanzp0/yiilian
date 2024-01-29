@@ -20,8 +20,7 @@ use crate::{
         },
         id::Id,
         util::calculate_token,
-    },
-    data::{
+    }, data::{
         announce_peer::AnnouncePeer,
         body::{BodyKind, KrpcBody, Query, Reply},
         find_node::FindNode,
@@ -31,9 +30,7 @@ use crate::{
         ping::Ping,
         ping_announce_replay::PingOrAnnounceReply,
         util::reply_matches_query,
-    },
-    except_result,
-    routing_table::{Buckets, Node},
+    }, except_option, except_result, routing_table::{Buckets, Node}
 };
 
 use super::{GetPeersResponder, GetPeersResult, Transaction, TransactionId};
@@ -63,18 +60,17 @@ impl TransactionManager {
         // 过期时间点 = 当前时间 - duration
         let time = Utc::now() - duration;
 
-        let _len_before = self.transactions.lock().unwrap().len();
-        self.transactions
-            .lock()
-            .unwrap()
-            .retain(|_, v| -> bool { v.created_at >= time }); // 保留创建时间晚于 time 的事务
-        let _len_after = self.transactions.lock().unwrap().len();
-        // log::debug!(target: "yiilian_dht::transaction", "Pruned {} request records", _len_before - _len_after);
+        let _len_before = except_result!(self.transactions.lock(), "transactions.lock() error").len();
+
+        // 保留创建时间晚于 time 的事务
+        except_result!(self.transactions.lock(), "transactions.lock() error")
+            .retain(|_, v| -> bool { v.created_at >= time }); 
+        let _len_after = except_result!(self.transactions.lock(), "transactions.lock() error").len();
     }
 
     /// 检查 query 查询是否已经在事务处理中了
     fn check_query_in_trans(&self, dest: &SocketAddr, query: &Query) -> bool {
-        self.transactions.lock().unwrap().iter().any(|t| {
+        except_result!(self.transactions.lock(), "transactions.lock() error").iter().any(|t| {
             let tran = t.1;
             if tran.addr == *dest && tran.message == *query {
                 true
@@ -191,7 +187,7 @@ impl TransactionManager {
     }
 
     fn remove_transcation(&self, tran_id: &TransactionId) -> Option<Transaction> {
-        let tran = self.transactions.lock().unwrap().remove(&tran_id);
+        let tran = except_result!(self.transactions.lock(), "transactions.lock() error").remove(&tran_id);
         match tran {
             Some(tran) => Some(tran),
             None => None,
@@ -254,9 +250,7 @@ impl TransactionManager {
 
     /// 添加事务
     pub(crate) fn add_transaction(&self, tran: Transaction) {
-        self.transactions
-            .lock()
-            .unwrap()
+        except_result!(self.transactions.lock(), "transactions.lock() error")
             .insert(tran.get_id().clone(), tran);
     }
 
@@ -513,7 +507,7 @@ impl TransactionManager {
     /// 根据消息中的事务 ID 获取发送和接收时 IP 匹配的 Transaction
     pub(crate) fn matching_transaction(&self, reply: &Reply, src_addr: &SocketAddr) -> bool {
         let tid = reply.get_tid();
-        let transactions = self.transactions.lock().unwrap();
+        let transactions = except_result!(self.transactions.lock(), "transactions.lock() error");
         let transaction = transactions.get(&tid);
 
         // Is there a matching transaction id in storage?
@@ -525,7 +519,7 @@ impl TransactionManager {
                 // Does the Id of the sender match the recorded addressee of the original request (if any)?
                 // 当发送时对方的 node id 为空，或对方的 node id 为空且对方 node id 和 reply 中的发送方 node id 相同时
                 if transaction.node_id.is_none() // 当 ping route 时，node_id 为空
-                    || (!transaction.node_id.is_none() && transaction.node_id.as_ref().unwrap() == &sender_id)
+                    || (!transaction.node_id.is_none() && except_option!(transaction.node_id.as_ref(), "node_id.as_ref() error") == &sender_id)
                 {
                     // Does the reply type match the query type?
                     if reply_matches_query(&transaction.message, reply) {
