@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Request<T> {
     pub body: T,
     pub remote_addr: SocketAddr,

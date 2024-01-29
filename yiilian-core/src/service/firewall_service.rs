@@ -26,10 +26,6 @@ pub struct FirewallService<S> {
     inner: S,
 }
 
-unsafe impl<F> Send for FirewallService<F> {}
-unsafe impl<F> Sync for FirewallService<F> {}
-impl<F> RefUnwindSafe for FirewallService<F> {}
-
 impl<F> FirewallService<F> {
     pub fn new(
         inner: F,
@@ -83,11 +79,9 @@ where
         // if let Some(track_state) = track_state_map.get_mut(&local_port) {
         except_result!(self.track_state.write(), "track_state.write() error")
             .add_track_times(req.remote_addr);
-        self.track_state.write().expect("").add_track_times(req.remote_addr);
 
-        // let over_limit = except_result!(self.track_state.read(), "track_state.write() error")
-        //     .is_over_limit(req.remote_addr, self.limit_per_sec);
-        let over_limit = self.track_state.write().expect("").is_over_limit(req.remote_addr, self.limit_per_sec);
+        let over_limit = except_result!(self.track_state.write(), "track_state.write() error")
+            .is_over_limit(req.remote_addr, self.limit_per_sec);
 
         if let Some((is_over_limit, track)) = over_limit {
             log::trace!(
@@ -186,19 +180,20 @@ impl TrackState {
     }
 }
 
+#[allow(unused)]
 #[derive(Debug, Clone)]
 struct AccessTrack {
-    _addr: SocketAddr,
+    addr: SocketAddr,
     window_begin_time: DateTime<Utc>,
     update_time: DateTime<Utc>,
     access_times: i64,
 }
 
 impl AccessTrack {
-    fn new(_addr: SocketAddr) -> Self {
+    fn new(addr: SocketAddr) -> Self {
         let now = Utc::now();
         AccessTrack {
-            _addr,
+            addr,
             window_begin_time: now,
             update_time: now,
             access_times: 1,
@@ -214,10 +209,10 @@ impl AccessTrack {
 
     fn rps(&self) -> f64 {
         let now = Utc::now();
-        let elapsed = (now - self.window_begin_time).num_milliseconds();
+        let elapsed = (now - self.window_begin_time).num_microseconds().unwrap_or(0);
         if elapsed > 0 {
-            let tps = (self.access_times as f64 / elapsed as f64) * 1000.0;
-            println!("{} {}", self.access_times, elapsed);
+            let tps = (self.access_times as f64 / elapsed as f64) * 1_000_000.0;
+            // println!("{} {}", self.access_times, elapsed);
             tps
         } else {
             0.0
@@ -259,5 +254,45 @@ impl<F> Layer<F> for FirewallLayer {
             self.block_list_max_size,
             self.shutdown_rx.clone(),
         )
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use crate::{common::shutdown::create_shutdown, service::test_service::TestService};
+
+    use super::*;
+
+    #[tokio::test]
+    async fn test() {
+        let (mut _shutdown_tx, shutdown_rx) = create_shutdown();
+        let firewall_layer = FirewallLayer::new(1, 2, Some(1), shutdown_rx.clone());
+
+        let firewall_service = firewall_layer.layer(TestService::new());
+        let remote_addr_1: SocketAddr = "192.168.1.1:1111".parse().unwrap();
+        let remote_addr_2: SocketAddr = "192.168.1.2:1111".parse().unwrap();
+        let local_addr: SocketAddr = "127.0.0.1:2222".parse().unwrap();
+        
+        let req_1 = Request::new(1, remote_addr_1, local_addr);
+        let req_2 = Request::new(1, remote_addr_2, local_addr);
+
+        firewall_service.call(req_1.clone()).await.unwrap();
+        assert_eq!(false, firewall_service.is_blocked(&remote_addr_1));
+
+        firewall_service.call(req_1.clone()).await.unwrap();
+        firewall_service.call(req_2.clone()).await.unwrap();
+        firewall_service.call(req_2.clone()).await.unwrap();
+        assert_eq!(2, firewall_service.track_state.write().unwrap().get_track(remote_addr_2).unwrap().access_times);
+        assert_eq!(false, firewall_service.track_state.write().unwrap().is_over_limit(remote_addr_2, 2).unwrap().0);
+        assert_eq!(true, firewall_service.track_state.write().unwrap().is_over_limit(remote_addr_2, 1).unwrap().0);
+
+        if let Err(_) = firewall_service.call(req_2.clone()).await {
+            assert!(true)
+        } else {
+            assert!(false, "firewall should block!")
+        }
+
+        // println!("rps: {:?}", firewall_service.track_state.write().unwrap().get_track(remote_addr_2).unwrap().rps());
     }
 }

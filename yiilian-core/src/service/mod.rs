@@ -6,6 +6,7 @@ mod identity;
 mod builder;
 mod log_service;
 mod firewall_service;
+mod test_service;
 
 pub use service::Service;
 pub use util::{service_fn, ServiceFn};

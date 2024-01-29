@@ -2,7 +2,8 @@
 members = [ 
     "yiilian-core", 
     "yiilian-raw", 
-    "yiilian-dht", "yiilian-crawler", 
+    "yiilian-dht", 
+    "yiilian-crawler", 
 ]
 resolver = "2"
 
