@@ -16,7 +16,7 @@ use crate::{
     except_result,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BlockList {
     max_size: i32,
     addr_list: Arc<RwLock<HashSet<BlockAddr>>>,
@@ -95,7 +95,7 @@ impl BlockList {
             })
     }
 
-    pub fn insert(&mut self, ip: IpAddr, port: i32, duration: Option<Duration>) -> bool {
+    pub fn insert(&self, ip: IpAddr, port: i32, duration: Option<Duration>) -> bool {
         if self.len() < (self.max_size as usize) {
             except_result!(self.addr_list.write(), "block_list read() error")
                 .insert(BlockAddr::new(ip, port, duration))
