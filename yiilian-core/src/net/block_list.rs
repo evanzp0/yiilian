@@ -146,22 +146,28 @@ impl BlockAddr {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
+#[cfg(test)]
+mod tests {
 
-//     use std::net::SocketAddr;
+    use std::net::SocketAddr;
 
-//     use super::*;
+    use crate::common::shutdown::create_shutdown;
 
-//     #[test]
-//     fn test_blacklist() {
-//         let mut block_list = BlockList::new(10, None);
-//         let addr: SocketAddr = "192.168.1.1:8080".parse().unwrap();
+    use super::*;
 
-//         block_list.insert(addr.ip(), addr.port() as i32, None);
-//         assert_eq!(1, block_list.len());
-//         assert_eq!(true, block_list.contains(addr.ip(), addr.port()));
+    #[tokio::test]
+    async fn test_blacklist() {
+        let (mut _shutdown_tx, shutdown_rx) = create_shutdown();
+        
+        let block_list = BlockList::new(1, None, shutdown_rx);
+        let addr: SocketAddr = "192.168.1.1:8080".parse().unwrap();
 
-//         assert_eq!(true, block_list.remove(addr.ip(), addr.port() as i32));
-//     }
-// }
+        block_list.insert(addr.ip(), addr.port() as i32, Some(Duration::from_secs(2)));
+        block_list.prune_loop();
+        assert_eq!(1, block_list.len());
+        assert_eq!(true, block_list.contains(addr.ip(), addr.port()));
+
+        sleep(Duration::from_secs(5)).await;
+        assert_eq!(0, block_list.len());
+    }
+}
