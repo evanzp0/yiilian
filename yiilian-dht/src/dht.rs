@@ -4,28 +4,42 @@ pub use dht_builder::DhtBuilder;
 use chrono::Utc;
 use futures::{stream::FuturesUnordered, StreamExt};
 use std::{
-    collections::HashSet, fs::{self, File}, io::Write, net::{IpAddr, SocketAddr}, path::PathBuf, sync::{Arc, Mutex, RwLock}, time::Duration
+    collections::HashSet,
+    fs::{self, File},
+    io::Write,
+    net::{IpAddr, SocketAddr},
+    path::PathBuf,
+    sync::{Arc, Mutex, RwLock},
+    time::Duration,
 };
 use tokio::{
     net::{lookup_host, UdpSocket},
     time::sleep,
 };
 use yiilian_core::{
-    common::{error::Error, shutdown::{spawn_with_shutdown, ShutdownReceiver}, util::random_bytes},
-    net::block_list::{BlockAddr, BlockList},
+    common::{
+        error::Error,
+        shutdown::ShutdownReceiver,
+        util::random_bytes,
+    }, except_option, except_result, net::block_list::{BlockAddr, BlockList}
 };
 
 use crate::{
     common::{
         context::{
-            dht_ctx_insert, dht_ctx_routing_tbl, dht_ctx_settings, dht_ctx_state,
-            dht_ctx_trans_mgr, Context,
+            dht_ctx_drop, dht_ctx_insert, dht_ctx_routing_tbl, dht_ctx_settings, dht_ctx_state, dht_ctx_trans_mgr, Context
         },
         id::Id,
         ip::IPV4Consensus,
         setting::{Settings, SettingsBuilder},
         state::State,
-    }, data::body::KrpcBody, except_option, except_result, net::{Client, Server}, peer::PeerManager, routing_table::{Persist, RoutingTable}, service::KrpcService, transaction::TransactionManager
+    },
+    data::body::KrpcBody,
+    net::{Client, Server},
+    peer::PeerManager,
+    routing_table::{Persist, RoutingTable},
+    service::KrpcService,
+    transaction::TransactionManager,
 };
 pub struct Dht<S> {
     ctx_index: u16,
@@ -67,6 +81,7 @@ where
             settings.block_list_max_size,
             settings.bucket_size,
             block_list,
+            shutdown_rx.clone(),
         );
 
         let state = build_state(local_id, settings.token_secret_size)?;
@@ -95,12 +110,20 @@ where
 
         let nodes_file = home::home_dir()
             .map_or(
-                Err(Error::new_path(None, Some("<user home> not found".to_owned()))),
+                Err(Error::new_path(
+                    None,
+                    Some("<user home> not found".to_owned()),
+                )),
                 |v| Ok(v),
             )?
             .join(format!(".yiilian/dht/{}.txt", ctx_index));
 
-        Ok( Dht { ctx_index, server, nodes_file, shutdown_rx } )
+        Ok(Dht {
+            ctx_index,
+            server,
+            nodes_file,
+            shutdown_rx,
+        })
     }
 
     pub async fn run_loop(&self) {
@@ -108,11 +131,13 @@ where
         let shutdown_rx = self.shutdown_rx.clone();
         let nodes_file = self.nodes_file.clone();
 
+        // graceful shutdown 
         tokio::spawn(async move {
             log::trace!(target: "yiilian_dht::dht::run_loop", "Task '{}' starting up", "persist nodes on exit");
             tokio::select! {
                 _ = shutdown_rx.watch() => {
                     persist_nodes(ctx_index, nodes_file.clone()).await;
+                    dht_ctx_drop(ctx_index);
                 },
             }
         });
@@ -164,7 +189,7 @@ where
             Err(e) => {
                 // 第一次运行的时候肯定是不存在 node_file 的
                 log::debug!(target: "yiilian_dht::dht::ping_persist_once", "[{}] read node file error: {}", self.ctx_index, e);
-            },
+            }
         }
 
         Ok(())
@@ -520,17 +545,15 @@ fn build_routing_table(
     block_list_max_size: i32,
     bucket_size: usize,
     block_list: Option<HashSet<BlockAddr>>,
+    shutdown_rx: ShutdownReceiver,
 ) -> Mutex<RoutingTable> {
-    let block_list = BlockList::new(block_list_max_size, block_list);
+    let block_list = BlockList::new(block_list_max_size, block_list, shutdown_rx);
     let routing_table = RoutingTable::new(ctx_index, bucket_size, block_list, local_id);
 
     Mutex::new(routing_table)
 }
 
-fn build_state(
-    local_id: Id,
-    token_secret_size: usize,
-) -> Result<RwLock<State>, Error> {
+fn build_state(local_id: Id, token_secret_size: usize) -> Result<RwLock<State>, Error> {
     let token_secret = random_bytes(token_secret_size);
 
     Ok(RwLock::new(State::new(
@@ -556,23 +579,40 @@ fn build_socket(socket_addr: SocketAddr) -> Result<UdpSocket, Error> {
 
 /// save nodes to file
 async fn persist_nodes(ctx_index: u16, nodes_file: PathBuf) {
-    let mut nodes = except_result!(dht_ctx_routing_tbl(ctx_index).lock(), "dht_ctx_routing_tbl.lock() failed").get_all_verified();
-    nodes.extend(except_result!(dht_ctx_routing_tbl(ctx_index).lock(), "dht_ctx_routing_tbl.lock() failed").get_all_unverified());
+    let mut nodes = except_result!(
+        dht_ctx_routing_tbl(ctx_index).lock(),
+        "dht_ctx_routing_tbl.lock() failed"
+    )
+    .get_all_verified();
+    nodes.extend(
+        except_result!(
+            dht_ctx_routing_tbl(ctx_index).lock(),
+            "dht_ctx_routing_tbl.lock() failed"
+        )
+        .get_all_unverified(),
+    );
 
     let node_addrs: Vec<SocketAddr> = nodes.into_iter().map(|node| node.address).collect();
 
     let persist = Persist { node_addrs };
 
-    let persist = except_result!(serde_yaml::to_string(&persist), "serde_yaml::to_string() failed");
+    let persist = except_result!(
+        serde_yaml::to_string(&persist),
+        "serde_yaml::to_string() failed"
+    );
     let parent_path = except_option!(nodes_file.parent(), "nodes_file.parent() is none");
 
     match std::fs::create_dir_all(&parent_path) {
         Ok(_) => {
-            let mut f = except_result!(File::create(&nodes_file), "File::create() node file failed");
-            except_result!(f.write_all(persist.as_bytes()), "f.write_all() nodes failed");
-        },
+            let mut f =
+                except_result!(File::create(&nodes_file), "File::create() node file failed");
+            except_result!(
+                f.write_all(persist.as_bytes()),
+                "f.write_all() nodes failed"
+            );
+        }
         Err(e) => {
             log::error!(target:"yiilian_dht::routing_table::save_nodes", "Path create {:?} error: {}", parent_path, e);
-        },
+        }
     }
 }

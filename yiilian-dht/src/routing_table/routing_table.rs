@@ -7,11 +7,10 @@ use std::{
 use chrono::Utc;
 use log::trace;
 use yiilian_core::{
-    common::error::Error,
-    net::block_list::BlockList,
+    common::error::Error, except_result, net::block_list::BlockList
 };
 
-use crate::{common::{context::dht_ctx_state, id::Id}, except_result};
+use crate::common::{context::dht_ctx_state, id::Id};
 
 use super::{Buckets, Node};
 
@@ -35,6 +34,9 @@ impl RoutingTable {
         block_list: BlockList,
         local_id: Id,
     ) -> RoutingTable {
+
+        block_list.prune_loop();
+
         RoutingTable {
             ctx_index,
             verified: Buckets::new(k, local_id),

@@ -10,12 +10,10 @@ use chrono::{DateTime, Utc};
 use lru::LruCache;
 use once_cell::sync::OnceCell;
 use yiilian_core::{
-    common::error::Error,
-    data::{Request, Response},
-    service::{Layer, Service},
+    common::error::Error, data::{Request, Response}, except_option, except_result, service::{Layer, Service}
 };
 
-use crate::{common::context::{dht_ctx_routing_tbl, dht_ctx_settings}, except_option, except_result};
+use crate::common::context::{dht_ctx_routing_tbl, dht_ctx_settings};
 
 pub static mut TRACK_STATE_MAP: OnceCell<HashMap<u16, TrackState>> = OnceCell::new();
 
@@ -36,8 +34,8 @@ impl<F> FirewallService<F> {
             let local_port = local_addr.port();
             let map = except_option!(TRACK_STATE_MAP.get_mut(), "Get TRACK_STATE_MAP failed");
             if map.get(&local_port).is_none() {
-                let rqs_state = TrackState::new(max_tracks);
-                map.insert(local_port, rqs_state);
+                let track_state = TrackState::new(max_tracks);
+                map.insert(local_port, track_state);
             }
         };
 

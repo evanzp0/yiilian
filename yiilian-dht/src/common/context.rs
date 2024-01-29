@@ -1,9 +1,10 @@
-use std::{collections::HashMap, panic::RefUnwindSafe, sync::{Mutex, RwLock}};
+use std::{collections::HashMap, sync::{Mutex, RwLock}};
 
 use once_cell::sync::OnceCell;
+use yiilian_core::except_option;
 
 use crate::{
-    except_option, net::Client, peer::PeerManager, routing_table::RoutingTable, transaction::TransactionManager
+    net::Client, peer::PeerManager, routing_table::RoutingTable, transaction::TransactionManager
 };
 
 use super::{setting::Settings, state::State};
@@ -63,11 +64,11 @@ impl Context {
     }
 }
 
-impl RefUnwindSafe for Context {}
+// impl RefUnwindSafe for Context {}
 
 pub fn dht_ctx(ctx_index: u16) -> &'static Context {
-    let ctx = unsafe { except_option!(DHT_CONTEXT.get(), "DHT_CONTEXT get() is None") };
-    let ctx = except_option!(ctx.get(&ctx_index), "Item in DHT_CONTEXT Map is not set");
+    let ctx_map = unsafe { except_option!(DHT_CONTEXT.get(), "DHT_CONTEXT get() is None") };
+    let ctx = except_option!(ctx_map.get(&ctx_index), "Item in DHT_CONTEXT Map is not set");
 
     ctx
 }
@@ -81,6 +82,11 @@ pub fn dht_ctx_insert(ctx_index: u16, context: Context) {
         let map = except_option!(DHT_CONTEXT.get_mut(), "DHT_CONTEXT get_mut() is None");
         map.insert(ctx_index, context);
     };
+}
+
+pub fn dht_ctx_drop(ctx_index: u16) {
+    let ctx_map = unsafe { except_option!(DHT_CONTEXT.get_mut(), "DHT_CONTEXT get() is None") };
+    ctx_map.remove(&ctx_index);
 }
 
 pub fn dht_ctx_settings(ctx_index: u16) -> &'static Settings {

@@ -8,8 +8,7 @@ use std::{
 use chrono::Utc;
 use tokio::{sync::oneshot, time::interval};
 use yiilian_core::{
-    common::{error::Error, shutdown::ShutdownReceiver},
-    data::Request,
+    common::{error::Error, shutdown::ShutdownReceiver}, data::Request, except_option, except_result
 };
 
 use crate::{
@@ -30,7 +29,7 @@ use crate::{
         ping::Ping,
         ping_announce_replay::PingOrAnnounceReply,
         util::reply_matches_query,
-    }, except_option, except_result, routing_table::{Buckets, Node}
+    }, routing_table::{Buckets, Node}
 };
 
 use super::{GetPeersResponder, GetPeersResult, Transaction, TransactionId};

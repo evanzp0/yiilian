@@ -5,8 +5,7 @@ use yiilian_core::{
     service::LogLayer,
 };
 use yiilian_dht::{
-    dht::DhtBuilder,
-    service::FirewallLayer,
+    dht::DhtBuilder, service::FirewallLayer
 };
 
 #[tokio::main]
@@ -29,6 +28,7 @@ async fn main() -> Result<(), Error> {
         _ = dht.run_loop() => (),
         _ = tokio::signal::ctrl_c() => {
             drop(dht);
+
             shutdown_tx.shutdown().await;
 
             println!("\nCtrl + c shutdown");
