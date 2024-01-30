@@ -44,6 +44,8 @@ use crate::{
 pub struct Dht<S> {
     ctx_index: u16,
 
+    pub local_addr: SocketAddr,
+
     server: Server<S>,
 
     /// 保存 dht routing_table 已验证节点的文件
@@ -120,6 +122,7 @@ where
 
         Ok(Dht {
             ctx_index,
+            local_addr,
             server,
             nodes_file,
             shutdown_rx,

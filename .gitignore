@@ -1,6 +1,6 @@
 /target
 Cargo.lock
 .vscode
-/log
+**/log
 bloom_state.dat
 yiilian-dht/snip_tmp.rs

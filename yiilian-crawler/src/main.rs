@@ -1,3 +1,82 @@
-fn main() {
-    println!("Hello, world!");
+use std::{net::SocketAddr, path::Path};
+
+use futures::future::join_all;
+
+use yiilian_core::common::{error::Error, shutdown::{create_shutdown, ShutdownReceiver}};
+use yiilian_crawler::common::{Config, DEFAULT_CONFIG_FILE};
+use yiilian_dht::{data::body::KrpcBody, dht::{Dht, DhtBuilder}, service::KrpcService};
+
+#[tokio::main]
+async fn main() {
+    set_up_logging_from_file::<&str>(None);
+    let config = Config::from_file(DEFAULT_CONFIG_FILE);
+    let (mut shutdown_tx, shutdown_rx) = create_shutdown();
+
+    let dht_list = create_dht_list(&config, shutdown_rx.clone()).unwrap();
+
+    drop(shutdown_rx);
+
+    tokio::select! {
+        _  = async {
+            let mut futs = vec![];
+            for dht in &dht_list {
+                println!("Listening at: {:?}", dht.local_addr);
+                futs.push(dht.run_loop());
+            }
+            join_all(futs).await;
+
+        } => (),
+        _ = tokio::signal::ctrl_c() => {
+            drop(dht_list);
+
+            shutdown_tx.shutdown().await;
+
+            println!("\nCtrl + c shutdown");
+        },
+    };
+}
+
+fn create_dht_list(
+    config: &Config,
+    shutdown_rx: ShutdownReceiver,
+) 
+    -> Result<Vec<Dht<impl KrpcService<KrpcBody, ResBody = KrpcBody, Error = Error> + Clone + Send + 'static>>, Error> 
+{
+    let mut dht_list = vec![];
+
+    let ports = &config.dht.ports;
+
+    if ports.len() == 2 {
+        let port_start = ports[0];
+        let port_end = ports[1];
+            for port in port_start..=port_end {
+                let local_addr: SocketAddr = format!("0.0.0.0:{port}").parse().unwrap();
+
+                let dht = DhtBuilder::new(local_addr, shutdown_rx.clone())
+                    .build()
+                    .unwrap();
+
+                dht_list.push(dht);
+            }
+    } else {
+        for port in ports {
+            let local_addr: SocketAddr = format!("0.0.0.0:{port}").parse().unwrap();
+
+            let dht = DhtBuilder::new(local_addr, shutdown_rx.clone())
+                .build()
+                .unwrap();
+
+            dht_list.push(dht);
+        }
+    }
+
+    Ok(dht_list)
+}
+
+fn set_up_logging_from_file<P: AsRef<Path>>(file_path: Option<&P>) {
+    if let Some(file_path) = file_path {
+        log4rs::init_file(file_path, Default::default()).unwrap();
+    } else {
+        log4rs::init_file("log4rs.yml", Default::default()).unwrap();
+    }
 }

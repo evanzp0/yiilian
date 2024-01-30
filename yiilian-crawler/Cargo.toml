@@ -4,6 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+tokio = {version = "1", features = ["full"]}
 serde = { version = "1", features = ["derive"] }
+futures = "0.3"
 serde_yaml = "0.9.25"
 yiilian-core = "0.1"
+yiilian-dht = "0.1"
+log ="0.4"
+log4rs = { version = "1", features = ["background_rotation", "gzip"] }
+bloomfilter = { version = "1", features = ["serde"] }
