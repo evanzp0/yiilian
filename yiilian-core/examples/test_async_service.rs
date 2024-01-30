@@ -1,5 +1,3 @@
-#![allow(async_fn_in_trait)]
-
 use std::{error::Error as StdError, fmt::Display};
 use std::fmt::Debug;
 

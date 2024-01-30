@@ -6,6 +6,7 @@ mod identity;
 mod builder;
 mod log_service;
 mod firewall_service;
+mod event_service;
 mod test_service;
 
 pub use service::Service;
@@ -16,3 +17,4 @@ pub use identity::Identity;
 pub use builder::ServiceBuilder;
 pub use log_service::{LogLayer, LogService};
 pub use firewall_service::{FirewallService, FirewallLayer};
+pub use event_service::{EventLayer, EventService};
