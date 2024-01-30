@@ -7,7 +7,7 @@ use yiilian_core::{net::block_list::BlockAddr, common::util::atoi};
 
 pub const DEFAULT_CONFIG_FILE: &str = "yiilian-crawler.yml";
 
-#[derive(Deserialize, Default)]
+#[derive(Deserialize, Default, Debug)]
 pub struct Config {
     pub dht: DhtConfig,
 }
@@ -17,13 +17,7 @@ impl Config {
         Config::default()
     }
 
-    pub fn from_file(cfg_file: &Option<String>) -> Self {
-        let cfg_file = if let Some(cfg_file) = cfg_file {
-            cfg_file
-        } else {
-            DEFAULT_CONFIG_FILE
-        };
-
+    pub fn from_file(cfg_file: &str) -> Self {
         let cfg = fs::read_to_string(cfg_file).expect(&format!("read {} error", cfg_file));
         serde_yaml::from_str(&cfg).expect(&format!("parse {} error", cfg_file))
     }
@@ -50,38 +44,21 @@ impl Config {
     }
 }
 
-#[derive(Default, Deserialize, Serialize)]
+#[derive(Default, Deserialize, Serialize, Debug)]
 pub struct DhtConfig {
     pub routers: Option<Vec<String>>,
     pub block_ips: Option<Vec<String>>,
-    pub node_file_prefix: Option<String>,
-    pub ports: DhtPorts,
-}
-
-#[derive(Deserialize, Serialize)]
-pub enum DhtPorts {
-    Int(i32),
-    Array(Vec<u16>)
-}
-
-impl Default for DhtPorts {
-    fn default() -> Self {
-        DhtPorts::Int(1)
-    }
+    pub ports: Vec<u16>,
 }
 
 #[cfg(test)]
 mod tests {
-    use super::DhtPorts;
+    use super::{Config, DEFAULT_CONFIG_FILE};
 
     #[test]
-    fn test_ser_de_dht_ports() {
-        let ports = DhtPorts::Int(1);
-        let s = serde_yaml::to_string(&ports).unwrap();
-        assert_eq!("!Int 1\n", s);
+    fn test() {
+        let config = Config::from_file(DEFAULT_CONFIG_FILE);
 
-        let ports = DhtPorts::Array(vec![123, 4567]);
-        let s = serde_yaml::to_string(&ports).unwrap();
-        assert_eq!("!Array\n- 123\n- 4567\n", s);
+        println!("{:?}", config)
     }
 }

@@ -5,8 +5,8 @@ use yiilian_core::{common::error::Error, data::BencodeFrame as Frame};
 
 use crate::{
     common::{
-        id::{Id, ID_SIZE},
-        util::bytes_to_nodes4,
+        {Id, ID_SIZE},
+        bytes_to_nodes4,
     },
     gen_frame_common_field, merge_node_bytes,
     routing_table::Node,

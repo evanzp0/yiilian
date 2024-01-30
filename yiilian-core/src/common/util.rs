@@ -25,7 +25,7 @@ macro_rules! arcmut {
 ///
 /// # Examples
 /// ```
-/// # use yiilian_core::util::*;
+/// # use yiilian_core::common::util::*;
 ///
 /// assert_eq!(-12, atoi("-12".as_bytes()).unwrap());
 /// ```
@@ -43,7 +43,7 @@ pub fn atoi(data: &[u8]) -> Result<i32, Error> {
 /// # Example:
 ///
 /// ```
-/// # use yiilian_core::util::*;
+/// # use yiilian_core::common::util::*;
 ///
 /// assert_eq!(3, random_bytes(3).len());
 /// ```
@@ -57,7 +57,7 @@ pub fn random_bytes(size: usize) -> Vec<u8> {
 ///
 /// # Example
 /// ```
-/// # use yiilian_core::util::*;
+/// # use yiilian_core::common::util::*;
 /// use std::net::{IpAddr, Ipv4Addr, ToSocketAddrs};
 ///
 /// let compacted_ip_port = vec![127,0,0,1, 0,80];
@@ -99,7 +99,7 @@ pub fn bytes_to_sockaddr(bytes: &[u8]) -> Result<SocketAddr, Error> {
 ///
 /// # Example
 /// ```
-/// # use yiilian_core::util::*;
+/// # use yiilian_core::common::util::*;
 /// use std::net::{SocketAddr, ToSocketAddrs};
 ///
 /// let sockaddr: SocketAddr = "127.0.0.1:80".parse().unwrap();

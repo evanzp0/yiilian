@@ -13,12 +13,12 @@ use yiilian_core::{
 
 use crate::{
     common::{
-        context::{
+        {
             dht_ctx_client, dht_ctx_peer_mgr, dht_ctx_routing_tbl, dht_ctx_settings, dht_ctx_state,
             dht_ctx_trans_mgr,
         },
-        id::Id,
-        util::calculate_token,
+        Id,
+        calculate_token,
     }, data::{
         announce_peer::AnnouncePeer,
         body::{BodyKind, KrpcBody, Query, Reply},

@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use chrono::{Utc, DateTime};
 use derivative::Derivative;
 
-use crate::common::id::Id;
+use crate::common::Id;
 
 #[derive(Derivative)] 
 #[derivative(Debug, PartialEq, Eq, Clone, Hash)]

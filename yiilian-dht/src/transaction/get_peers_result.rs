@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use bytes::Bytes;
 use derivative::Derivative;
 
-use crate::{common::id::Id, routing_table::Node};
+use crate::{common::Id, routing_table::Node};
 
 
 /// Represents the results of a get_peers operation

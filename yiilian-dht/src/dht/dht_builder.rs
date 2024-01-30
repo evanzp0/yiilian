@@ -7,7 +7,7 @@ use yiilian_core::{
 };
 
 use crate::{
-    common::setting::Settings,
+    common::Settings,
     data::body::KrpcBody,
     service::{KrpcService, RouterService},
 };

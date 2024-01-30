@@ -4,7 +4,7 @@ use bytes::Bytes;
 use yiilian_core::data::{decode, Body, Encode};
 use yiilian_core::{common::error::Error, data::BencodeFrame as Frame};
 
-use crate::common::id::Id;
+use crate::common::Id;
 use crate::transaction::TransactionId;
 
 use super::{

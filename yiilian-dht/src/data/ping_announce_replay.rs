@@ -3,7 +3,7 @@ use std::{collections::HashMap, net::SocketAddr};
 use bytes::Bytes;
 use yiilian_core::{common::error::Error, data::BencodeFrame as Frame};
 
-use crate::{common::id::Id, gen_frame_common_field, transaction::TransactionId};
+use crate::{common::Id, gen_frame_common_field, transaction::TransactionId};
 
 use super::util::extract_frame_common_field;
 

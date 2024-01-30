@@ -2,7 +2,7 @@ use std::{net::SocketAddr, num::NonZeroUsize};
 
 use chrono::{DateTime, Utc};
 use lru::LruCache;
-use crate::common::id::Id;
+use crate::common::Id;
 
 use super::Peer;
 

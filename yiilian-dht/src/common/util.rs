@@ -33,7 +33,6 @@ pub fn calculate_token<T: AsRef<[u8]>>(remote: &SocketAddr, secret: T) -> [u8; 4
 /// # Example
 /// ```
 /// # use yiilian_dht::routing_table::*;
-/// # use yiilian_dht::util::*;
 /// # use yiilian_dht::common::*;
 /// use bytes::Bytes;
 /// use std::net::{SocketAddr, ToSocketAddrs};
@@ -70,7 +69,6 @@ pub fn bytes_to_nodes4(bytes: &[u8], id_size: usize) -> Result<Vec<Node>, Error>
 /// # Example
 /// ```
 /// # use yiilian_dht::routing_table::*;
-/// # use yiilian_dht::util::*;
 /// # use yiilian_dht::common::*;
 /// 
 /// use bytes::Bytes;
@@ -138,7 +136,7 @@ macro_rules! split_bytes {
 macro_rules! merge_node_bytes {
     {$nodes: expr, $len: expr} => {
         {
-            let node_bytes: Vec<u8> = crate::common::util::nodes4_to_bytes($nodes, $len);
+            let node_bytes: Vec<u8> = crate::common::nodes4_to_bytes($nodes, $len);
             let rst: bytes::Bytes = node_bytes.into();
             rst
         }

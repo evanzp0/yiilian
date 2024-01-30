@@ -8,25 +8,6 @@ use crate::data::{Request, Response, Body};
 use crate::service::service::Service;
 
 /// Create a `Service` from a function.
-///
-/// # Example
-///
-/// ```
-/// use bytes::Bytes;
-/// use hyper::{body, Request, Response, Version};
-/// use http_body_util::Full;
-/// use hyper::service::service_fn;
-///
-/// let service = service_fn(|req: Request<body::Incoming>| async move {
-///     if req.version() == Version::HTTP_11 {
-///         Ok(Response::new(Full::<Bytes>::from("Hello World")))
-///     } else {
-///         // Note: it's usually better to return a Response
-///         // with an appropriate StatusCode instead of an Err.
-///         Err("not HTTP/1.1, abort connection")
-///     }
-/// });
-/// ```
 pub fn service_fn<F, R, S>(f: F) -> ServiceFn<F, R>
 where
     F: Fn(Request<R>) -> S,
