@@ -35,6 +35,16 @@ impl DhtBuilder<Identity, RouterService> {
             shutdown_rx,
         }
     }
+
+    pub fn settings(mut self, settings: Settings) -> Self {
+        self.settings = Some(settings);
+        self
+    }
+
+    pub fn block_list(mut self, block_list: HashSet<BlockAddr>) -> Self {
+        self.block_list = Some(block_list);
+        self
+    }
 }
 
 impl<L, S> DhtBuilder<L, S> {
