@@ -1,18 +1,33 @@
+
 use std::{net::SocketAddr, path::Path};
 
 use futures::future::join_all;
 
-use yiilian_core::common::{error::Error, shutdown::{create_shutdown, ShutdownReceiver}};
+use tokio::sync::broadcast::{self, Sender};
+use yiilian_core::{
+    common::{
+        error::Error,
+        shutdown::{create_shutdown, ShutdownReceiver},
+    },
+    data::Request,
+    service::EventLayer,
+};
 use yiilian_crawler::common::{Config, DEFAULT_CONFIG_FILE};
-use yiilian_dht::{data::body::KrpcBody, dht::{Dht, DhtBuilder}, service::KrpcService};
+use yiilian_crawler::event::RecvAnnounceListener;
+use yiilian_dht::{
+    data::body::KrpcBody,
+    dht::{Dht, DhtBuilder},
+    service::KrpcService,
+};
 
 #[tokio::main]
 async fn main() {
     set_up_logging_from_file::<&str>(None);
     let config = Config::from_file(DEFAULT_CONFIG_FILE);
     let (mut shutdown_tx, shutdown_rx) = create_shutdown();
-
-    let dht_list = create_dht_list(&config, shutdown_rx.clone()).unwrap();
+    let (tx, rx) = broadcast::channel(1024);
+    let dht_list = create_dht_list(&config, shutdown_rx.clone(), tx).unwrap();
+    let mut announce_listener = RecvAnnounceListener::new(rx, shutdown_rx.clone());
 
     drop(shutdown_rx);
 
@@ -26,6 +41,7 @@ async fn main() {
             join_all(futs).await;
 
         } => (),
+        _ = announce_listener.listen() => (),
         _ = tokio::signal::ctrl_c() => {
             drop(dht_list);
 
@@ -39,9 +55,13 @@ async fn main() {
 fn create_dht_list(
     config: &Config,
     shutdown_rx: ShutdownReceiver,
-) 
-    -> Result<Vec<Dht<impl KrpcService<KrpcBody, ResBody = KrpcBody, Error = Error> + Clone + Send + 'static>>, Error> 
-{
+    tx: Sender<Request<KrpcBody>>,
+) -> Result<
+    Vec<
+        Dht<impl KrpcService<KrpcBody, ResBody = KrpcBody, Error = Error> + Clone + Send + 'static>,
+    >,
+    Error,
+> {
     let mut dht_list = vec![];
 
     let ports = &config.dht.ports;
@@ -49,20 +69,22 @@ fn create_dht_list(
     if ports.len() == 2 {
         let port_start = ports[0];
         let port_end = ports[1];
-            for port in port_start..=port_end {
-                let local_addr: SocketAddr = format!("0.0.0.0:{port}").parse().unwrap();
+        for port in port_start..=port_end {
+            let local_addr: SocketAddr = format!("0.0.0.0:{port}").parse().unwrap();
 
-                let dht = DhtBuilder::new(local_addr, shutdown_rx.clone())
-                    .build()
-                    .unwrap();
+            let dht = DhtBuilder::new(local_addr, shutdown_rx.clone())
+                .layer(EventLayer::new(tx.clone()))
+                .build()
+                .unwrap();
 
-                dht_list.push(dht);
-            }
+            dht_list.push(dht);
+        }
     } else {
         for port in ports {
             let local_addr: SocketAddr = format!("0.0.0.0:{port}").parse().unwrap();
 
             let dht = DhtBuilder::new(local_addr, shutdown_rx.clone())
+                .layer(EventLayer::new(tx.clone()))
                 .build()
                 .unwrap();
 
