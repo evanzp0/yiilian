@@ -5,6 +5,7 @@ use futures::FutureExt;
 use tokio::net::UdpSocket;
 use yiilian_core::common::error::trace_panic;
 use yiilian_core::common::error::Error;
+use yiilian_core::common::error::Kind;
 use yiilian_core::data::{Body, Request};
 use yiilian_core::net::udp::send_to;
 
@@ -66,7 +67,7 @@ where
                 let body = match KrpcBody::from_bytes(data) {
                     Ok(val) => val,
                     Err(error) => {
-                        log::debug!(
+                        log::trace!(
                             target: "yiilian_dht::net::server",
                             "Parse krpc body error: [{}] {:?}",
                             local_port, error
@@ -76,21 +77,6 @@ where
                 };
                 Request::new(body, remote_addr, local_addr)
             };
-
-            // let service = {
-            //     match self.recv_service.make_service_ref(self.ctx.clone()).await {
-            //         Ok(svc) => svc,
-            //         Err(error) => {
-            //             log::error!(
-            //                 target: "yiilian_dht::net::server",
-            //                 "make service error: [{}] {:?}",
-            //                 local_port, error
-            //             );
-                        
-            //             Err(Error::new_general("make service error"))?
-            //         },
-            //     }
-            // };
 
             let socket = self.socket.clone();
             let service = self.recv_service.clone();
@@ -117,17 +103,23 @@ where
                             }
                         }
                         Err(error) => {
-                            log::debug!(
-                                target: "yiilian_dht::net::server",
-                                "service error: [{}] {:?}",
-                                local_port, error
-                            );
+                            match error.get_kind() {
+                                Kind::Block => {},
+                                Kind::Token => {},
+                                _ => {
+                                    log::debug!(
+                                        target: "yiilian_dht::net::server",
+                                        "service error: [{}] {:?}",
+                                        local_port, error
+                                    );
+                                }
+                            }
                         }
                     },
                     Err(error) => {
                         // 捕获 panic 后的处理
                         let (b, err) = trace_panic(&error);
-                        log::debug!(
+                        log::error!(
                             target: "yiilian_dht::net::server",
                             "service panic: [{}] {}\ntrace:\n{:?}",
                             local_port, err, b

@@ -18,7 +18,7 @@ use tokio::{
 };
 use yiilian_core::{
     common::{
-        error::Error,
+        error::{Error, Kind},
         shutdown::ShutdownReceiver,
         util::random_bytes,
     }, except_option, except_result, net::block_list::{BlockAddr, BlockList}
@@ -363,10 +363,13 @@ where
                     .await;
 
                 match rst {
-                    Err(e) => {
-                        log::debug!(target:"yiilian_dht::dht::periodic_buddy_ping", "[{}] Error ping unverified: {:?}", self.ctx_index, e);
+                    Err(error) => match error.get_kind() {
+                            Kind::Transatcion => (),
+                            _ => {
+                                log::debug!(target:"yiilian_dht::dht::periodic_buddy_ping", "[{}] Error ping unverified: {:?}", self.ctx_index, error);
+                            }
                     }
-                    _ => (),
+                    Ok(_) => {},
                 }
             }
 
@@ -383,9 +386,12 @@ where
                     .await;
 
                 match rst {
-                    Err(e) => {
-                        log::debug!(target:"yiilian_dht::dht::periodic_buddy_ping", "[{}] Error ping verified: {:?}", self.ctx_index, e);
-                    }
+                    Err(error) => match error.get_kind(){
+                        Kind::Transatcion => {},
+                        _ => {
+                            log::debug!(target:"yiilian_dht::dht::periodic_buddy_ping", "[{}] Error ping verified: {:?}", self.ctx_index, error);
+                        }
+                    },
                     _ => (),
                 }
             }

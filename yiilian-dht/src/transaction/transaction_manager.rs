@@ -178,7 +178,6 @@ impl TransactionManager {
             Err(e) => {
                 // 超时时删除对应事务(正常返回的 reply 的事务，在 handle_reply 中已经被删除了)
                 self.remove_transcation(&tran_id);
-                // log::error!(target: "yiilian_dht::transaction::send_query_no_wait", "[{}] Address {:?}, {:?} ", self.local_addr.port(), dest, e);
 
                 Err(e)
             }
@@ -705,7 +704,7 @@ impl TransactionManager {
                                     )
                                     .add_or_update(node.clone(), false)
                                     {
-                                        log::debug!(
+                                        log::trace!(
                                             target: "yiilian_dht::transaction::find_node", 
                                             "[{}] Add node {:?} to buckets failed, error: {}", 
                                             self.local_addr.port(), node, e
@@ -743,7 +742,7 @@ impl TransactionManager {
                         // 已在 send_query() 中加入了黑名单
                         buckets.remove(&dest_id);
 
-                        log::debug!(
+                        log::trace!(
                             target: "yiilian_dht::transaction::find_node",
                             "[{}] {:?} find_node error: {}",
                             self.local_addr.port(), dest_addr, error
@@ -903,7 +902,7 @@ impl TransactionManager {
                                             )
                                             .add_or_update(node.clone(), false)
                                             {
-                                                log::debug!(
+                                                log::trace!(
                                                     target: "yiilian_dht::transaction::get_peers",
                                                     "[{}] Add node {:?} to buckets failed, error: {}",
                                                     self.local_addr.port(), node, e
@@ -936,7 +935,7 @@ impl TransactionManager {
                             }
                         }
                         _ => {
-                            log::debug!(
+                            log::trace!(
                                 target: "yiilian_dht::transaction::get_peers",
                                 "[{}] Address {:?} got wrong packet type back: {:?}",
                                 self.local_addr.port(), dest_node.address, reply
@@ -959,7 +958,7 @@ impl TransactionManager {
                     Err(error) => {
                         // 已在 send_query() 中加入了黑名单
                         buckets.remove(&dest_node.id);
-                        log::debug!(
+                        log::trace!(
                             target: "yiilian_dht::transaction::get_peers",
                             "[{}] {:?} get_peers error: {}",
                             self.local_addr.port(), dest_node.address, error
@@ -1049,7 +1048,7 @@ impl TransactionManager {
                         to_ret.push(dest_node);
                     }
                     _ => {
-                        log::debug!(
+                        log::trace!(
                             target: "yiilian_dht::transaction::announce_peer",
                             "[{}] Got wrong packet type back: {:?}",
                             self.local_addr.port(), reply

@@ -15,9 +15,7 @@ use yiilian_core::{
 use yiilian_crawler::common::{Config, DEFAULT_CONFIG_FILE};
 use yiilian_crawler::event::RecvAnnounceListener;
 use yiilian_dht::{
-    data::body::KrpcBody,
-    dht::{Dht, DhtBuilder},
-    service::KrpcService,
+    common::SettingsBuilder, data::body::KrpcBody, dht::{Dht, DhtBuilder}, service::KrpcService
 };
 
 #[tokio::main]
@@ -65,6 +63,14 @@ fn create_dht_list(
     let mut dht_list = vec![];
 
     let ports = &config.dht.ports;
+    let block_ips = config.get_dht_block_list();
+    let settings = if let Some(routers) = &config.dht.routers {
+        let mut st = SettingsBuilder::new().build();
+        st.routers = routers.clone();
+        Some(st)
+    } else {
+        None
+    };
 
     if ports.len() == 2 {
         let port_start = ports[0];
@@ -73,6 +79,8 @@ fn create_dht_list(
             let local_addr: SocketAddr = format!("0.0.0.0:{port}").parse().unwrap();
 
             let dht = DhtBuilder::new(local_addr, shutdown_rx.clone())
+                .block_list(block_ips.clone())
+                .settings(settings.clone())
                 .layer(EventLayer::new(tx.clone()))
                 .build()
                 .unwrap();

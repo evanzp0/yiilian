@@ -36,13 +36,13 @@ impl DhtBuilder<Identity, RouterService> {
         }
     }
 
-    pub fn settings(mut self, settings: Settings) -> Self {
-        self.settings = Some(settings);
+    pub fn settings(mut self, settings: Option<Settings>) -> Self {
+        self.settings = settings;
         self
     }
 
-    pub fn block_list(mut self, block_list: HashSet<BlockAddr>) -> Self {
-        self.block_list = Some(block_list);
+    pub fn block_list(mut self, block_list: Option<HashSet<BlockAddr>>) -> Self {
+        self.block_list = block_list;
         self
     }
 }
