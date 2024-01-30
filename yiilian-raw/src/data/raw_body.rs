@@ -1,7 +1,7 @@
 use bytes::Bytes;
 use yiilian_core::data::Body;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RawBody {
     data: Bytes,
 }

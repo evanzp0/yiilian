@@ -2,7 +2,7 @@ use bytes::{Buf, Bytes};
 
 use super::{Request, Response};
 
-pub trait Body {
+pub trait Body: Clone {
     type Data: Buf;
 
     fn get_data(&mut self) -> Self::Data;

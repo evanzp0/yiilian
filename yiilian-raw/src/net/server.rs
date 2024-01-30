@@ -37,7 +37,7 @@ where
             async {
                 loop {
                     println!("zzZZZ ~~~");
-                    sleep(Duration::from_secs(5)).await;
+                    sleep(Duration::from_secs(60)).await;
                 }
             },
             "sleep and loop",
