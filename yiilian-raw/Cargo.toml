@@ -6,8 +6,10 @@ edition = "2021"
 [dependencies]
 yiilian-core = "0.1"
 tokio = { version = "1", features = ["full"]}
-bytes = "1.5"
+bytes = "1"
 log = "0.4"
 futures = "0.3"
+
+[dev-dependencies]
 env_logger = "0.10"
 dotenv = "0.15"
