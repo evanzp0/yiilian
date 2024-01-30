@@ -34,12 +34,12 @@ use crate::{
         setting::{Settings, SettingsBuilder},
         state::State,
     },
-    data::body::KrpcBody,
+    data::body::{KrpcBody, Reply},
     net::{Client, Server},
     peer::PeerManager,
-    routing_table::{Persist, RoutingTable},
+    routing_table::{Node, Persist, RoutingTable},
     service::KrpcService,
-    transaction::TransactionManager,
+    transaction::{GetPeersResult, TransactionManager},
 };
 pub struct Dht<S> {
     ctx_index: u16,
@@ -615,4 +615,33 @@ async fn persist_nodes(ctx_index: u16, nodes_file: PathBuf) {
             log::error!(target:"yiilian_dht::routing_table::save_nodes", "Path create {:?} error: {}", parent_path, e);
         }
     }
+}
+
+pub async fn ping(
+    ctx_index: u16,
+    target_addr: SocketAddr,
+    target_id: Option<Id>,
+) -> Result<Reply, Error> {
+    dht_ctx_trans_mgr(ctx_index).ping(target_addr, target_id).await
+}
+
+pub async fn find_node(ctx_index: u16, target_id: Id) -> Result<Vec<Node>, Error> {
+    let rst = dht_ctx_trans_mgr(ctx_index).find_node(target_id).await;
+    Ok(rst)
+}
+
+pub async fn get_peers(
+    ctx_index: u16,
+    info_hash: Id,
+    quick_mode: bool,
+) -> Result<GetPeersResult, Error> {
+    dht_ctx_trans_mgr(ctx_index).get_peers(info_hash, quick_mode).await
+}
+
+pub async fn announce_peer(
+    ctx_index: u16,
+    local_addr: SocketAddr,
+    info_hash: Id,
+) -> Result<Vec<Node>, Error> {
+    dht_ctx_trans_mgr(ctx_index).announce_peer(info_hash, Some(local_addr.port())).await
 }
