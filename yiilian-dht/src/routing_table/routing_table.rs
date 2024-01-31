@@ -74,6 +74,11 @@ impl RoutingTable {
             Err(Error::new_block(&format!("{} is blocked", node.address)))?;
         }
 
+        // 端口号不合法
+        if node.address.port() == 0 {
+            Err(Error::new_block(&format!("The port of {} is invalid", node.address)))?;
+        }
+
         // 对方节点响应我方请求则 verified node
         if verified {
             self.add_or_update_verified(node)?;

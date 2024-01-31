@@ -450,7 +450,7 @@ impl TransactionManager {
         };
         // log::trace!(target: "yiilian_dht::handle_reply", "sender: {},  it's id {} is valid : {}", sender, their_id, id_is_valid);
 
-        if id_is_valid {
+        if id_is_valid && sender.port() > 0 {
             // 根据这次的reply，对我们的外网IP增加 vote，注意 reply.requester_ip 是对方认为我们的外网 IP
             Self::ip4_vote_helper(self.ctx_index, &sender, &reply.get_ip());
 
@@ -540,6 +540,10 @@ impl TransactionManager {
     ) -> Result<Reply, Error> {
         // log::trace!(target:"yiilian_dht::operation", "ping to {} with target_id : {:?}", target_addr, target_id);
 
+        if target_addr.port() == 0 {
+            Err(Error::new_general(&format!("ping target_addr is invalid: {}", target_addr)))?
+        }
+
         let local_id = except_result!(
             dht_ctx_state(self.ctx_index).read(),
             "dht_ctx_state.read() failed"
@@ -572,6 +576,10 @@ impl TransactionManager {
         target_id: Option<Id>,
     ) -> Result<(), Error> {
         // log::trace!(target:"yiilian_dht::operation", "ping to {} with target_id : {:?}", target_addr, target_id);
+
+        if target_addr.port() == 0 {
+            Err(Error::new_general(&format!("ping_no_wait target_addr is invalid: {}", target_addr)))?
+        }
 
         let local_id = except_result!(
             dht_ctx_state(self.ctx_index).read(),
@@ -697,7 +705,7 @@ impl TransactionManager {
                                     )
                                 };
 
-                                if id_is_valid {
+                                if id_is_valid && node.address.port() > 0 {
                                     if let Err(e) = except_result!(
                                         dht_ctx_routing_tbl(self.ctx_index).lock(),
                                         "dht_ctx_routing_tbl.lock() failed"
@@ -886,7 +894,7 @@ impl TransactionManager {
                                         )
                                     };
 
-                                    if id_is_valid
+                                    if id_is_valid && node.address.port() > 0
                                     // && !in_block_list
                                     {
                                         if quick_mode {

@@ -21,6 +21,10 @@ pub async fn recv_from(socket: &Arc<UdpSocket>) -> Result<(Bytes, SocketAddr)> {
 
 /// 通过 socket 发送一个帧
 pub async fn send_to(socket: &Arc<UdpSocket>, data: &Bytes, dest: SocketAddr) -> Result<usize> {
+    if dest.port() == 0 {
+        Err(Error::new_general(&format!("send_to address is invalid: {}", dest)))?
+    }
+
     match socket.send_to(data, dest).await {
         Ok(val) => Ok(val),
         Err(e) => {
