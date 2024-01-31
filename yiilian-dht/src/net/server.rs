@@ -83,7 +83,7 @@ where
 
             // 每个收到的连接都会在独立的任务中处理
             tokio::spawn(async move {
-                let rst = service.call(req).catch_unwind().await;
+                let rst = service.call(req.clone()).catch_unwind().await;
                 match rst {
                     Ok(rst) => match rst {
                         Ok(mut res) => {
@@ -92,24 +92,31 @@ where
                                 _=> {
                                     if let Err(error) = send_to(&socket, &res.get_data(), res.remote_addr).await
                                     {
-                                        match error.get_kind() {
-                                            Kind::Conntrack => {
-                                                log::error!(
-                                                    target: "yiilian_dht::net::server",
-                                                    "send_to error: [{}] {:?}",
-                                                    local_port,
-                                                    error
-                                                );
-                                            },
-                                            _ => {
-                                                log::debug!(
-                                                    target: "yiilian_dht::net::server",
-                                                    "send_to error: [{}] {:?}",
-                                                    local_port,
-                                                    error
-                                                );
-                                            },
-                                        }
+                                        // match error.get_kind() {
+                                        //     Kind::Conntrack => {
+                                        //         log::error!(
+                                        //             target: "yiilian_dht::net::server",
+                                        //             "send_to error: [{}] {:?}",
+                                        //             local_port,
+                                        //             error
+                                        //         );
+                                        //     },
+                                        //     _ => {
+                                        //         log::debug!(
+                                        //             target: "yiilian_dht::net::server",
+                                        //             "send_to error: [{}] {:?}",
+                                        //             local_port,
+                                        //             error
+                                        //         );
+                                        //     },
+                                        // }
+                                        log::error!(
+                                            target: "yiilian_dht::net::server",
+                                            "send_to error: [{}] {:?}\n req:\n{:?}",
+                                            local_port,
+                                            error,
+                                            req
+                                        );
                                     }
                                 },
                             }

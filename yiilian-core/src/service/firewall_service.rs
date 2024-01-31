@@ -85,7 +85,7 @@ where
 
         if let Some((is_over_limit, track)) = over_limit {
             log::trace!(
-                target: "yiilian_dht::service::firewall_service",
+                target: "yiilian_core::service::firewall_service",
                 "[{}] address {} request {} times, rps: {}",
                 req.local_addr.port(), req.remote_addr, track.access_times, track.rps()
             );
@@ -105,7 +105,7 @@ where
                 ));
 
                 log::debug!(
-                        target: "yiilian_dht::service::firewall_service", 
+                        target: "yiilian_core::service::firewall_service", 
                         "[{}] Firewall block address: {}, access {} times, rps: {}", 
                         req.local_addr.port(), req.remote_addr, track.access_times, track.rps());
                 Err(e)?
