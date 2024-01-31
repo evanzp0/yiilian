@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use tokio::net::UdpSocket;
-use yiilian_core::{common::error::Error, data::{Body, Request}};
+use yiilian_core::{common::error::Error, data::{Body, Request}, net::udp::send_to};
 
 use crate::data::body::KrpcBody;
 
@@ -20,9 +20,11 @@ impl Client {
         let dest = req.remote_addr;
         let data = req.get_data();
 
-        self.socket
-            .send_to(&data, dest)
-            .await
-            .map_err(|e| Error::new_io(Some(e.into()), Some(dest)))
+        // self.socket
+        //     .send_to(&data, dest)
+        //     .await
+        //     .map_err(|e| Error::new_io(Some(e.into()), Some(dest)))
+
+        send_to(&self.socket, &data, dest).await
     }
 }

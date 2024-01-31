@@ -33,6 +33,7 @@ pub enum Kind {
 
     ChannelClosed,
 
+    /// Indicates connect track error
     Conntrack,
 
     IO,
@@ -80,6 +81,10 @@ impl Error {
                 connect_info,
             }),
         }
+    }
+
+    pub fn new_conntrack(cause: Option<Cause>, description: Option<String>, connect_info: Option<SocketAddr>) -> Self {
+        Error::new(Kind::Conntrack, description, cause, connect_info)
     }
 
     pub fn new_path(cause: Option<Cause>, description: Option<String>) -> Self {

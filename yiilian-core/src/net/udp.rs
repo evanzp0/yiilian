@@ -20,9 +20,22 @@ pub async fn recv_from(socket: &Arc<UdpSocket>) -> Result<(Bytes, SocketAddr)> {
 }
 
 /// 通过 socket 发送一个帧
-pub async fn send_to(socket: Arc<UdpSocket>, data: &Bytes, dest: SocketAddr) -> Result<()> {
+pub async fn send_to(socket: &Arc<UdpSocket>, data: &Bytes, dest: SocketAddr) -> Result<usize> {
     match socket.send_to(data, dest).await {
-        Ok(_) => Ok(()),
-        Err(e) => Err(Error::new_io(Some(e.into()), Some(dest))),
+        Ok(val) => Ok(val),
+        Err(e) => {
+            #[cfg(target_os = "linux")]
+            if e.kind() == std::io::ErrorKind::PermissionDenied {
+                return Err(Error::new_conntrack(
+                    Some(e.into()),
+                    Some(
+                        "send_to resulted in PermissionDenied. Is conntrack table full?".to_owned(),
+                    ),
+                    Some(dest),
+                ));
+            }
+
+            Err(Error::new_io(Some(e.into()), Some(dest)))
+        }
     }
 }

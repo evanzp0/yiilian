@@ -90,14 +90,26 @@ where
                             match res.body.get_kind() {
                                 BodyKind::Empty => {}, // response body 为空则不需要 send_to
                                 _=> {
-                                    if let Err(error) = send_to(socket, &res.get_data(), res.remote_addr).await
+                                    if let Err(error) = send_to(&socket, &res.get_data(), res.remote_addr).await
                                     {
-                                        log::debug!(
-                                            target: "yiilian_dht::net::server",
-                                            "send_to error: [{}] {:?}",
-                                            local_port,
-                                            error
-                                        );
+                                        match error.get_kind() {
+                                            Kind::Conntrack => {
+                                                log::error!(
+                                                    target: "yiilian_dht::net::server",
+                                                    "send_to error: [{}] {:?}",
+                                                    local_port,
+                                                    error
+                                                );
+                                            },
+                                            _ => {
+                                                log::debug!(
+                                                    target: "yiilian_dht::net::server",
+                                                    "send_to error: [{}] {:?}",
+                                                    local_port,
+                                                    error
+                                                );
+                                            },
+                                        }
                                     }
                                 },
                             }
