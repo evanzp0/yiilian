@@ -1,4 +1,4 @@
-use std::panic::{RefUnwindSafe, UnwindSafe};
+
 use std::error::Error as StdError;
 
 use yiilian_core::{
@@ -19,14 +19,14 @@ impl<S> LogService<S> {
 
 impl<S, B> Service<Request<B>> for LogService<S>
 where
-    S: Service<Request<B>, Response = Response<B>> + Send + Sync + RefUnwindSafe,
+    S: Service<Request<B>, Response = Response<B>> + Send + Sync,
     S::Error: Into<Box<dyn StdError + Send + Sync>>,
-    B: Body + Send + UnwindSafe,
+    B: Body + Send,
 {
     type Response = S::Response;
     type Error = S::Error;
 
-    async fn call(&self, req: Request<B>) -> Result<Self::Response, Self::Error> {
+    async fn call(&mut self, req: Request<B>) -> Result<Self::Response, Self::Error> {
         // if req.len() == 3 {
         //     panic!("req.len == 3")
         // }

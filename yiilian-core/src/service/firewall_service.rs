@@ -1,26 +1,25 @@
 use std::{
     net::SocketAddr,
     num::NonZeroUsize,
-    panic::{RefUnwindSafe, UnwindSafe},
     sync::{Arc, RwLock},
     time::Duration,
 };
 
-use chrono::{DateTime, Utc};
-use lru::LruCache;
 use crate::{
     common::{error::Error, expect_log::ExpectLog, shutdown::ShutdownReceiver},
     data::{Request, Response},
     net::block_list::BlockList,
     service::{Layer, Service},
 };
+use chrono::{DateTime, Utc};
+use lru::LruCache;
 
 pub const BLOCK_SEC: u64 = 60 * 60 * 8;
 
 #[derive(Clone)]
 pub struct FirewallService<S> {
     track_state: Arc<RwLock<TrackState>>,
-    block_list: Arc<RwLock<BlockList>>,
+    block_list: BlockList,
     limit_per_sec: i64,
     inner: S,
 }
@@ -34,9 +33,9 @@ impl<F> FirewallService<F> {
         shutdown_rx: ShutdownReceiver,
     ) -> Self {
         let track_state = Arc::new(RwLock::new(TrackState::new(max_tracks)));
-        let block_list = Arc::new(RwLock::new(BlockList::new(block_list_max_size.unwrap_or(65535), None, shutdown_rx)));
+        let block_list = BlockList::new(block_list_max_size.unwrap_or(65535), None, shutdown_rx);
 
-        block_list.read().expect_error("block_list.read() error").prune_loop();
+        block_list.prune_loop();
 
         FirewallService {
             track_state,
@@ -48,19 +47,19 @@ impl<F> FirewallService<F> {
 
     /// 判断 addr 是否在黑名单中
     pub fn is_blocked(&self, addr: &SocketAddr) -> bool {
-        self.block_list.read().expect_error("block_list.read() error").contains(addr.ip(), addr.port())
+        self.block_list.contains(addr.ip(), addr.port())
     }
 }
 
 impl<S, B1, B2> Service<Request<B1>> for FirewallService<S>
 where
-    S: Service<Request<B1>, Response = Response<B2>, Error = Error> + Send + Sync + RefUnwindSafe,
-    B1: Send + UnwindSafe,
+    S: Service<Request<B1>, Response = Response<B2>, Error = Error> + Send + Sync,
+    B1: Send,
 {
     type Response = S::Response;
     type Error = S::Error;
 
-    async fn call(&self, req: Request<B1>) -> Result<Self::Response, Self::Error> {
+    async fn call(&mut self, req: Request<B1>) -> Result<Self::Response, Self::Error> {
         let is_blocked = self.is_blocked(&req.remote_addr);
         let local_port = req.local_addr.port();
 
@@ -76,10 +75,15 @@ where
         }
 
         // if let Some(track_state) = track_state_map.get_mut(&local_port) {
-        self.track_state.write().expect_error("track_state.write() error")
+        self.track_state
+            .write()
+            .expect_error("track_state.write() error")
             .add_track_times(req.remote_addr);
 
-        let over_limit = self.track_state.write().expect_error("track_state.write() error")
+        let over_limit = self
+            .track_state
+            .write()
+            .expect_error("track_state.write() error")
             .is_over_limit(req.remote_addr, self.limit_per_sec);
 
         if let Some((is_over_limit, track)) = over_limit {
@@ -91,7 +95,7 @@ where
 
             // 超出防火墙限制，加入黑名单并返回
             if is_over_limit {
-               self.block_list.write().expect_error("block_list.write() error").insert(
+                self.block_list.insert(
                     req.remote_addr.ip(),
                     req.remote_addr.port() as i32,
                     Some(Duration::from_secs(BLOCK_SEC)),
@@ -207,7 +211,9 @@ impl AccessTrack {
     }
 
     fn rps(&self) -> f64 {
-        let elapsed = (self.update_time - self.window_begin_time).num_microseconds().unwrap_or(0);
+        let elapsed = (self.update_time - self.window_begin_time)
+            .num_microseconds()
+            .unwrap_or(0);
         if elapsed > 0 {
             let tps = (self.access_times as f64 / elapsed as f64) * 1_000_000.0;
             // println!("{} {}", self.access_times, elapsed);
@@ -255,7 +261,6 @@ impl<F> Layer<F> for FirewallLayer {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use crate::{common::shutdown::create_shutdown, service::test_service::TestService};
@@ -267,11 +272,11 @@ mod tests {
         let (mut _shutdown_tx, shutdown_rx) = create_shutdown();
         let firewall_layer = FirewallLayer::new(1, 2, Some(1), shutdown_rx.clone());
 
-        let firewall_service = firewall_layer.layer(TestService::new());
+        let mut firewall_service = firewall_layer.layer(TestService::new());
         let remote_addr_1: SocketAddr = "192.168.1.1:1111".parse().unwrap();
         let remote_addr_2: SocketAddr = "192.168.1.2:1111".parse().unwrap();
         let local_addr: SocketAddr = "127.0.0.1:2222".parse().unwrap();
-        
+
         let req_1 = Request::new(1, remote_addr_1, local_addr);
         let req_2 = Request::new(1, remote_addr_2, local_addr);
 
@@ -281,9 +286,36 @@ mod tests {
         firewall_service.call(req_1.clone()).await.unwrap();
         firewall_service.call(req_2.clone()).await.unwrap();
         firewall_service.call(req_2.clone()).await.unwrap();
-        assert_eq!(2, firewall_service.track_state.write().unwrap().get_track(remote_addr_2).unwrap().access_times);
-        assert_eq!(false, firewall_service.track_state.write().unwrap().is_over_limit(remote_addr_2, 2).unwrap().0);
-        assert_eq!(true, firewall_service.track_state.write().unwrap().is_over_limit(remote_addr_2, 1).unwrap().0);
+        assert_eq!(
+            2,
+            firewall_service
+                .track_state
+                .write()
+                .unwrap()
+                .get_track(remote_addr_2)
+                .unwrap()
+                .access_times
+        );
+        assert_eq!(
+            false,
+            firewall_service
+                .track_state
+                .write()
+                .unwrap()
+                .is_over_limit(remote_addr_2, 2)
+                .unwrap()
+                .0
+        );
+        assert_eq!(
+            true,
+            firewall_service
+                .track_state
+                .write()
+                .unwrap()
+                .is_over_limit(remote_addr_2, 1)
+                .unwrap()
+                .0
+        );
 
         if let Err(_) = firewall_service.call(req_2.clone()).await {
             assert!(true)

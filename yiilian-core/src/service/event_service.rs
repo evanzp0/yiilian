@@ -1,4 +1,4 @@
-use std::panic::{RefUnwindSafe, UnwindSafe};
+
 use std::{error::Error as StdError, fmt::Debug};
 
 use tokio::sync::broadcast::Sender;
@@ -20,19 +20,18 @@ impl<S, T> EventService<S, T> {
     }
 }
 
-impl<S, T> RefUnwindSafe for EventService<S, T> {}
 
 impl<S, B1, B2> Service<Request<B1>> for EventService<S, Request<B1>>
 where
-    S: Service<Request<B1>, Response = Response<B2>> + Send + Sync + RefUnwindSafe,
+    S: Service<Request<B1>, Response = Response<B2>> + Send + Sync,
     S::Error: Into<Box<dyn StdError + Send + Sync>>,
-    B1: Clone + Debug + Body + Send + UnwindSafe,
-    B2: Body + Send + UnwindSafe,
+    B1: Clone + Debug + Body + Send,
+    B2: Body + Send,
 {
     type Response = S::Response;
     type Error = S::Error;
 
-    async fn call(&self, req: Request<B1>) -> Result<Self::Response, Self::Error> {
+    async fn call(&mut self, req: Request<B1>) -> Result<Self::Response, Self::Error> {
         if let Err(e) = self.tx.send(req.clone()) {
             log::debug!("error: {:?}", e);
         }

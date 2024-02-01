@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use std::{error::Error as StdError, net::SocketAddr, fmt, panic::UnwindSafe, cell::RefCell, any::Any};
+use std::{error::Error as StdError, net::SocketAddr, fmt, cell::RefCell, any::Any};
 
 use backtrace::Backtrace;
 
@@ -156,8 +156,6 @@ impl Error {
         None
     }
 }
-
-impl UnwindSafe for Error {}
 
 impl fmt::Debug for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

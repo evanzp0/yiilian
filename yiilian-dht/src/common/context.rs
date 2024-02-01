@@ -64,8 +64,6 @@ impl Context {
     }
 }
 
-// impl RefUnwindSafe for Context {}
-
 pub fn dht_ctx(ctx_index: u16) -> &'static Context {
     let ctx_map = unsafe { DHT_CONTEXT.get().expect_error("DHT_CONTEXT get() is None") };
     let ctx = ctx_map.get(&ctx_index).expect_error("Item in DHT_CONTEXT Map is not set");

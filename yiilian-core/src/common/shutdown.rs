@@ -24,9 +24,6 @@ impl ShutdownReceiver {
     }
 }
 
-// unsafe impl Send for ShutdownReceiver {}
-// impl UnwindSafe for ShutdownReceiver {}
-
 /// 包含了将"关闭信号"，发送给异步任务的方法
 pub struct ShutdownSender {
     /// 关闭信号发送端

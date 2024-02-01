@@ -28,7 +28,7 @@ impl Service<Request<KrpcBody>> for RouterService {
 
     type Error = Error;
 
-    async fn call(&self, req: Request<KrpcBody>) -> Result<Self::Response, Self::Error> {
+    async fn call(&mut self, req: Request<KrpcBody>) -> Result<Self::Response, Self::Error> {
         let ctx_index = self.local_addr.port();
         let req_body = req.body.get_kind();
 

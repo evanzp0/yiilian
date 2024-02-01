@@ -4,11 +4,10 @@ use std::time::Duration;
 use std::{net::SocketAddr, sync::Arc};
 
 use bytes::Bytes;
-use futures::FutureExt;
 use tokio::net::UdpSocket;
 use tokio::time::sleep;
-use yiilian_core::common::error::{trace_panic, Error};
-use yiilian_core::common::shutdown::{ShutdownReceiver, spawn_with_shutdown};
+use yiilian_core::common::error::Error;
+use yiilian_core::common::shutdown::{spawn_with_shutdown, ShutdownReceiver};
 use yiilian_core::data::{Body, Request};
 use yiilian_core::net::udp::send_to;
 
@@ -26,11 +25,7 @@ where
     S: RawService<RawBody, ResBody = RawBody> + Clone + Send + 'static,
     S::Error: Debug + Send,
 {
-    pub fn new(
-        socket: Arc<UdpSocket>,
-        recv_service: S,
-        shutdown_rx: ShutdownReceiver,
-    ) -> Self {
+    pub fn new(socket: Arc<UdpSocket>, recv_service: S, shutdown_rx: ShutdownReceiver) -> Self {
         // 后台发送监听任务
         spawn_with_shutdown(
             shutdown_rx.clone(),
@@ -43,7 +38,7 @@ where
             "sleep and loop",
             None,
         );
-        
+
         let local_addr = socket.local_addr().expect("Get local address error");
         Server {
             socket,
@@ -87,7 +82,7 @@ where
                     log::debug!(
                         target: "yiilian_raw::net::server",
                         "recv error: [{}] {:?}",
-                        local_port, 
+                        local_port,
                         error
                     );
                     continue;
@@ -97,40 +92,29 @@ where
             let data: Bytes = buf[..len].to_owned().into();
             let req = Request::new(RawBody::new(data), remote_addr, local_addr);
 
-            let service = self.recv_service.clone();
+            let mut service = self.recv_service.clone();
             let socket = self.socket.clone();
 
             // 每个收到的连接都会在独立的任务中处理
             tokio::spawn(async move {
-                let rst = service.call(req).catch_unwind().await;
+                let rst = service.call(req).await;
                 match rst {
-                    Ok(rst) => match rst {
-                        Ok(mut res) => {
-                            if let Err(error) = send_to(&socket, &res.get_data(), res.remote_addr).await
-                            {
-                                log::debug!(
-                                    target: "yiilian_raw::net::server",
-                                    "send_to error: [{}] {:?}",
-                                    local_port,
-                                    error
-                                );
-                            }
-                        }
-                        Err(error) => {
+                    Ok(mut res) => {
+                        if let Err(error) = send_to(&socket, &res.get_data(), res.remote_addr).await
+                        {
                             log::debug!(
-                                target: "yiilian_dht::net::server",
-                                "service error: [{}] {:?}",
-                                local_port, error
+                                target: "yiilian_raw::net::server",
+                                "send_to error: [{}] {:?}",
+                                local_port,
+                                error
                             );
                         }
-                    },
+                    }
                     Err(error) => {
-                        // 捕获 panic 后的处理
-                        let (b, err) = trace_panic(&error);
                         log::debug!(
                             target: "yiilian_dht::net::server",
-                            "service panic: [{}] {}\ntrace:\n{:?}",
-                            local_port, err, b
+                            "service error: [{}] {:?}",
+                            local_port, error
                         );
                     }
                 }

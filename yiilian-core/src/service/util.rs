@@ -2,7 +2,6 @@ use std::error::Error as StdError;
 use std::fmt;
 use std::future::Future;
 use std::marker::PhantomData;
-use std::panic::{UnwindSafe, RefUnwindSafe};
 
 use crate::data::{Request, Response, Body};
 use crate::service::service::Service;
@@ -27,16 +26,16 @@ pub struct ServiceFn<F, R> {
 
 impl<F, ReqBody, Ret, ResBody, E> Service<Request<ReqBody>> for ServiceFn<F, ReqBody>
 where
-    F: Fn(Request<ReqBody>) -> Ret + Sync + RefUnwindSafe,
-    ReqBody: Body + Send + UnwindSafe,
-    Ret: Future<Output = Result<Response<ResBody>, E>> + Send + UnwindSafe,
+    F: Fn(Request<ReqBody>) -> Ret + Sync + Send,
+    ReqBody: Body + Send,
+    Ret: Future<Output = Result<Response<ResBody>, E>> + Send,
     E: Into<Box<dyn StdError + Send + Sync>>,
     ResBody: Body + Send,
 {
     type Response = Response<ResBody>;
     type Error = E;
     
-    async fn call(&self, req: Request<ReqBody>) -> Result<Self::Response, Self::Error> {
+    async fn call(&mut self, req: Request<ReqBody>) -> Result<Self::Response, Self::Error> {
         (self.f)(req).await
     }
 }

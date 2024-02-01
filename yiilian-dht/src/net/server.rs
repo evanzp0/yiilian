@@ -1,8 +1,6 @@
 
 use std::{net::SocketAddr, sync::Arc};
-use futures::FutureExt;
 use tokio::net::UdpSocket;
-use yiilian_core::common::error::trace_panic;
 use yiilian_core::common::error::Error;
 use yiilian_core::common::error::Kind;
 use yiilian_core::data::{Body, Request};
@@ -26,11 +24,7 @@ where
     // S::Error: Debug + Send,
     S: KrpcService<KrpcBody, ResBody = KrpcBody, Error = Error> + Clone + Send + 'static,
 {
-    pub fn new(
-        socket: Arc<UdpSocket>,
-        recv_service: S,
-    ) -> Self {
-
+    pub fn new(socket: Arc<UdpSocket>, recv_service: S) -> Self {
         let local_addr = socket.local_addr().expect("Get local address error");
         Server {
             socket,
@@ -50,7 +44,7 @@ where
                     log::debug!(
                         target: "yiilian_dht::net::server",
                         "recv error: [{}] {:?}",
-                        local_port, 
+                        local_port,
                         error
                     );
                     continue;
@@ -76,78 +70,66 @@ where
                             local_port, error
                         );
                         continue;
-                    },
+                    }
                 };
                 Request::new(body, remote_addr, local_addr)
             };
 
             let socket = self.socket.clone();
-            let service = self.recv_service.clone();
+            let mut service = self.recv_service.clone();
 
             // 每个收到的连接都会在独立的任务中处理
             tokio::spawn(async move {
-                let rst = service.call(req.clone()).catch_unwind().await;
+                let rst = service.call(req.clone()).await;
                 match rst {
-                    Ok(rst) => match rst {
-                        Ok(mut res) => {
-                            match res.body.get_kind() {
-                                BodyKind::Empty => {}, // response body 为空则不需要 send_to
-                                _=> {
-                                    if let Err(error) = send_to(&socket, &res.get_data(), res.remote_addr).await
-                                    {
-                                        // match error.get_kind() {
-                                        //     Kind::Conntrack => {
-                                        //         log::error!(
-                                        //             target: "yiilian_dht::net::server",
-                                        //             "send_to error: [{}] {:?}",
-                                        //             local_port,
-                                        //             error
-                                        //         );
-                                        //     },
-                                        //     _ => {
-                                        //         log::debug!(
-                                        //             target: "yiilian_dht::net::server",
-                                        //             "send_to error: [{}] {:?}",
-                                        //             local_port,
-                                        //             error
-                                        //         );
-                                        //     },
-                                        // }
-                                        log::error!(
-                                            target: "yiilian_dht::net::server",
-                                            "send_to error: [{}] {:?}\n req:\n{:?}",
-                                            local_port,
-                                            error,
-                                            req
-                                        );
-                                    }
-                                },
-                            }
-                        }
-                        Err(error) => {
-                            match error.get_kind() {
-                                Kind::Block => {},
-                                Kind::Token => {},
-                                Kind::General => {},
-                                _ => {
-                                    log::debug!(
+                    Ok(mut res) => {
+                        match res.body.get_kind() {
+                            BodyKind::Empty => {} // response body 为空则不需要 send_to
+                            _ => {
+                                if let Err(error) =
+                                    send_to(&socket, &res.get_data(), res.remote_addr).await
+                                {
+                                    // match error.get_kind() {
+                                    //     Kind::Conntrack => {
+                                    //         log::error!(
+                                    //             target: "yiilian_dht::net::server",
+                                    //             "send_to error: [{}] {:?}",
+                                    //             local_port,
+                                    //             error
+                                    //         );
+                                    //     },
+                                    //     _ => {
+                                    //         log::debug!(
+                                    //             target: "yiilian_dht::net::server",
+                                    //             "send_to error: [{}] {:?}",
+                                    //             local_port,
+                                    //             error
+                                    //         );
+                                    //     },
+                                    // }
+                                    log::error!(
                                         target: "yiilian_dht::net::server",
-                                        "service error: [{}] {:?}",
-                                        local_port, error
+                                        "send_to error: [{}] {:?}\n req:\n{:?}",
+                                        local_port,
+                                        error,
+                                        req
                                     );
                                 }
                             }
                         }
-                    },
-                    Err(error) => {
-                        // 捕获 panic 后的处理
-                        let (b, err) = trace_panic(&error);
-                        log::error!(
-                            target: "yiilian_dht::net::server",
-                            "service panic: [{}] {}\ntrace:\n{:?}",
-                            local_port, err, b
-                        );
                     }
+                    Err(error) => match error.get_kind() {
+                        Kind::Block => {}
+                        Kind::Token => {}
+                        Kind::General => {}
+                        _ => {
+                            log::debug!(
+                                target: "yiilian_dht::net::server",
+                                "service error: [{}] {:?}",
+                                local_port, error
+                            );
+                        }
+                    },
                 }
             });
         }

@@ -19,7 +19,7 @@ impl Service<Request<RawBody>> for DummyService {
     type Response = Response<RawBody>;
     type Error = Error;
 
-    async fn call(&self, req: Request<RawBody>) -> Result<Self::Response, Self::Error> {
+    async fn call(&mut self, req: Request<RawBody>) -> Result<Self::Response, Self::Error> {
         Ok(Response::new(req.body, req.remote_addr, req.local_addr))
     }
 }
