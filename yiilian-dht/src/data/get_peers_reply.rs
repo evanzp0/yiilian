@@ -82,7 +82,7 @@ impl TryFrom<Frame> for GetPeersReply {
             return Err(Error::new_frame(
                 None,
                 Some(format!(
-                    "Invalid frame for GetPeersFeedback, frame: {frame}"
+                    "Invalid frame for GetPeersReply, frame: {frame}"
                 )),
             ));
         }
