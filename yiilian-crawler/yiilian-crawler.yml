@@ -6,4 +6,6 @@ dht:
     - router.bittorrent.com:6881
     - router.utorrent.com:6881
   block_ips: ["127.0.0.1", "38.12.39.175"]
-  ports: [16500, 16700]
+  ports: 
+    - 16500
+    # - 16700

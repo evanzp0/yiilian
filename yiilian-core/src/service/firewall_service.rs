@@ -208,14 +208,13 @@ impl AccessTrack {
     }
 
     fn rps(&self) -> f64 {
-        let now = Utc::now();
-        let elapsed = (now - self.window_begin_time).num_microseconds().unwrap_or(0);
+        let elapsed = (self.update_time - self.window_begin_time).num_microseconds().unwrap_or(0);
         if elapsed > 0 {
             let tps = (self.access_times as f64 / elapsed as f64) * 1_000_000.0;
             // println!("{} {}", self.access_times, elapsed);
             tps
         } else {
-            0.0
+            1.0
         }
     }
 }

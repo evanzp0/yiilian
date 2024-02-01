@@ -549,12 +549,13 @@ impl TransactionManager {
             "dht_ctx_state.read() failed"
         )
         .get_local_id();
+        let read_only = dht_ctx_settings(self.ctx_index).read_only;
 
         let ping_query = Ping {
             t: TransactionId::from_random(),
             v: None,
             ip: None,
-            ro: None,
+            ro: if read_only { Some(1) } else { None },
             id: local_id,
         };
 
@@ -586,11 +587,13 @@ impl TransactionManager {
             "dht_ctx_state.read() failed"
         )
         .get_local_id();
+
+        let read_only = dht_ctx_settings(self.ctx_index).read_only;
         let ping_query = Ping {
             t: TransactionId::from_random(),
             v: None,
             ip: None,
-            ro: None,
+            ro: if read_only { Some(1) } else { None },
             id: local_id,
         };
 

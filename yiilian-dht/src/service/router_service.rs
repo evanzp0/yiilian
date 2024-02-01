@@ -26,6 +26,10 @@ impl Service<Request<KrpcBody>>  for RouterService {
         let ctx_index = self.local_addr.port();
         let req_body = req.body.get_kind();
 
+        if req.remote_addr.port() == 0 {
+            Err(Error::new_general(&format!("Request remote address is invalid: {}", req.remote_addr)))?
+        }
+
         let res = match req_body {
             BodyKind::Query(query) => {
                 let read_only = dht_ctx_settings(ctx_index).read_only;
@@ -43,7 +47,7 @@ impl Service<Request<KrpcBody>>  for RouterService {
                     let read_only = query.is_read_only();
 
                     // 有效，且对方不是 readonly （允许加入到我方的路由表的未验证 bucket 中）
-                    if is_id_valid && !read_only && req.remote_addr.port() > 0 {
+                    if is_id_valid && !read_only {
                         except_result!(dht_ctx_routing_tbl(ctx_index).lock(), "Lock context routing_table failed")
                             .add_or_update(Node::new(sender_id, req.remote_addr.clone()), false)?;
                     }

@@ -125,6 +125,7 @@ where
                             match error.get_kind() {
                                 Kind::Block => {},
                                 Kind::Token => {},
+                                Kind::General => {},
                                 _ => {
                                     log::debug!(
                                         target: "yiilian_dht::net::server",
