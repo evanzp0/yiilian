@@ -104,7 +104,7 @@ where
                     track.rps()
                 ));
 
-                log::debug!(
+                log::info!(
                         target: "yiilian_core::service::firewall_service", 
                         "[{}] Firewall block address: {}, access {} times, rps: {}", 
                         req.local_addr.port(), req.remote_addr, track.access_times, track.rps());
