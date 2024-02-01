@@ -158,26 +158,26 @@ mod test {
     }
 }
 
-#[macro_export]
-macro_rules! except_option {
-    {$option: expr, $description: expr} => {
-        if let Some(val) = $option {
-            val
-        } else {
-            log::error!($description);
-            panic!($description)
-        }
-    }
-}
+// #[macro_export]
+// macro_rules! except_option {
+//     {$option: expr, $description: expr} => {
+//         if let Some(val) = $option {
+//             val
+//         } else {
+//             log::error!($description);
+//             panic!($description)
+//         }
+//     }
+// }
 
-#[macro_export]
-macro_rules! except_result {
-    {$result: expr, $description: expr} => {
-        if let Ok(val) = $result {
-            val
-        } else {
-            log::error!($description);
-            panic!($description)
-        }
-    }
-}
+// #[macro_export]
+// macro_rules! except_result {
+//     {$result: expr, $description: expr} => {
+//         if let Ok(val) = $result {
+//             val
+//         } else {
+//             log::error!($description);
+//             panic!($description)
+//         }
+//     }
+// }

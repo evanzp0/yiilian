@@ -9,9 +9,8 @@ use std::{
 use chrono::{DateTime, Utc};
 use lru::LruCache;
 use crate::{
-    common::{error::Error, shutdown::ShutdownReceiver},
+    common::{error::Error, expect_log::ExpectLog, shutdown::ShutdownReceiver},
     data::{Request, Response},
-    except_result,
     net::block_list::BlockList,
     service::{Layer, Service},
 };
@@ -37,7 +36,7 @@ impl<F> FirewallService<F> {
         let track_state = Arc::new(RwLock::new(TrackState::new(max_tracks)));
         let block_list = Arc::new(RwLock::new(BlockList::new(block_list_max_size.unwrap_or(65535), None, shutdown_rx)));
 
-        except_result!(block_list.read(), "block_list.read() error").prune_loop();
+        block_list.read().expect_error("block_list.read() error").prune_loop();
 
         FirewallService {
             track_state,
@@ -49,7 +48,7 @@ impl<F> FirewallService<F> {
 
     /// 判断 addr 是否在黑名单中
     pub fn is_blocked(&self, addr: &SocketAddr) -> bool {
-        except_result!(self.block_list.read(), "block_list.read() error").contains(addr.ip(), addr.port())
+        self.block_list.read().expect_error("block_list.read() error").contains(addr.ip(), addr.port())
     }
 }
 
@@ -77,10 +76,10 @@ where
         }
 
         // if let Some(track_state) = track_state_map.get_mut(&local_port) {
-        except_result!(self.track_state.write(), "track_state.write() error")
+        self.track_state.write().expect_error("track_state.write() error")
             .add_track_times(req.remote_addr);
 
-        let over_limit = except_result!(self.track_state.write(), "track_state.write() error")
+        let over_limit = self.track_state.write().expect_error("track_state.write() error")
             .is_over_limit(req.remote_addr, self.limit_per_sec);
 
         if let Some((is_over_limit, track)) = over_limit {
@@ -92,7 +91,7 @@ where
 
             // 超出防火墙限制，加入黑名单并返回
             if is_over_limit {
-                except_result!(self.block_list.write(), "block_list.write() error").insert(
+               self.block_list.write().expect_error("block_list.write() error").insert(
                     req.remote_addr.ip(),
                     req.remote_addr.port() as i32,
                     Some(Duration::from_secs(BLOCK_SEC)),

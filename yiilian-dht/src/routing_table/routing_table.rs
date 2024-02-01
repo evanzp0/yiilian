@@ -7,7 +7,7 @@ use std::{
 use chrono::Utc;
 use log::trace;
 use yiilian_core::{
-    common::error::Error, except_result, net::block_list::BlockList
+    common::{error::Error, expect_log::ExpectLog}, net::block_list::BlockList
 };
 
 use crate::common::{dht_ctx_state, Id};
@@ -87,7 +87,7 @@ impl RoutingTable {
             self.add_or_update_last_seen(node)?;
         }
 
-        except_result!(dht_ctx_state(self.ctx_index).write(), "Get writable state failed")
+        dht_ctx_state(self.ctx_index).write().expect_error("Get writable state failed")
             .is_join_kad = self.verified.count() > 0;
 
         Ok(())
@@ -175,7 +175,7 @@ impl RoutingTable {
             return node_u;
         }
 
-        except_result!(dht_ctx_state(self.ctx_index).write(), "Get writable state failed")
+        dht_ctx_state(self.ctx_index).write().expect_error("Get writable state failed")
             .is_join_kad = self.verified.count() > 0;
 
         None
@@ -248,7 +248,7 @@ impl RoutingTable {
             false
         });
 
-        except_result!(dht_ctx_state(self.ctx_index).write(), "Get writable state failed")
+        dht_ctx_state(self.ctx_index).write().expect_error("Get writable state failed")
             .is_join_kad = self.verified.count() > 0;
     }
 

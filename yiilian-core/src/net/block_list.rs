@@ -11,10 +11,7 @@ use chrono::{DateTime, Utc};
 use derivative::Derivative;
 use tokio::time::sleep;
 
-use crate::{
-    common::shutdown::{spawn_with_shutdown, ShutdownReceiver},
-    except_result,
-};
+use crate::common::{expect_log::ExpectLog, shutdown::{spawn_with_shutdown, ShutdownReceiver}};
 
 #[derive(Debug, Clone)]
 pub struct BlockList {
@@ -54,7 +51,7 @@ impl BlockList {
                 loop {
                     let now = Utc::now();
                     let mut removable: Vec<BlockAddr> = vec![];
-                    for item in except_result!(addr_list.write(), "block_list read() error").iter()
+                    for item in addr_list.write().expect_error("block_list read() error").iter()
                     {
                         match item.until {
                             BlockUntil::Infinite => {}
@@ -67,7 +64,7 @@ impl BlockList {
                     }
 
                     for item in removable {
-                        except_result!(addr_list.write(), "block_list read() error").remove(&item);
+                        addr_list.write().expect_error("block_list read() error").remove(&item);
                     }
 
                     sleep(Duration::from_secs(1)).await;
@@ -80,7 +77,7 @@ impl BlockList {
 
     /// 如果 port 为 -1 则 只判断 ip
     pub fn contains(&self, ip: IpAddr, port: u16) -> bool {
-        except_result!(self.addr_list.read(), "block_list read() error")
+        self.addr_list.read().expect_error("block_list read() error")
             .iter()
             .any(|item| {
                 if item.ip == ip {
@@ -97,7 +94,7 @@ impl BlockList {
 
     pub fn insert(&self, ip: IpAddr, port: i32, duration: Option<Duration>) -> bool {
         if self.len() < (self.max_size as usize) {
-            except_result!(self.addr_list.write(), "block_list read() error")
+            self.addr_list.write().expect_error("block_list read() error")
                 .insert(BlockAddr::new(ip, port, duration))
         } else {
             false
@@ -105,7 +102,7 @@ impl BlockList {
     }
 
     pub fn len(&self) -> usize {
-        except_result!(self.addr_list.read(), "block_list read() error").len()
+        self.addr_list.read().expect_error("block_list read() error").len()
     }
 }
 

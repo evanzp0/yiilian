@@ -1,9 +1,15 @@
 use std::{net::SocketAddr, time::Duration};
 
-use yiilian_core::{common::error::Error, data::{Request, Response}, except_result, service::Service};
+use yiilian_core::{
+    common::{error::Error, expect_log::ExpectLog},
+    data::{Request, Response},
+    service::Service,
+};
 
 use crate::{
-    common::{dht_ctx_routing_tbl, dht_ctx_settings, dht_ctx_trans_mgr}, data::body::{BodyKind, KrpcBody, Query}, routing_table::Node
+    common::{dht_ctx_routing_tbl, dht_ctx_settings, dht_ctx_trans_mgr},
+    data::body::{BodyKind, KrpcBody, Query},
+    routing_table::Node,
 };
 
 #[derive(Clone)]
@@ -17,7 +23,7 @@ impl RouterService {
     }
 }
 
-impl Service<Request<KrpcBody>>  for RouterService {
+impl Service<Request<KrpcBody>> for RouterService {
     type Response = Response<KrpcBody>;
 
     type Error = Error;
@@ -27,20 +33,26 @@ impl Service<Request<KrpcBody>>  for RouterService {
         let req_body = req.body.get_kind();
 
         if req.remote_addr.port() == 0 {
-            Err(Error::new_general(&format!("Request remote address is invalid: {}", req.remote_addr)))?
+            Err(Error::new_general(&format!(
+                "Request remote address is invalid: {}",
+                req.remote_addr
+            )))?
         }
 
         let res = match req_body {
             BodyKind::Query(query) => {
                 let read_only = dht_ctx_settings(ctx_index).read_only;
-                
+
                 if !read_only {
                     let sender_id = query.get_sender_id();
 
                     let is_id_valid = {
                         sender_id.is_valid_for_ip(
                             &req.remote_addr.ip(),
-                            &except_result!(dht_ctx_routing_tbl(ctx_index).lock(), "Lock context routing_table failed").white_list,
+                            &dht_ctx_routing_tbl(ctx_index)
+                                .lock()
+                                .expect_error("Lock context routing_table failed")
+                                .white_list,
                         )
                     };
 
@@ -48,7 +60,9 @@ impl Service<Request<KrpcBody>>  for RouterService {
 
                     // 有效，且对方不是 readonly （允许加入到我方的路由表的未验证 bucket 中）
                     if is_id_valid && !read_only {
-                        except_result!(dht_ctx_routing_tbl(ctx_index).lock(), "Lock context routing_table failed")
+                        dht_ctx_routing_tbl(ctx_index)
+                            .lock()
+                            .expect_error("Lock context routing_table failed")
                             .add_or_update(Node::new(sender_id, req.remote_addr.clone()), false)?;
                     }
 
@@ -80,26 +94,45 @@ impl Service<Request<KrpcBody>>  for RouterService {
 
                     res
                 } else {
-                    Response::new(KrpcBody::new(BodyKind::Empty), req.remote_addr, req.local_addr)
+                    Response::new(
+                        KrpcBody::new(BodyKind::Empty),
+                        req.remote_addr,
+                        req.local_addr,
+                    )
                 }
-            },
+            }
             BodyKind::Reply(reply) => {
                 dht_ctx_trans_mgr(ctx_index)
                     .handle_reply(reply, &req.remote_addr)
                     .await?;
-                Response::new(KrpcBody::new(BodyKind::Empty), req.remote_addr, req.local_addr)
-            },
+                Response::new(
+                    KrpcBody::new(BodyKind::Empty),
+                    req.remote_addr,
+                    req.local_addr,
+                )
+            }
             BodyKind::RError(_) => {
-                let reply_error_block_duration_sec = dht_ctx_settings(ctx_index).reply_error_block_duration_sec;
-                except_result!(dht_ctx_routing_tbl(ctx_index).lock(), "Lock context routing_table failed")
+                let reply_error_block_duration_sec =
+                    dht_ctx_settings(ctx_index).reply_error_block_duration_sec;
+                dht_ctx_routing_tbl(ctx_index)
+                    .lock()
+                    .expect_error("Lock context routing_table failed")
                     .add_block_list(
                         req.remote_addr,
                         None,
                         Some(Duration::from_secs(reply_error_block_duration_sec)),
                     );
-                    Response::new(KrpcBody::new(BodyKind::Empty), req.remote_addr, req.local_addr)
-            },
-            BodyKind::Empty => { Response::new(KrpcBody::new(BodyKind::Empty), req.remote_addr, req.local_addr) },
+                Response::new(
+                    KrpcBody::new(BodyKind::Empty),
+                    req.remote_addr,
+                    req.local_addr,
+                )
+            }
+            BodyKind::Empty => Response::new(
+                KrpcBody::new(BodyKind::Empty),
+                req.remote_addr,
+                req.local_addr,
+            ),
         };
 
         Ok(res)

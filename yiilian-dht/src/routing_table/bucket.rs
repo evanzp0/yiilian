@@ -1,5 +1,5 @@
 
-use yiilian_core::common::error::Error;
+use yiilian_core::common::{error::Error, expect_log::ExpectLog};
 
 use crate::common::Id;
 
@@ -204,7 +204,7 @@ impl Buckets {
         let mut all: Vec<&Node> = self
             .values()
             .iter()
-            .filter(|item| exclude.is_none() || *exclude.unwrap() != item.id)
+            .filter(|item| exclude.is_none() || *exclude.expect_error("exclude is none") != item.id)
             .copied()
             .collect();
 
@@ -212,7 +212,7 @@ impl Buckets {
         all.sort_unstable_by(|a, b| {
             let a_dist = a.id.xor(id);
             let b_dist = b.id.xor(id);
-            a_dist.partial_cmp(&b_dist).unwrap()
+            a_dist.partial_cmp(&b_dist).expect_error("get_nearest_nodes() distance compare failed")
         });
 
         // 获取其中 K 及距离 id 最近的节点

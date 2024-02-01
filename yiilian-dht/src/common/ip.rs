@@ -1,6 +1,8 @@
 use std::convert::TryInto;
 use std::net::Ipv4Addr;
 
+use yiilian_core::common::expect_log::ExpectLog;
+
 #[derive(Clone, Debug)]
 /// 群体投票决策权重的IP
 struct IPV4Vote {
@@ -34,7 +36,7 @@ impl IPV4Consensus {
     /// This method will be called periodically by the DHT. Implementations
     /// should return their current best guess for the external (globally routable) IPv4 address
     /// of the DHT.
-    /// 
+    ///
     /// 该方法将被 DHT 定期调用。 返回当前最佳猜测的本机外网（全局可路由）IPv4 地址。
     /// 取出被投票数最多的外网 ipv4 地址，如果获取的投票数没超过阈值，则返回 None
     pub fn get_best_ipv4(&self) -> Option<Ipv4Addr> {
@@ -42,7 +44,12 @@ impl IPV4Consensus {
         match first {
             Some(vote_info) => {
                 // log::debug!(target: "rustydht_lib::IPV4AddrSource", "Best IPv4 address {:?} has {} votes", vote_info.ip, vote_info.votes);
-                if vote_info.votes >= self.min_votes.try_into().unwrap() {
+                if vote_info.votes
+                    >= self
+                        .min_votes
+                        .try_into()
+                        .expect_error("min_votes to i32 failed")
+                {
                     Some(vote_info.ip)
                 } else {
                     None
@@ -62,7 +69,7 @@ impl IPV4Consensus {
     /// # Parameters
     /// * `their_addr` - The IP address of the DHT node that we're learning this information from.
     /// * `proposed_addr` - The external IP address that the other DHT node says we have.
-    /// 投票并排序，proposed_addr 是被投票的本机（外网） IP 
+    /// 投票并排序，proposed_addr 是被投票的本机（外网） IP
     pub fn add_vote(&mut self, _: Ipv4Addr, proposed_addr: Ipv4Addr) {
         let mut do_sort = false;
         for vote in self.votes.iter_mut() {

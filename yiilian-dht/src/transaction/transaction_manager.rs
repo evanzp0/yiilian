@@ -8,18 +8,19 @@ use std::{
 use chrono::Utc;
 use tokio::{sync::oneshot, time::interval};
 use yiilian_core::{
-    common::{error::Error, shutdown::ShutdownReceiver}, data::Request, except_option, except_result
+    common::{error::Error, expect_log::ExpectLog, shutdown::ShutdownReceiver},
+    data::Request,
 };
 
 use crate::{
     common::{
+        calculate_token, Id,
         {
             dht_ctx_client, dht_ctx_peer_mgr, dht_ctx_routing_tbl, dht_ctx_settings, dht_ctx_state,
             dht_ctx_trans_mgr,
         },
-        Id,
-        calculate_token,
-    }, data::{
+    },
+    data::{
         announce_peer::AnnouncePeer,
         body::{BodyKind, KrpcBody, Query, Reply},
         find_node::FindNode,
@@ -29,7 +30,8 @@ use crate::{
         ping::Ping,
         ping_announce_replay::PingOrAnnounceReply,
         util::reply_matches_query,
-    }, routing_table::{Buckets, Node}
+    },
+    routing_table::{Buckets, Node},
 };
 
 use super::{GetPeersResponder, GetPeersResult, Transaction, TransactionId};
@@ -59,24 +61,38 @@ impl TransactionManager {
         // 过期时间点 = 当前时间 - duration
         let time = Utc::now() - duration;
 
-        let _len_before = except_result!(self.transactions.lock(), "transactions.lock() error").len();
+        let _len_before = self
+            .transactions
+            .lock()
+            .expect_error("transactions.lock() error")
+            .len();
 
         // 保留创建时间晚于 time 的事务
-        except_result!(self.transactions.lock(), "transactions.lock() error")
-            .retain(|_, v| -> bool { v.created_at >= time }); 
-        let _len_after = except_result!(self.transactions.lock(), "transactions.lock() error").len();
+        self.transactions
+            .lock()
+            .expect_error("transactions.lock() error")
+            .retain(|_, v| -> bool { v.created_at >= time });
+        let _len_after = self
+            .transactions
+            .lock()
+            .expect_error("transactions.lock() error")
+            .len();
     }
 
     /// 检查 query 查询是否已经在事务处理中了
     fn check_query_in_trans(&self, dest: &SocketAddr, query: &Query) -> bool {
-        except_result!(self.transactions.lock(), "transactions.lock() error").iter().any(|t| {
-            let tran = t.1;
-            if tran.addr == *dest && tran.message == *query {
-                true
-            } else {
-                false
-            }
-        })
+        self.transactions
+            .lock()
+            .expect_error("transactions.lock() error")
+            .iter()
+            .any(|t| {
+                let tran = t.1;
+                if tran.addr == *dest && tran.message == *query {
+                    true
+                } else {
+                    false
+                }
+            })
     }
 
     pub(crate) async fn send_query(
@@ -131,15 +147,15 @@ impl TransactionManager {
                 // 并将目标节点加入 block_list，同时从 routing_table 中删除
                 let timeout_block_duration_sec =
                     dht_ctx_settings(self.ctx_index).timeout_block_duration_sec;
-                except_result!(
-                    dht_ctx_routing_tbl(self.ctx_index).lock(),
-                    "Lock context routing_table failed"
-                )
-                .add_block_list(
-                    *dest,
-                    dest_id,
-                    Some(Duration::from_secs(timeout_block_duration_sec)),
-                );
+
+                dht_ctx_routing_tbl(self.ctx_index)
+                    .lock()
+                    .expect_error("Lock context routing_table failed")
+                    .add_block_list(
+                        *dest,
+                        dest_id,
+                        Some(Duration::from_secs(timeout_block_duration_sec)),
+                    );
 
                 Err(e)
             }
@@ -185,7 +201,11 @@ impl TransactionManager {
     }
 
     fn remove_transcation(&self, tran_id: &TransactionId) -> Option<Transaction> {
-        let tran = except_result!(self.transactions.lock(), "transactions.lock() error").remove(&tran_id);
+        let tran = self
+            .transactions
+            .lock()
+            .expect_error("transactions.lock() error")
+            .remove(&tran_id);
         match tran {
             Some(tran) => Some(tran),
             None => None,
@@ -236,19 +256,20 @@ impl TransactionManager {
     fn ip4_vote_helper(ctx_index: u16, addr: &SocketAddr, requester_ip: &Option<SocketAddr>) {
         if let IpAddr::V4(their_ip) = addr.ip() {
             if let Some(SocketAddr::V4(they_claim_our_sockaddr)) = &requester_ip {
-                except_result!(
-                    dht_ctx_state(ctx_index).write(),
-                    "dht_ctx_state().write() failed"
-                )
-                .ip4_source
-                .add_vote(their_ip, *they_claim_our_sockaddr.ip());
+                dht_ctx_state(ctx_index)
+                    .write()
+                    .expect_error("dht_ctx_state().write() failed")
+                    .ip4_source
+                    .add_vote(their_ip, *they_claim_our_sockaddr.ip());
             }
         }
     }
 
     /// 添加事务
     pub(crate) fn add_transaction(&self, tran: Transaction) {
-        except_result!(self.transactions.lock(), "transactions.lock() error")
+        self.transactions
+            .lock()
+            .expect_error("transactions.lock() error")
             .insert(tran.get_id().clone(), tran);
     }
 
@@ -260,11 +281,10 @@ impl TransactionManager {
     ) -> Result<(Reply, SocketAddr), Error> {
         // info!("Receive ping request from {:?}", sender);
 
-        let local_id = except_result!(
-            dht_ctx_state(self.ctx_index).read(),
-            "dht_ctx_state.read() failed"
-        )
-        .get_local_id();
+        let local_id = dht_ctx_state(self.ctx_index)
+            .read()
+            .expect_error("dht_ctx_state.read() failed")
+            .get_local_id();
         let read_only = dht_ctx_settings(self.ctx_index).read_only;
 
         let reply = PingOrAnnounceReply {
@@ -284,19 +304,17 @@ impl TransactionManager {
         query: &FindNode,
         remote_addr: &SocketAddr,
     ) -> Result<(Reply, SocketAddr), Error> {
-        let local_id = except_result!(
-            dht_ctx_state(self.ctx_index).read(),
-            "dht_ctx_state.read() failed"
-        )
-        .get_local_id();
+        let local_id = dht_ctx_state(self.ctx_index)
+            .read()
+            .expect_error("dht_ctx_state.read() failed")
+            .get_local_id();
         let read_only = dht_ctx_settings(self.ctx_index).read_only;
 
         //获取除 requester_id 外，距离 target 最近的节点
-        let nearest = except_result!(
-            dht_ctx_routing_tbl(self.ctx_index).lock(),
-            "dht_ctx_routing_tbl.lock() failed"
-        )
-        .get_nearest_nodes(&query.target, Some(&query.id));
+        let nearest = dht_ctx_routing_tbl(self.ctx_index)
+            .lock()
+            .expect_error("dht_ctx_routing_tbl.lock() failed")
+            .get_nearest_nodes(&query.target, Some(&query.id));
 
         let reply = FindNodeReply {
             t: query.t.clone(),
@@ -316,11 +334,10 @@ impl TransactionManager {
         query: &GetPeers,
         remote_addr: &SocketAddr,
     ) -> Result<(Reply, SocketAddr), Error> {
-        let local_id = except_result!(
-            dht_ctx_state(self.ctx_index).read(),
-            "dht_ctx_state.read() failed"
-        )
-        .get_local_id();
+        let local_id = dht_ctx_state(self.ctx_index)
+            .read()
+            .expect_error("dht_ctx_state.read() failed")
+            .get_local_id();
         let read_only = dht_ctx_settings(self.ctx_index).read_only;
 
         let peers = {
@@ -328,29 +345,26 @@ impl TransactionManager {
                 dht_ctx_settings(self.ctx_index).get_peers_freshness_secs;
             let max_peers_response = dht_ctx_settings(self.ctx_index).max_peers_response;
             let newer_than = Utc::now() - Duration::from_secs(get_peers_freshness_secs);
-            let mut peers = except_result!(
-                dht_ctx_peer_mgr(self.ctx_index).lock(),
-                "dht_ctx_peer_mgr.lock() failed"
-            )
-            .get_peers(&query.info_hash, Some(newer_than));
+            let mut peers = dht_ctx_peer_mgr(self.ctx_index)
+                .lock()
+                .expect_error("dht_ctx_peer_mgr.lock() failed")
+                .get_peers(&query.info_hash, Some(newer_than));
             peers.truncate(max_peers_response);
             peers
         };
 
         // 根据 token_secret 和对方 IP 生成 token，对方在向我方发出 announce 请求中需要带上该 token
-        let token_secret = except_result!(
-            dht_ctx_state(self.ctx_index).read(),
-            "dht_ctx_state.read() failed"
-        )
-        .token_secret
-        .clone();
+        let token_secret = dht_ctx_state(self.ctx_index)
+            .read()
+            .expect_error("dht_ctx_state.read() failed")
+            .token_secret
+            .clone();
         let token = calculate_token(&remote_addr, token_secret);
         let token = token.to_vec().into();
-        let nearest_nodes = except_result!(
-            dht_ctx_routing_tbl(self.ctx_index).lock(),
-            "dht_ctx_routing_tbl.lock() failed"
-        )
-        .get_nearest_nodes(&query.info_hash, Some(&query.id));
+        let nearest_nodes = dht_ctx_routing_tbl(self.ctx_index)
+            .lock()
+            .expect_error("dht_ctx_routing_tbl.lock() failed")
+            .get_nearest_nodes(&query.info_hash, Some(&query.id));
         let reply = GetPeersReply {
             t: query.t.clone(),
             v: None,
@@ -370,26 +384,23 @@ impl TransactionManager {
         query: &AnnouncePeer,
         remote_addr: &SocketAddr,
     ) -> Result<(Reply, SocketAddr), Error> {
-        let local_id = except_result!(
-            dht_ctx_state(self.ctx_index).read(),
-            "dht_ctx_state.read() failed"
-        )
-        .get_local_id();
+        let local_id = dht_ctx_state(self.ctx_index)
+            .read()
+            .expect_error("dht_ctx_state.read() failed")
+            .get_local_id();
         let read_only = dht_ctx_settings(self.ctx_index).read_only;
 
         // 根据 token_secret/old_token_secret 和 对方 ip 计算 token 是否合法（这样就不用缓存上次发出的 token）
-        let token_secret = except_result!(
-            dht_ctx_state(self.ctx_index).read(),
-            "dht_ctx_state.read() failed"
-        )
-        .token_secret
-        .clone();
-        let old_token_secret = except_result!(
-            dht_ctx_state(self.ctx_index).read(),
-            "dht_ctx_state.read() failed"
-        )
-        .old_token_secret
-        .clone();
+        let token_secret = dht_ctx_state(self.ctx_index)
+            .read()
+            .expect_error("dht_ctx_state.read() failed")
+            .token_secret
+            .clone();
+        let old_token_secret = dht_ctx_state(self.ctx_index)
+            .read()
+            .expect_error("dht_ctx_state.read() failed")
+            .old_token_secret
+            .clone();
         let is_token_valid = query.token == calculate_token(&remote_addr, token_secret).to_vec()
             || query.token == calculate_token(&remote_addr, old_token_secret).to_vec();
 
@@ -405,11 +416,10 @@ impl TransactionManager {
             };
 
             // 将对方 address 加入到 announce 的 info_hash 对应的 peers 列表中
-            except_result!(
-                dht_ctx_peer_mgr(self.ctx_index).lock(),
-                "dht_ctx_peer_mgr.lock() failed"
-            )
-            .announce_peer(query.info_hash, sockaddr);
+            dht_ctx_peer_mgr(self.ctx_index)
+                .lock()
+                .expect_error("dht_ctx_peer_mgr.lock() failed")
+                .announce_peer(query.info_hash, sockaddr);
 
             let reply = PingOrAnnounceReply {
                 t: query.t.clone(),
@@ -441,11 +451,10 @@ impl TransactionManager {
         let id_is_valid = {
             their_id.is_valid_for_ip(
                 &sender.ip(),
-                &except_result!(
-                    dht_ctx_routing_tbl(self.ctx_index).lock(),
-                    "dht_ctx_routing_tbl.lock() failed"
-                )
-                .white_list,
+                &dht_ctx_routing_tbl(self.ctx_index)
+                    .lock()
+                    .expect_error("dht_ctx_routing_tbl.lock() failed")
+                    .white_list,
             )
         };
         // log::trace!(target: "yiilian_dht::handle_reply", "sender: {},  it's id {} is valid : {}", sender, their_id, id_is_valid);
@@ -456,21 +465,19 @@ impl TransactionManager {
 
             // 将对方节点及ipport，加入或更新 kbucket
             // 由于对方节点时响应我们的请求的，所以它就是 verified node, 因此 add_or_update(_, verified) 参数要传 true
-            except_result!(
-                dht_ctx_routing_tbl(self.ctx_index).lock(),
-                "dht_ctx_routing_tbl.lock() failed"
-            )
-            .add_or_update(Node::new(their_id, *sender), true)?;
+            dht_ctx_routing_tbl(self.ctx_index)
+                .lock()
+                .expect_error("dht_ctx_routing_tbl.lock() failed")
+                .add_or_update(Node::new(their_id, *sender), true)?;
         }
 
         // 如果不在黑名单中，且事务有回传 channel , 则通过该 channel 回传 reply
         // take_matching_transaction 会将匹配 reply 的 transaction 删除
         if let Some(transaction) = self.take_matching_transaction(&reply, sender) {
-            let in_block_list = except_result!(
-                dht_ctx_routing_tbl(self.ctx_index).lock(),
-                "dht_ctx_routing_tbl.lock() failed"
-            )
-            .is_blocked(sender);
+            let in_block_list = dht_ctx_routing_tbl(self.ctx_index)
+                .lock()
+                .expect_error("dht_ctx_routing_tbl.lock() failed")
+                .is_blocked(sender);
 
             if !in_block_list {
                 if let Some(response_channel) = transaction.response_channel {
@@ -505,7 +512,10 @@ impl TransactionManager {
     /// 根据消息中的事务 ID 获取发送和接收时 IP 匹配的 Transaction
     pub(crate) fn matching_transaction(&self, reply: &Reply, src_addr: &SocketAddr) -> bool {
         let tid = reply.get_tid();
-        let transactions = except_result!(self.transactions.lock(), "transactions.lock() error");
+        let transactions = self
+            .transactions
+            .lock()
+            .expect_error("transactions.lock() error");
         let transaction = transactions.get(&tid);
 
         // Is there a matching transaction id in storage?
@@ -517,7 +527,7 @@ impl TransactionManager {
                 // Does the Id of the sender match the recorded addressee of the original request (if any)?
                 // 当发送时对方的 node id 为空，或对方的 node id 为空且对方 node id 和 reply 中的发送方 node id 相同时
                 if transaction.node_id.is_none() // 当 ping route 时，node_id 为空
-                    || (!transaction.node_id.is_none() && except_option!(transaction.node_id.as_ref(), "node_id.as_ref() error") == &sender_id)
+                    || (!transaction.node_id.is_none() && transaction.node_id.as_ref().expect_error("node_id.as_ref() error") == &sender_id)
                 {
                     // Does the reply type match the query type?
                     if reply_matches_query(&transaction.message, reply) {
@@ -541,14 +551,16 @@ impl TransactionManager {
         // log::trace!(target:"yiilian_dht::operation", "ping to {} with target_id : {:?}", target_addr, target_id);
 
         if target_addr.port() == 0 {
-            Err(Error::new_general(&format!("ping target_addr is invalid: {}", target_addr)))?
+            Err(Error::new_general(&format!(
+                "ping target_addr is invalid: {}",
+                target_addr
+            )))?
         }
 
-        let local_id = except_result!(
-            dht_ctx_state(self.ctx_index).read(),
-            "dht_ctx_state.read() failed"
-        )
-        .get_local_id();
+        let local_id = dht_ctx_state(self.ctx_index)
+            .read()
+            .expect_error("dht_ctx_state.read() failed")
+            .get_local_id();
         let read_only = dht_ctx_settings(self.ctx_index).read_only;
 
         let ping_query = Ping {
@@ -579,14 +591,16 @@ impl TransactionManager {
         // log::trace!(target:"yiilian_dht::operation", "ping to {} with target_id : {:?}", target_addr, target_id);
 
         if target_addr.port() == 0 {
-            Err(Error::new_general(&format!("ping_no_wait target_addr is invalid: {}", target_addr)))?
+            Err(Error::new_general(&format!(
+                "ping_no_wait target_addr is invalid: {}",
+                target_addr
+            )))?
         }
 
-        let local_id = except_result!(
-            dht_ctx_state(self.ctx_index).read(),
-            "dht_ctx_state.read() failed"
-        )
-        .get_local_id();
+        let local_id = dht_ctx_state(self.ctx_index)
+            .read()
+            .expect_error("dht_ctx_state.read() failed")
+            .get_local_id();
 
         let read_only = dht_ctx_settings(self.ctx_index).read_only;
         let ping_query = Ping {
@@ -609,11 +623,10 @@ impl TransactionManager {
     /// 这个操作会一直迭代，直到没有更近的节点被发现或者超时后才结束
     pub(crate) async fn find_node(&self, target_id: Id) -> Vec<Node> {
         // buckets 中存放的是 routing_table 中已验证的节点，以及本次 find_node 以来对方反馈的 nodes 节点
-        let local_id = except_result!(
-            dht_ctx_state(self.ctx_index).read(),
-            "dht_ctx_state.read() failed"
-        )
-        .get_local_id();
+        let local_id = dht_ctx_state(self.ctx_index)
+            .read()
+            .expect_error("dht_ctx_state.read() failed")
+            .get_local_id();
         let bucket_size = dht_ctx_settings(self.ctx_index).bucket_size;
 
         let mut buckets = Buckets::new(bucket_size, local_id);
@@ -622,19 +635,17 @@ impl TransactionManager {
 
         loop {
             // 每次循环都从 routing_table 中加载新的已验证的 node 到当前 buckets 中
-            let all_verifyied = except_result!(
-                dht_ctx_routing_tbl(self.ctx_index).lock(),
-                "dht_ctx_routing_tbl.lock() failed"
-            )
-            .get_all_verified();
+            let all_verifyied = dht_ctx_routing_tbl(self.ctx_index)
+                .lock()
+                .expect_error("dht_ctx_routing_tbl.lock() failed")
+                .get_all_verified();
             for item in all_verifyied {
                 if !buckets.contains(&item.id)
-                    && !except_result!(
-                        dht_ctx_routing_tbl(self.ctx_index).lock(),
-                        "dht_ctx_routing_tbl.lock() failed"
-                    )
-                    .block_list
-                    .contains(item.address.ip(), item.address.port())
+                    && !dht_ctx_routing_tbl(self.ctx_index)
+                        .lock()
+                        .expect_error("dht_ctx_routing_tbl.lock() failed")
+                        .block_list
+                        .contains(item.address.ip(), item.address.port())
                 {
                     buckets.add(item, None).ok();
                 }
@@ -700,31 +711,29 @@ impl TransactionManager {
                                 let id_is_valid = {
                                     node.id.is_valid_for_ip(
                                         &node.address.ip(),
-                                        &except_result!(
-                                            dht_ctx_routing_tbl(self.ctx_index).lock(),
-                                            "dht_ctx_routing_tbl.lock() failed"
-                                        )
-                                        .white_list,
+                                        &dht_ctx_routing_tbl(self.ctx_index)
+                                            .lock()
+                                            .expect_error("dht_ctx_routing_tbl.lock() failed")
+                                            .white_list,
                                     )
                                 };
 
                                 if id_is_valid && node.address.port() > 0 {
-                                    if let Err(e) = except_result!(
-                                        dht_ctx_routing_tbl(self.ctx_index).lock(),
-                                        "dht_ctx_routing_tbl.lock() failed"
-                                    )
-                                    .add_or_update(node.clone(), false)
+                                    if let Err(e) = dht_ctx_routing_tbl(self.ctx_index)
+                                        .lock()
+                                        .expect_error("dht_ctx_routing_tbl.lock() failed")
+                                        .add_or_update(node.clone(), false)
                                     {
                                         log::trace!(
-                                            target: "yiilian_dht::transaction::find_node", 
-                                            "[{}] Add node {:?} to buckets failed, error: {}", 
+                                            target: "yiilian_dht::transaction::find_node",
+                                            "[{}] Add node {:?} to buckets failed, error: {}",
                                             self.local_addr.port(), node, e
                                         );
                                     }
                                 }
                                 if !buckets.contains(&node.id) {
-                                    log::trace!(target: "yiilian_dht::transaction::find_node", 
-                                        "[{}] Node (id: {:?}, {:?}) is a candidate for buckets", 
+                                    log::trace!(target: "yiilian_dht::transaction::find_node",
+                                        "[{}] Node (id: {:?}, {:?}) is a candidate for buckets",
                                         self.local_addr.port(), node.id, node.address
                                     );
 
@@ -738,15 +747,14 @@ impl TransactionManager {
                             let reply_error_block_duration_sec =
                                 dht_ctx_settings(self.ctx_index).reply_error_block_duration_sec;
                             buckets.remove(&dest_id);
-                            except_result!(
-                                dht_ctx_routing_tbl(self.ctx_index).lock(),
-                                "dht_ctx_routing_tbl.lock() failed"
-                            )
-                            .add_block_list(
-                                dest_addr,
-                                Some(dest_id),
-                                Some(Duration::from_secs(reply_error_block_duration_sec)),
-                            );
+                            dht_ctx_routing_tbl(self.ctx_index)
+                                .lock()
+                                .expect_error("dht_ctx_routing_tbl.lock() failed")
+                                .add_block_list(
+                                    dest_addr,
+                                    Some(dest_id),
+                                    Some(Duration::from_secs(reply_error_block_duration_sec)),
+                                );
                         }
                     },
                     Err(error) => {
@@ -790,11 +798,10 @@ impl TransactionManager {
     ) -> Result<GetPeersResult, Error> {
         let mut unique_peers = HashSet::new();
         let mut responders = HashSet::new();
-        let local_id = except_result!(
-            dht_ctx_state(self.ctx_index).read(),
-            "dht_ctx_state.read() failed"
-        )
-        .get_local_id();
+        let local_id = dht_ctx_state(self.ctx_index)
+            .read()
+            .expect_error("dht_ctx_state.read() failed")
+            .get_local_id();
         let bucket_size = dht_ctx_settings(self.ctx_index).bucket_size;
         let read_only = dht_ctx_settings(self.ctx_index).read_only;
         let send_query_timeout_sec = dht_ctx_settings(self.ctx_index).send_query_timeout_sec;
@@ -808,20 +815,18 @@ impl TransactionManager {
         loop {
             // Populate our buckets with the main buckets from the DHT
             // 从路由表中获取所有的 node
-            let all_verifyied = except_result!(
-                dht_ctx_routing_tbl(self.ctx_index).lock(),
-                "dht_ctx_routing_tbl.lock() failed"
-            )
-            .get_all_verified();
+            let all_verifyied = dht_ctx_routing_tbl(self.ctx_index)
+                .lock()
+                .expect_error("dht_ctx_routing_tbl.lock() failed")
+                .get_all_verified();
 
             for item in all_verifyied {
                 if !buckets.contains(&item.id)
-                    && !except_result!(
-                        dht_ctx_routing_tbl(self.ctx_index).lock(),
-                        "dht_ctx_routing_tbl.lock() failed"
-                    )
-                    .block_list
-                    .contains(item.address.ip(), item.address.port())
+                    && !dht_ctx_routing_tbl(self.ctx_index)
+                        .lock()
+                        .expect_error("dht_ctx_routing_tbl.lock() failed")
+                        .block_list
+                        .contains(item.address.ip(), item.address.port())
                 {
                     buckets.add(item, None).ok();
                 }
@@ -889,11 +894,10 @@ impl TransactionManager {
                                     let id_is_valid = {
                                         node.id.is_valid_for_ip(
                                             &node.address.ip(),
-                                            &except_result!(
-                                                dht_ctx_routing_tbl(self.ctx_index).lock(),
-                                                "dht_ctx_routing_tbl.lock() failed"
-                                            )
-                                            .white_list,
+                                            &dht_ctx_routing_tbl(self.ctx_index)
+                                                .lock()
+                                                .expect_error("dht_ctx_routing_tbl.lock() failed")
+                                                .white_list,
                                         )
                                     };
 
@@ -907,11 +911,10 @@ impl TransactionManager {
                                             self.ping_no_wait(node_addr, Some(node_id)).await.ok();
                                         } else {
                                             // 方法2： 将获取的 nodes 加入到未验证 buckets 中
-                                            if let Err(e) = except_result!(
-                                                dht_ctx_routing_tbl(self.ctx_index).lock(),
-                                                "dht_ctx_routing_tbl.lock() failed"
-                                            )
-                                            .add_or_update(node.clone(), false)
+                                            if let Err(e) = dht_ctx_routing_tbl(self.ctx_index)
+                                                .lock()
+                                                .expect_error("dht_ctx_routing_tbl.lock() failed")
+                                                .add_or_update(node.clone(), false)
                                             {
                                                 log::trace!(
                                                     target: "yiilian_dht::transaction::get_peers",
@@ -922,11 +925,10 @@ impl TransactionManager {
                                         }
                                     }
 
-                                    let in_block_list = except_result!(
-                                        dht_ctx_routing_tbl(self.ctx_index).lock(),
-                                        "dht_ctx_routing_tbl.lock() failed"
-                                    )
-                                    .is_blocked(&node.address);
+                                    let in_block_list = dht_ctx_routing_tbl(self.ctx_index)
+                                        .lock()
+                                        .expect_error("dht_ctx_routing_tbl.lock() failed")
+                                        .is_blocked(&node.address);
 
                                     if !buckets.contains(&node.id) && !in_block_list {
                                         log::trace!(
@@ -955,15 +957,15 @@ impl TransactionManager {
                             buckets.remove(&dest_node.id);
                             let reply_error_block_duration_sec =
                                 dht_ctx_settings(self.ctx_index).reply_error_block_duration_sec;
-                            except_result!(
-                                dht_ctx_routing_tbl(self.ctx_index).lock(),
-                                "dht_ctx_routing_tbl.lock() failed"
-                            )
-                            .add_block_list(
-                                dest_node.address,
-                                Some(dest_node.id),
-                                Some(Duration::from_secs(reply_error_block_duration_sec)),
-                            );
+
+                            dht_ctx_routing_tbl(self.ctx_index)
+                                .lock()
+                                .expect_error("dht_ctx_routing_tbl.lock() failed")
+                                .add_block_list(
+                                    dest_node.address,
+                                    Some(dest_node.id),
+                                    Some(Duration::from_secs(reply_error_block_duration_sec)),
+                                );
                         }
                     },
                     Err(error) => {

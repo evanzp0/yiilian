@@ -7,9 +7,8 @@ use std::{
 use bloomfilter::Bloom;
 use tokio::sync::broadcast::{error::RecvError, Receiver};
 use yiilian_core::{
-    common::{error::Error, shutdown::ShutdownReceiver, util::hash_it},
+    common::{error::Error, expect_log::ExpectLog, shutdown::ShutdownReceiver, util::hash_it},
     data::Request,
-    except_result,
 };
 use yiilian_dht::data::body::{BodyKind, KrpcBody, Query};
 
@@ -52,12 +51,17 @@ impl RecvAnnounceListener<Request<KrpcBody>> {
                         BodyKind::Query(Query::AnnouncePeer(val)) => {
                             let bloom_val = hex::encode(val.info_hash.get_bytes());
                             let bloom_val = hash_it(bloom_val);
-                            let chk_rst = except_result!(self.bloom.read(), "bloom.read() error")
+                            let chk_rst = self
+                                .bloom
+                                .read()
+                                .expect_error("bloom.read() error")
                                 .check(&bloom_val);
 
                             if !chk_rst {
                                 // 如果没命中，则加入到布隆过滤其中，并输出到日志
-                                except_result!(self.bloom.write(), "bloom.write() error")
+                                self.bloom
+                                    .write()
+                                    .expect_error("bloom.write() error")
                                     .set(&bloom_val);
                                 log::info!(
                                     target: "yiilian_crawler::event::announce_listener",
@@ -84,10 +88,12 @@ impl RecvAnnounceListener<Request<KrpcBody>> {
 
 /// save nodes to file
 pub async fn save_bloom(bloom: Arc<RwLock<Bloom<u64>>>) {
-    let mut f = File::create(&BLOOM_STATE_FILE).unwrap();
-    let encoded: Vec<u8> = bincode::serialize(&*bloom).unwrap();
+    let mut f = File::create(&BLOOM_STATE_FILE).expect_error("file create BLOOM_STATE_FILE failed");
+    let encoded: Vec<u8> =
+        bincode::serialize(&*bloom).expect_error("bincode::serialize BLOOM_STATE_FILE failed");
 
-    f.write_all(&encoded).unwrap();
+    f.write_all(&encoded)
+        .expect_error("write_all BLOOM_STATE_FILE failed");
 }
 
 pub fn load_bloom() -> Result<Arc<RwLock<Bloom<u64>>>, Error> {
@@ -96,7 +102,8 @@ pub fn load_bloom() -> Result<Arc<RwLock<Bloom<u64>>>, Error> {
             let mut buf: Vec<u8> = Vec::new();
             match f.read_to_end(&mut buf) {
                 Ok(_) => {
-                    let bloom: RwLock<Bloom<u64>> = bincode::deserialize(&buf[..]).unwrap();
+                    let bloom: RwLock<Bloom<u64>> = bincode::deserialize(&buf[..])
+                        .expect_error("bincode::deserialize BLOOM_STATE_FILE failed");
                     let bloom = Arc::new(bloom);
                     Ok(bloom)
                 }

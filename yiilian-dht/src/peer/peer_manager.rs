@@ -1,8 +1,9 @@
 use std::{net::SocketAddr, num::NonZeroUsize};
 
+use crate::common::Id;
 use chrono::{DateTime, Utc};
 use lru::LruCache;
-use crate::common::Id;
+use yiilian_core::common::expect_log::ExpectLog;
 
 use super::Peer;
 
@@ -13,11 +14,13 @@ pub struct PeerManager {
     max_peers_per_resource: usize,
 }
 
-
 impl PeerManager {
     pub fn new(max_resource: usize, max_peers_per_resource: usize) -> PeerManager {
         PeerManager {
-            peers: LruCache::new(NonZeroUsize::new(max_resource).unwrap()),
+            peers: LruCache::new(
+                NonZeroUsize::new(max_resource)
+                    .expect_error("PeerManager NonZeroUsize create failed"),
+            ),
             max_peers_per_resource,
         }
     }
@@ -30,7 +33,10 @@ impl PeerManager {
             }
 
             None => {
-                let mut swarm_lru = LruCache::new(NonZeroUsize::new(self.max_peers_per_resource).unwrap());
+                let mut swarm_lru = LruCache::new(
+                    NonZeroUsize::new(self.max_peers_per_resource)
+                        .expect_error("PeerManager NonZeroUsize create failed"),
+                );
                 swarm_lru.put(peer_addr, Peer::new(peer_addr));
                 peers.put(info_hash.clone(), swarm_lru);
             }
@@ -60,7 +66,10 @@ impl PeerManager {
             let mut tmp = swarm_lru
                 .iter()
                 .filter(|pi| pi.0.ip().is_ipv4()) // Only return IPv4 for now, you dog!
-                .filter(|pi| newer_than.is_none() || pi.1.last_updated > newer_than.unwrap())
+                .filter(|pi| {
+                    newer_than.is_none()
+                        || pi.1.last_updated > newer_than.expect_error("newer_than is none")
+                })
                 .map(|pi| *pi.1)
                 .collect();
             to_ret.append(&mut tmp);

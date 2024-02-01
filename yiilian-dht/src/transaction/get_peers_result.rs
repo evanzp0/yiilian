@@ -2,9 +2,9 @@ use std::net::SocketAddr;
 
 use bytes::Bytes;
 use derivative::Derivative;
+use yiilian_core::common::expect_log::ExpectLog;
 
 use crate::{common::Id, routing_table::Node};
-
 
 /// Represents the results of a get_peers operation
 #[derive(Debug)]
@@ -24,7 +24,9 @@ impl GetPeersResult {
             let a_dist = a.node.id.xor(&info_hash);
             let b_dist = b.node.id.xor(&info_hash);
 
-            a_dist.partial_cmp(&b_dist).unwrap()
+            a_dist
+                .partial_cmp(&b_dist)
+                .expect_error("GetPeersResult distance compare failed")
         });
         GetPeersResult {
             info_hash,
@@ -54,11 +56,11 @@ impl GetPeersResult {
 /// Represents the response of a node to a get_peers request, including its Id, IP address,
 /// and the token it replied with. This is helpful in case we want to follow up with
 /// an announce_peer request.
-#[derive(Derivative)] 
+#[derive(Derivative)]
 #[derivative(Debug, Hash, PartialEq, Eq)]
 pub struct GetPeersResponder {
     node: Node,
-    #[derivative(Hash="ignore", PartialEq="ignore")] 
+    #[derivative(Hash = "ignore", PartialEq = "ignore")]
     token: Bytes,
 }
 
