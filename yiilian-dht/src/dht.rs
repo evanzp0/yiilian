@@ -573,8 +573,6 @@ fn build_state(local_id: Id, token_secret_size: usize) -> Result<RwLock<State>, 
 }
 
 fn build_socket(socket_addr: SocketAddr) -> Result<UdpSocket, Error> {
-    println!("{socket_addr}");
-
     let std_sock =
         std::net::UdpSocket::bind(socket_addr).map_err(|e| Error::new_bind(Some(Box::new(e))))?;
     std_sock

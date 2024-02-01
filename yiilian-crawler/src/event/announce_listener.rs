@@ -72,7 +72,7 @@ impl RecvAnnounceListener<Request<KrpcBody>> {
                 }
                 Err(error) => match error {
                     RecvError::Closed => {
-                        println!("Send closed");
+                        log::debug!(target: "yiilian_crawler::event::announce_listener", "Send closed");
                         break;
                     }
                     RecvError::Lagged(_) => (),
