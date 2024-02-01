@@ -1,12 +1,12 @@
 
 use std::{net::SocketAddr, sync::Arc};
-use bytes::Bytes;
 use futures::FutureExt;
 use tokio::net::UdpSocket;
 use yiilian_core::common::error::trace_panic;
 use yiilian_core::common::error::Error;
 use yiilian_core::common::error::Kind;
 use yiilian_core::data::{Body, Request};
+use yiilian_core::net::udp::recv_from;
 use yiilian_core::net::udp::send_to;
 
 use crate::data::body::{BodyKind, KrpcBody};
@@ -41,16 +41,11 @@ where
 
     pub async fn run_loop(&self) -> Result<(), Error> {
         let local_port = self.local_addr.port();
-        loop {
-            let mut buf = [0; 65000];
-            let rst = self
-                .socket
-                .recv_from(&mut buf)
-                .await
-                .map_err(|e| Error::new_io(Some(e.into()), self.socket.local_addr().ok()));
+        let local_addr = self.local_addr;
 
-            let (len, remote_addr) = match rst {
-                Ok(rst) => rst,
+        loop {
+            let (data, remote_addr) = match recv_from(&self.socket).await {
+                Ok(val) => val,
                 Err(error) => {
                     log::debug!(
                         target: "yiilian_dht::net::server",
@@ -61,8 +56,16 @@ where
                     continue;
                 }
             };
-            let local_addr = self.local_addr;
-            let data: Bytes = buf[..len].to_owned().into();
+
+            if remote_addr.port() == 0 {
+                log::trace!(
+                    target: "yiilian_dht::net::server",
+                    "recv_from remote address is invalid: [{}] {}",
+                    local_port, remote_addr
+                );
+                continue;
+            }
+
             let req = {
                 let body = match KrpcBody::from_bytes(data) {
                     Ok(val) => val,

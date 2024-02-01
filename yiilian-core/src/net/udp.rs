@@ -39,15 +39,6 @@ pub async fn send_to(socket: &Arc<UdpSocket>, data: &Bytes, dest: SocketAddr) ->
                 ));
             }
 
-            log::error!(
-                target: "yiilian_core::net::udp::send_to",
-                "send_to error: [{}] {:?} remote:{} \n data:\n{:?}",
-                socket.local_addr().unwrap().port(),
-                e,
-                dest,
-                data
-            );
-
             Err(Error::new_io(Some(e.into()), Some(dest)))
         }
     }
