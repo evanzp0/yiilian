@@ -75,8 +75,8 @@ fn create_dht_list(
     };
 
     let (firewall_max_trace, firewall_max_block) =  (
-        config.dht.max_trace.unwrap_or(100),
-        config.dht.max_block.unwrap_or(1000),
+        config.dht.firewall.max_trace.unwrap_or(500),
+        config.dht.firewall.max_block.unwrap_or(1000),
     );
 
     if ports.len() == 2 {

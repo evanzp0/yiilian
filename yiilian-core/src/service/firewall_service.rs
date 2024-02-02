@@ -74,7 +74,6 @@ where
             Err(e)?
         }
 
-        // if let Some(track_state) = track_state_map.get_mut(&local_port) {
         self.track_state
             .write()
             .expect_error("track_state.write() error")
@@ -114,7 +113,6 @@ where
                 Err(e)?
             }
         }
-        // }
 
         self.inner.call(req).await
     }
