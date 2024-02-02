@@ -1,5 +1,5 @@
 
-use std::{error::Error as StdError, fmt::Debug};
+use std::{error::Error as StdError, fmt::Debug, sync::Arc};
 
 use tokio::sync::broadcast::Sender;
 
@@ -11,11 +11,11 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct EventService<S, T> {
     inner: S,
-    tx: Sender<T>
+    tx: Sender<Arc<T>>
 }
 
 impl<S, T> EventService<S, T> {
-    pub fn new(inner: S, tx: Sender<T>) -> Self {
+    pub fn new(inner: S, tx: Sender<Arc<T>>) -> Self {
         EventService { inner, tx }
     }
 }
@@ -25,14 +25,15 @@ impl<S, B1, B2> Service<Request<B1>> for EventService<S, Request<B1>>
 where
     S: Service<Request<B1>, Response = Response<B2>> + Send + Sync,
     S::Error: Into<Box<dyn StdError + Send + Sync>>,
-    B1: Clone + Debug + Body + Send,
+    B1: Clone + Debug + Body + Send + Sync,
     B2: Body + Send,
 {
     type Response = S::Response;
     type Error = S::Error;
 
     async fn call(&mut self, req: Request<B1>) -> Result<Self::Response, Self::Error> {
-        if let Err(e) = self.tx.send(req.clone()) {
+        let req_copy = Arc::new(req.clone());
+        if let Err(e) = self.tx.send(req_copy) {
             log::debug!("error: {:?}", e);
         }
 
@@ -41,11 +42,11 @@ where
 }
 
 pub struct EventLayer<T> {
-    tx: Sender<T>
+    tx: Sender<Arc<T>>
 }
 
 impl<T> EventLayer<T> {
-    pub fn new(tx: Sender<T>) -> Self {
+    pub fn new(tx: Sender<Arc<T>>) -> Self {
         Self {
             tx
         }

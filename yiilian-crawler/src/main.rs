@@ -1,5 +1,5 @@
 
-use std::{net::SocketAddr, path::Path};
+use std::{net::SocketAddr, path::Path, sync::Arc};
 
 use futures::future::join_all;
 
@@ -53,7 +53,7 @@ async fn main() {
 fn create_dht_list(
     config: &Config,
     shutdown_rx: ShutdownReceiver,
-    tx: Sender<Request<KrpcBody>>,
+    tx: Sender<Arc<Request<KrpcBody>>>,
 ) -> Result<
     Vec<
         Dht<impl KrpcService<KrpcBody, ResBody = KrpcBody, Error = Error> + Clone + Send + 'static>,

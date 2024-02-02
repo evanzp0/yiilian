@@ -17,11 +17,11 @@ const BLOOM_STATE_FILE: &str = "bloom_state.dat";
 #[derive(Debug)]
 pub struct RecvAnnounceListener<T> {
     bloom: Arc<RwLock<Bloom<u64>>>,
-    rx: Receiver<T>,
+    rx: Receiver<Arc<T>>,
 }
 
 impl RecvAnnounceListener<Request<KrpcBody>> {
-    pub fn new(rx: Receiver<Request<KrpcBody>>, shutdown: ShutdownReceiver) -> Self {
+    pub fn new(rx: Receiver<Arc<Request<KrpcBody>>>, shutdown: ShutdownReceiver) -> Self {
         let bloom = {
             match load_bloom() {
                 Ok(bloom) => bloom,
