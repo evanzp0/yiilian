@@ -50,7 +50,7 @@ pub struct DhtConfig {
     pub block_ips: Option<Vec<String>>,
     pub ports: Vec<u16>,
     pub workers: Option<usize>,
-    pub firewall: FirewallConfig,
+    pub firewall: Option<FirewallConfig>,
 }
 
 #[derive(Default, Deserialize, Serialize, Debug)]

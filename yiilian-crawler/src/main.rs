@@ -74,10 +74,16 @@ fn create_dht_list(
         None
     };
 
-    let (firewall_max_trace, firewall_max_block) =  (
-        config.dht.firewall.max_trace.unwrap_or(500),
-        config.dht.firewall.max_block.unwrap_or(1000),
-    );
+    let (firewall_max_trace, firewall_max_block) = {
+        if let Some(firewall_config) = &config.dht.firewall {
+            (
+                firewall_config.max_trace.unwrap_or(500),
+                firewall_config.max_block.unwrap_or(1000),
+            )
+        } else {
+            (500, 1000)
+        }
+    };
 
     if ports.len() == 2 {
         let port_start = ports[0];
