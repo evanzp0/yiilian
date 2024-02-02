@@ -19,12 +19,7 @@ impl Client {
     pub async fn send(&self, mut req: Request<KrpcBody>) -> Result<usize, Error> {
         let dest = req.remote_addr;
         let data = req.get_data();
-
-        // self.socket
-        //     .send_to(&data, dest)
-        //     .await
-        //     .map_err(|e| Error::new_io(Some(e.into()), Some(dest)))
-
+        
         send_to(&self.socket, &data, dest).await
     }
 }

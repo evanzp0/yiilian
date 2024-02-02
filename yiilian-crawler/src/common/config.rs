@@ -49,6 +49,7 @@ pub struct DhtConfig {
     pub routers: Option<Vec<String>>,
     pub block_ips: Option<Vec<String>>,
     pub ports: Vec<u16>,
+    pub workers: Option<usize>,
 }
 
 #[cfg(test)]

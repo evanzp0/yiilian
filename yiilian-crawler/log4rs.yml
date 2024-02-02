@@ -40,17 +40,17 @@ appenders:
       roller:
         kind: delete
 root:
-  level: trace
+  level: error
   appenders:
     - stdout
 loggers:
   yiilian_core::service::firewall_service:
-    level: trace
+    level: info
     appenders:
       - stdout
     additive: false
   yiilian_crawler::event::announce_listener:
     level: info
     appenders:
-      - announce
+      - stdout
     additive: false

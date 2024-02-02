@@ -1,4 +1,5 @@
 dht:
+  workers: 10
   routers:
     # - 127.0.0.1:6111
     # - 87.98.162.88:6881
@@ -6,4 +7,6 @@ dht:
     - router.bittorrent.com:6881
     - router.utorrent.com:6881
   block_ips: ["127.0.0.1", "38.12.39.175"]
-  ports: [16500, 16700]
+  ports: 
+    - 16500
+    # - 16700

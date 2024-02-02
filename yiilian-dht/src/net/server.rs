@@ -1,8 +1,10 @@
 
 use std::{net::SocketAddr, sync::Arc};
 use tokio::net::UdpSocket;
+use tokio::sync::Semaphore;
 use yiilian_core::common::error::Error;
 use yiilian_core::common::error::Kind;
+use yiilian_core::common::expect_log::ExpectLog;
 use yiilian_core::data::{Body, Request};
 use yiilian_core::net::udp::recv_from;
 use yiilian_core::net::udp::send_to;
@@ -15,6 +17,8 @@ pub struct Server<S> {
     socket: Arc<UdpSocket>,
     local_addr: SocketAddr,
     recv_service: S,
+    /// 最大并发任务数
+    workers: Option<Arc<Semaphore>>,
 }
 
 impl<S> Server<S>
@@ -24,12 +28,13 @@ where
     // S::Error: Debug + Send,
     S: KrpcService<KrpcBody, ResBody = KrpcBody, Error = Error> + Clone + Send + 'static,
 {
-    pub fn new(socket: Arc<UdpSocket>, recv_service: S) -> Self {
+    pub fn new(socket: Arc<UdpSocket>, recv_service: S, workers: Option<Arc<Semaphore>>) -> Self {
         let local_addr = socket.local_addr().expect("Get local address error");
         Server {
             socket,
             recv_service,
             local_addr,
+            workers,
         }
     }
 
@@ -38,6 +43,20 @@ where
         let local_addr = self.local_addr;
 
         loop {
+            // worker 用信号量来限制并发的最大任务数
+            let worker = match self.workers.clone() {
+                Some(val) => {
+                    let val = val.acquire_owned()
+                        .await
+                        .expect_error("Semaphore acquire_owned failed");
+                    
+                    Some(val)
+                },
+                None => {
+                    None
+                },
+            };
+
             let (data, remote_addr) = match recv_from(&self.socket).await {
                 Ok(val) => val,
                 Err(error) => {
@@ -80,6 +99,7 @@ where
 
             // 每个收到的连接都会在独立的任务中处理
             tokio::spawn(async move {
+                // tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                 let rst = service.call(req.clone()).await;
                 match rst {
                     Ok(mut res) => {
@@ -89,24 +109,6 @@ where
                                 if let Err(error) =
                                     send_to(&socket, &res.get_data(), res.remote_addr).await
                                 {
-                                    // match error.get_kind() {
-                                    //     Kind::Conntrack => {
-                                    //         log::error!(
-                                    //             target: "yiilian_dht::net::server",
-                                    //             "send_to error: [{}] {:?}",
-                                    //             local_port,
-                                    //             error
-                                    //         );
-                                    //     },
-                                    //     _ => {
-                                    //         log::debug!(
-                                    //             target: "yiilian_dht::net::server",
-                                    //             "send_to error: [{}] {:?}",
-                                    //             local_port,
-                                    //             error
-                                    //         );
-                                    //     },
-                                    // }
                                     log::error!(
                                         target: "yiilian_dht::net::server",
                                         "send_to error: [{}] {:?}\n req:\n{:?}",
@@ -131,6 +133,8 @@ where
                         }
                     },
                 }
+
+                drop(worker)
             });
         }
     }

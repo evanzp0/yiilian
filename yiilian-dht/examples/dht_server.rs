@@ -14,7 +14,7 @@ async fn main() -> Result<(), Error> {
 
     let local_addr: SocketAddr = "0.0.0.0:6578".parse().unwrap();
 
-    let dht = DhtBuilder::new(local_addr, shutdown_rx.clone())
+    let dht = DhtBuilder::new(local_addr, shutdown_rx.clone(), Some(100))
         .layer(FirewallLayer::new(1000, 20, Some(1000), shutdown_rx.clone()))
         .layer(LogLayer)
         .build()

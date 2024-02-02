@@ -21,10 +21,11 @@ pub struct DhtBuilder<L, S> {
     settings: Option<Settings>,
     block_list: Option<HashSet<BlockAddr>>,
     shutdown_rx: ShutdownReceiver,
+    workers: Option<usize>,
 }
 
 impl DhtBuilder<Identity, RouterService> {
-    pub fn new(local_addr: SocketAddr, shutdown_rx: ShutdownReceiver) -> Self {
+    pub fn new(local_addr: SocketAddr, shutdown_rx: ShutdownReceiver, workers: Option<usize>) -> Self {
         let router_service = RouterService::new(local_addr);
         Self {
             local_addr,
@@ -33,6 +34,7 @@ impl DhtBuilder<Identity, RouterService> {
             settings: None,
             block_list: None,
             shutdown_rx,
+            workers,
         }
     }
 
@@ -60,6 +62,7 @@ impl<L, S> DhtBuilder<L, S> {
             settings: self.settings,
             block_list: self.block_list,
             shutdown_rx: self.shutdown_rx,
+            workers: self.workers,
         }
     }
 
@@ -76,6 +79,7 @@ impl<L, S> DhtBuilder<L, S> {
             self.settings,
             self.block_list,
             self.shutdown_rx,
+            self.workers,
         );
 
         dht

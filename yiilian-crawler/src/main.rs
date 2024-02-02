@@ -64,6 +64,8 @@ fn create_dht_list(
 
     let ports = &config.dht.ports;
     let block_ips = config.get_dht_block_list();
+    let workers = config.dht.workers;
+
     let settings = if let Some(routers) = &config.dht.routers {
         let mut st = SettingsBuilder::new().build();
         st.routers = routers.clone();
@@ -78,7 +80,7 @@ fn create_dht_list(
         for port in port_start..=port_end {
             let local_addr: SocketAddr = format!("0.0.0.0:{port}").parse().unwrap();
 
-            let dht = DhtBuilder::new(local_addr, shutdown_rx.clone())
+            let dht = DhtBuilder::new(local_addr, shutdown_rx.clone(), workers)
                 .block_list(block_ips.clone())
                 .settings(settings.clone())
                 .layer(FirewallLayer::new(60000, 20, Some(1000), shutdown_rx.clone()))
@@ -92,7 +94,7 @@ fn create_dht_list(
         for port in ports {
             let local_addr: SocketAddr = format!("0.0.0.0:{port}").parse().unwrap();
 
-            let dht = DhtBuilder::new(local_addr, shutdown_rx.clone())
+            let dht = DhtBuilder::new(local_addr, shutdown_rx.clone(), workers)
                 .block_list(block_ips.clone())
                 .settings(settings.clone())
                 .layer(FirewallLayer::new(60000, 20, Some(1000), shutdown_rx.clone()))

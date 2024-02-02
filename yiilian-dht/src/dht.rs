@@ -13,8 +13,7 @@ use std::{
     time::Duration,
 };
 use tokio::{
-    net::{lookup_host, UdpSocket},
-    time::sleep,
+    net::{lookup_host, UdpSocket}, sync::Semaphore, time::sleep
 };
 use yiilian_core::{
     common::{
@@ -65,6 +64,7 @@ where
         settings: Option<Settings>,
         block_list: Option<HashSet<BlockAddr>>,
         shutdown_rx: ShutdownReceiver,
+        workers: Option<usize>,
     ) -> Result<Self, Error> {
         let local_id = Id::from_ip(&local_addr.ip());
         let ctx_index = local_addr.port();
@@ -109,7 +109,15 @@ where
         );
         dht_ctx_insert(ctx_index, ctx);
 
-        let server = Server::new(socket.clone(), service);
+        let workers = match workers {
+            Some(val) => {
+                let workers = Arc::new(Semaphore::new(val));
+                Some(workers)
+            },
+            None => None,
+        };
+        
+        let server = Server::new(socket.clone(), service, workers);
 
         let nodes_file = home::home_dir()
             .map_or(
