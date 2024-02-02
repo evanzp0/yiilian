@@ -15,14 +15,14 @@ use crate::common::{expect_log::ExpectLog, shutdown::{spawn_with_shutdown, Shutd
 
 #[derive(Debug, Clone)]
 pub struct BlockList {
-    max_size: i32,
+    max_size: usize,
     addr_list: Arc<RwLock<HashSet<BlockAddr>>>,
     shutdown_rx: ShutdownReceiver,
 }
 
 impl BlockList {
     pub fn new(
-        max_size: i32,
+        max_size: usize,
         addr_list: Option<HashSet<BlockAddr>>,
         shutdown_rx: ShutdownReceiver,
     ) -> Self {

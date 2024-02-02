@@ -50,6 +50,8 @@ pub struct DhtConfig {
     pub block_ips: Option<Vec<String>>,
     pub ports: Vec<u16>,
     pub workers: Option<usize>,
+    pub max_trace: Option<usize>,
+    pub max_block: Option<usize>,
 }
 
 #[cfg(test)]

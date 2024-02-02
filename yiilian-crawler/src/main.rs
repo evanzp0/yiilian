@@ -74,6 +74,11 @@ fn create_dht_list(
         None
     };
 
+    let (firewall_max_trace, firewall_max_block) =  (
+        config.dht.max_trace.unwrap_or(100),
+        config.dht.max_block.unwrap_or(1000),
+    );
+
     if ports.len() == 2 {
         let port_start = ports[0];
         let port_end = ports[1];
@@ -83,7 +88,7 @@ fn create_dht_list(
             let dht = DhtBuilder::new(local_addr, shutdown_rx.clone(), workers)
                 .block_list(block_ips.clone())
                 .settings(settings.clone())
-                .layer(FirewallLayer::new(60000, 20, Some(1000), shutdown_rx.clone()))
+                .layer(FirewallLayer::new(firewall_max_trace, 20, firewall_max_block, shutdown_rx.clone()))
                 .layer(EventLayer::new(tx.clone()))
                 .build()
                 .unwrap();
@@ -97,7 +102,7 @@ fn create_dht_list(
             let dht = DhtBuilder::new(local_addr, shutdown_rx.clone(), workers)
                 .block_list(block_ips.clone())
                 .settings(settings.clone())
-                .layer(FirewallLayer::new(60000, 20, Some(1000), shutdown_rx.clone()))
+                .layer(FirewallLayer::new(10, 20, firewall_max_block, shutdown_rx.clone()))
                 .layer(EventLayer::new(tx.clone()))
                 .build()
                 .unwrap();

@@ -99,8 +99,7 @@ where
 
             // 每个收到的连接都会在独立的任务中处理
             tokio::spawn(async move {
-                // tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                let rst = service.call(req.clone()).await;
+                let rst = service.call(req).await;
                 match rst {
                     Ok(mut res) => {
                         match res.body.get_kind() {
@@ -111,11 +110,18 @@ where
                                 {
                                     log::error!(
                                         target: "yiilian_dht::net::server",
-                                        "send_to error: [{}] {:?}\n req:\n{:?}",
+                                        "send_to error: [{}] {:?}\n req:\n",
                                         local_port,
-                                        error,
-                                        req
+                                        error
                                     );
+
+                                    // log::error!(
+                                    //     target: "yiilian_dht::net::server",
+                                    //     "send_to error: [{}] {:?}\n req:\n{:?}",
+                                    //     local_port,
+                                    //     error,
+                                    //     req
+                                    // );
                                 }
                             }
                         }

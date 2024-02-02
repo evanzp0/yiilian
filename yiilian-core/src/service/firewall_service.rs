@@ -29,11 +29,11 @@ impl<F> FirewallService<F> {
         inner: F,
         max_tracks: usize,
         limit_per_sec: i64,
-        block_list_max_size: Option<i32>,
+        block_list_max_size: usize,
         shutdown_rx: ShutdownReceiver,
     ) -> Self {
         let track_state = Arc::new(RwLock::new(TrackState::new(max_tracks)));
-        let block_list = BlockList::new(block_list_max_size.unwrap_or(65535), None, shutdown_rx);
+        let block_list = BlockList::new(block_list_max_size, None, shutdown_rx);
 
         block_list.prune_loop();
 
@@ -227,7 +227,7 @@ impl AccessTrack {
 pub struct FirewallLayer {
     max_tracks: usize,
     limit_per_sec: i64,
-    block_list_max_size: Option<i32>,
+    block_list_max_size: usize,
     shutdown_rx: ShutdownReceiver,
 }
 
@@ -235,7 +235,7 @@ impl FirewallLayer {
     pub fn new(
         max_tracks: usize,
         limit_per_sec: i64,
-        block_list_max_size: Option<i32>,
+        block_list_max_size: usize,
         shutdown_rx: ShutdownReceiver,
     ) -> Self {
         FirewallLayer {
@@ -270,7 +270,7 @@ mod tests {
     #[tokio::test]
     async fn test() {
         let (mut _shutdown_tx, shutdown_rx) = create_shutdown();
-        let firewall_layer = FirewallLayer::new(1, 2, Some(1), shutdown_rx.clone());
+        let firewall_layer = FirewallLayer::new(1, 2, 1, shutdown_rx.clone());
 
         let mut firewall_service = firewall_layer.layer(TestService::new());
         let remote_addr_1: SocketAddr = "192.168.1.1:1111".parse().unwrap();

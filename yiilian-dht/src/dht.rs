@@ -545,7 +545,7 @@ where
 fn build_routing_table(
     ctx_index: u16,
     local_id: Id,
-    block_list_max_size: i32,
+    block_list_max_size: usize,
     bucket_size: usize,
     block_list: Option<HashSet<BlockAddr>>,
     shutdown_rx: ShutdownReceiver,

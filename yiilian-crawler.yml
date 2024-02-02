@@ -1,5 +1,8 @@
 dht:
-  workers: 10
+  workers: 1000
+  firewall:
+    max_trace: 500
+    max_block: 1000
   routers:
     # - 127.0.0.1:6111
     # - 87.98.162.88:6881
@@ -9,4 +12,4 @@ dht:
   block_ips: ["127.0.0.1", "38.12.39.175"]
   ports: 
     - 16500
-    # - 16700
+    - 16700
