@@ -2,7 +2,7 @@ use std::{collections::HashSet, net::IpAddr};
 
 use bytes::Bytes;
 use rand::{thread_rng, Rng};
-use yiilian_core::common::error::Error;
+use yiilian_core::common::{error::Error, expect_log::ExpectLog};
 
 use super::util::CASTAGNOLI;
 
@@ -15,24 +15,35 @@ pub struct Id {
     bytes: [u8; ID_SIZE],
 }
 
-impl From<&[u8]> for Id {
-    fn from(value: &[u8]) -> Self {
-        let mut tmp: [u8; ID_SIZE] = [0; ID_SIZE];
-        tmp[..ID_SIZE].clone_from_slice(&value[..ID_SIZE]);
+impl TryFrom<&[u8]> for Id {
+    type Error = Error;
 
-        Id { bytes: tmp }
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        if value.len() == ID_SIZE {
+            let mut tmp: [u8; ID_SIZE] = [0; ID_SIZE];
+            tmp[..ID_SIZE].clone_from_slice(&value[..ID_SIZE]);
+    
+            Ok( Id { bytes: tmp } )
+        } else {
+            Err(Error::new_id(None, Some(format!("&[u8] is too short to convert id, {:?}", value))))
+        }
+        
     }
 }
 
-impl From<&str> for Id {
-    fn from(value: &str) -> Self {
-        value.as_bytes().into()
+impl TryFrom<&str> for Id {
+    type Error = Error;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        value.as_bytes().try_into()
     }
 }
 
-impl From<Bytes> for Id {
-    fn from(value: Bytes) -> Self {
-        value.as_ref().into()
+impl TryFrom<Bytes> for Id {
+    type Error = Error;
+
+    fn try_from(value: Bytes) -> Result<Self, Self::Error> {
+        value.as_ref().try_into()
     }
 }
 
@@ -42,8 +53,8 @@ impl Id {
     }
 
     /// Create a new Id from some bytes. Returns Err if `bytes` is not of length ID_SIZE
-    pub fn from_bytes(bytes: &[u8]) -> Id {
-        bytes.into()
+    pub fn from_bytes(bytes: &[u8]) -> Result<Id, Error> {
+        bytes.try_into()
     }
 
     /// Generates a random Id for a mainline DHT node with the provided IP address.
@@ -135,7 +146,7 @@ impl Id {
     pub fn from_hex(h: &str) -> Result<Id, Error> {
         let bytes = hex::decode(h).map_err(|hex_err| Error::new_id(Some(hex_err.into()), None))?;
 
-        Ok(Id::from_bytes(&bytes))
+        Id::from_bytes(&bytes)
     }
 
     /// Computes the exclusive or (XOR) of this Id with another. The BitTorrent DHT
@@ -148,7 +159,7 @@ impl Id {
             *item = self.bytes[i] ^ other.bytes[i];
         }
 
-        Id::from_bytes(&bytes)
+        Id::from_bytes(&bytes).expect_error("Id::from_bytes() error")
     }
 
     /// Makes a new id that's similar to this one.

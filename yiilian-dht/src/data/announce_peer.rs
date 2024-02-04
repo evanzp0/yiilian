@@ -88,7 +88,7 @@ impl TryFrom<Frame> for AnnouncePeer {
             ))?
             .as_bstr()?
             .to_owned()
-            .into();
+            .try_into()?;
 
         let info_hash: Id = a
             .get_dict_item("info_hash")
@@ -98,7 +98,7 @@ impl TryFrom<Frame> for AnnouncePeer {
             ))?
             .as_bstr()?
             .to_owned()
-            .into();
+            .try_into()?;
 
         let implied_port = {
             if let Some(implied_port) = a.get_dict_item("implied_port") {
@@ -176,8 +176,8 @@ mod tests {
             v: Some("v1".into()),
             ip: Some("127.0.0.1:80".parse().unwrap()),
             ro: Some(1),
-            id: "id000000000000000001".into(),
-            info_hash: "info0000000000000001".into(),
+            id: "id000000000000000001".try_into().unwrap(),
+            info_hash: "info0000000000000001".try_into().unwrap(),
             implied_port: Some(1),
             port: 80,
             token: "01".into(),

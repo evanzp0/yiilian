@@ -15,7 +15,7 @@ async fn main() {
 
     let remote_addr: SocketAddr = "127.0.0.1:6578".parse().unwrap();
     let ping = Ping::new(
-        "id000000000000000001".into(),
+        "id000000000000000001".try_into().unwrap(),
         "t1".into(),
         Some("v1".into()),
         Some("127.0.0.1:80".parse().unwrap()),
@@ -29,7 +29,7 @@ async fn main() {
     sleep(Duration::from_secs(2)).await;
 
     let ping_reply = PingOrAnnounceReply::new(
-        "id000000000000000001".into(),
+        "id000000000000000001".try_into().unwrap(),
         "t1".into(),
         Some("v1".into()),
         Some("127.0.0.1:80".parse().unwrap()),

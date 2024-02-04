@@ -83,7 +83,7 @@ impl TryFrom<Frame> for FindNodeReply {
             ))?
             .as_bstr()?
             .to_owned()
-            .into();
+            .try_into()?;
 
         let nodes = {
             if let Some(node_bytes) = r.get_dict_item("nodes") {
@@ -130,11 +130,11 @@ mod tests {
 
     #[test]
     fn test() {
-        let id1 = Id::from_bytes(b"node0000000000000001");
-        let id2 = Id::from_bytes(b"node0000000000000002");
+        let id1 = Id::from_bytes(b"node0000000000000001").unwrap();
+        let id2 = Id::from_bytes(b"node0000000000000002").unwrap();
         let addr: SocketAddr = "192.168.0.1:1".parse().unwrap();
         let af = FindNodeReply::new(
-            "id000000000000000001".into(),
+            "id000000000000000001".try_into().unwrap(),
             vec![Node::new(id1, addr.clone()), Node::new(id2, addr.clone())],
             "t1".into(),
             Some("v1".into()),

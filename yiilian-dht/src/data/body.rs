@@ -286,8 +286,8 @@ mod tests {
     #[test]
     fn test_bytes_to_body() {
         let af = AnnouncePeer::new(
-            "id000000000000000001".into(),
-            "info0000000000000001".into(),
+            "id000000000000000001".try_into().unwrap(),
+            "info0000000000000001".try_into().unwrap(),
             Some(1),
             80,
             "01".into(),

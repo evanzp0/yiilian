@@ -66,7 +66,7 @@ impl TryFrom<Frame> for PingOrAnnounceReply {
             ))?
             .as_bstr()?
             .to_owned()
-            .into();
+            .try_into()?;
 
         Ok(PingOrAnnounceReply::new(id, t, v, ip, ro))
     }
@@ -98,7 +98,7 @@ mod tests {
     #[test]
     fn test() {
         let af = PingOrAnnounceReply::new(
-            "id000000000000000001".into(),
+            "id000000000000000001".try_into().unwrap(),
             "t1".into(),
             Some("v1".into()),
             Some("127.0.0.1:80".parse().unwrap()),

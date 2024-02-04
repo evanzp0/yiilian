@@ -55,7 +55,7 @@ pub fn bytes_to_nodes4(bytes: &[u8], id_size: usize) -> Result<Vec<Node>, Error>
     let mut to_ret = Vec::with_capacity(expected_num);
     for i in 0..bytes.len() / node4_byte_size {
         let i = i * node4_byte_size;
-        let id = Id::from_bytes(&bytes[i..i + id_size]);
+        let id = Id::from_bytes(&bytes[i..i + id_size])?;
         let sockaddr = bytes_to_sockaddr(&bytes[i + id_size..i + node4_byte_size])?;
         let node = Node::<>::new(id, sockaddr);
         to_ret.push(node);

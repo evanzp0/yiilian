@@ -73,7 +73,7 @@ impl TryFrom<Frame> for GetPeers {
             ))?
             .as_bstr()?
             .to_owned()
-            .into();
+            .try_into()?;
 
         let info_hash: Id = a
             .get_dict_item("info_hash")
@@ -83,7 +83,7 @@ impl TryFrom<Frame> for GetPeers {
             ))?
             .as_bstr()?
             .to_owned()
-            .into();
+            .try_into()?;
 
         Ok(GetPeers::new(id, info_hash, t, v, ip, ro))
     }
@@ -117,8 +117,8 @@ mod tests {
     #[test]
     fn test() {
         let af = GetPeers::new(
-            "id000000000000000001".into(),
-            "info0000000000000001".into(),
+            "id000000000000000001".try_into().unwrap(),
+            "info0000000000000001".try_into().unwrap(),
             "t1".into(),
             Some("v1".into()),
             Some("127.0.0.1:80".parse().unwrap()),

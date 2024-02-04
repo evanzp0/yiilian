@@ -31,7 +31,7 @@ async fn main() {
 
     tokio::select! {
         _  = async {
-            loop {
+            // loop {
                 let mut futs = vec![];
                 for dht in &dht_list {
                     println!("Listening at: {:?}", dht.local_addr);
@@ -41,12 +41,12 @@ async fn main() {
                 join_all(futs).await;
                 sleep(Duration::from_secs(10 * 60)).await;
                 log::info!("restart dht");
-            }
+            // }
         } => (),
         _ = async {
-            tokio::spawn(async move {
+            // tokio::spawn(async move {
                 announce_listener.listen().await
-            })
+            // })
         } => (),
         _ = tokio::signal::ctrl_c() => {
             drop(dht_list);

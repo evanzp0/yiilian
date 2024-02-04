@@ -75,7 +75,7 @@ impl TryFrom<Frame> for FindNode {
             ))?
             .as_bstr()?
             .to_owned()
-            .into();
+            .try_into()?;
 
         let target: Id = a
             .get_dict_item("target")
@@ -85,7 +85,7 @@ impl TryFrom<Frame> for FindNode {
             ))?
             .as_bstr()?
             .to_owned()
-            .into();
+            .try_into()?;
 
         Ok(FindNode {
             t,
@@ -125,8 +125,8 @@ mod tests {
     #[test]
     fn test() {
         let af = FindNode::new(
-            "id000000000000000001".into(),
-            "info0000000000000001".into(),
+            "id000000000000000001".try_into().unwrap(),
+            "info0000000000000001".try_into().unwrap(),
             "t1".into(),
             Some("v1".into()),
             Some("127.0.0.1:80".parse().unwrap()),

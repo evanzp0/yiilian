@@ -100,7 +100,7 @@ impl TryFrom<Frame> for GetPeersReply {
             ))?
             .as_bstr()?
             .to_owned()
-            .into();
+            .try_into()?;
 
         let token: Bytes = r
             .get_dict_item("token")
@@ -174,7 +174,7 @@ mod tests {
     fn test() {
         let addr: SocketAddr = "192.168.0.1:80".parse().unwrap();
         let af = GetPeersReply::new(
-            "id000000000000000001".into(),
+            "id000000000000000001".try_into().unwrap(),
             "token01".into(),
             vec![],
             vec![addr.clone(), addr.clone()],
