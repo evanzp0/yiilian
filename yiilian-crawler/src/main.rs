@@ -1,9 +1,9 @@
 
-use std::{net::SocketAddr, path::Path, sync::Arc};
+use std::{net::SocketAddr, path::Path, sync::Arc, time::Duration};
 
 use futures::future::join_all;
 
-use tokio::sync::broadcast::{self, Sender};
+use tokio::{sync::broadcast::{self, Sender}, time::sleep};
 use yiilian_core::{
     common::{
         error::Error,
@@ -31,15 +31,23 @@ async fn main() {
 
     tokio::select! {
         _  = async {
-            let mut futs = vec![];
-            for dht in &dht_list {
-                println!("Listening at: {:?}", dht.local_addr);
-                futs.push(dht.run_loop());
+            loop {
+                let mut futs = vec![];
+                for dht in &dht_list {
+                    println!("Listening at: {:?}", dht.local_addr);
+                    futs.push(dht.run_loop());
+                }
+            
+                join_all(futs).await;
+                sleep(Duration::from_secs(10 * 60)).await;
+                log::info!("restart dht");
             }
-            join_all(futs).await;
-
         } => (),
-        _ = announce_listener.listen() => (),
+        _ = async {
+            tokio::spawn(async move {
+                announce_listener.listen().await
+            })
+        } => (),
         _ = tokio::signal::ctrl_c() => {
             drop(dht_list);
 
