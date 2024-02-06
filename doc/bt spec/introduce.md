@@ -2,11 +2,11 @@
 
 1. BT 基础协议
 
-    (1) [BEP0003 (The BitTorrent Protocol Specification)](http://www.bittorrent.org/beps/bep_0003.html)
+    (1) [BEP0003 (The BitTorrent Protocol Specification)](https://www.bittorrent.org/beps/bep_0003.html)
 
         BT 协议的作者 Bram Cohen 编写, 最具权威性, 是标准的概览.
 
-    (2) [Incentives Build Robustness in BitTorrent](http://www.bittorrent.org/bittorrentecon.pdf)
+    (2) [Incentives Build Robustness in BitTorrent](https://www.bittorrent.org/bittorrentecon.pdf)
 
         BT 协议的作者 Bram Cohen 编写, 其中 piece selection 和 peer selection 部分十分详细.
 
