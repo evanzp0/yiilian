@@ -1,5 +1,6 @@
 
-use std::{net::SocketAddr, sync::Arc};
+use std::net::SocketAddr;
+use std::sync::Arc;
 use tokio::net::UdpSocket;
 use tokio::sync::Semaphore;
 use yiilian_core::common::error::Error;
