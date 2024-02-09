@@ -246,8 +246,18 @@ pub fn decode_int(data: &[u8], start: usize) -> Result<(BencodeFrame, usize), Er
         Some(val) => val,
         None => Err(Error::new_frame(None, Some("'e' not found when decode string".to_owned())))?,
     };
+
+    let data = &data[start..idx];
+
+    if data.len() > 1 {
+        if data[0] == b'0' {
+            Err(Error::new_frame(None, Some("'0' prefix is invalid of int".to_owned())))?
+        } else if &data[0..2] == b"-0" {
+            Err(Error::new_frame(None, Some("'-0' prefix is invalid of int".to_owned())))?
+        }
+    }
     
-    let s = String::from_utf8_lossy(&data[start..idx]);
+    let s = String::from_utf8_lossy(data);
     let rst = if let Ok(v) = s.parse::<i32>() {
         v
     } else {
@@ -316,6 +326,7 @@ pub fn decode_dict(data: &[u8], start: usize) -> Result<(BencodeFrame, usize), E
 
     let mut rst: BTreeMap<Bytes, BencodeFrame> = BTreeMap::new();
     let mut index = start + 1;
+    let mut prev_key = None;
 
     while index < data.len() {
         if data[index] == b'e' {
@@ -331,8 +342,16 @@ pub fn decode_dict(data: &[u8], start: usize) -> Result<(BencodeFrame, usize), E
         let key = if let BencodeFrame::Str(k) = b_key {
             k
         } else {
-            Default::default()
+            panic!("decode_string() must return BencodeFrame::Str()")
         };
+
+        if let Some(ref p_key) = prev_key {
+            if *p_key > key {
+                Err(Error::new_frame(None, Some("invalid dict, key order is invalid".to_owned())))?
+            }
+        } else {
+            prev_key = Some(key.clone());
+        }
 
         if idx >= data.len() {
             return Err(
@@ -530,6 +549,24 @@ mod tests {
         assert_eq!((123.into(), 9), decode_int(data, 4).unwrap());
         assert!(decode_int(data, 0).unwrap_err().to_string().find("invalid int bencode").is_some());
         assert!(decode_int(data, 9).unwrap_err().to_string().find("'e' not found when decode string").is_some());
+
+        let data = "i0123e".as_bytes();
+        match decode_int(data, 0) {
+            Ok(_) => panic!("error"),
+            Err(_) => assert!(true),
+        }
+
+        let data = "i0e".as_bytes();
+        match decode_int(data, 0) {
+            Ok(_) => assert!(true),
+            Err(_) => panic!("error"),
+        }
+
+        let data = "i-0e".as_bytes();
+        match decode_int(data, 0) {
+            Ok(_) => panic!("error"),
+            Err(_) => assert!(true),
+        }
     }
 
     #[test]
@@ -573,6 +610,20 @@ mod tests {
         rst.insert("ab".into(), "xyz".into());
 
         assert_eq!((rst.into(), 11), decode_dict(data, 0).unwrap());
+
+        let data = "d3:abei11e2:abi12ee".as_bytes();
+        match decode_dict(data, 0) {
+            Ok(_) => panic!("error"),
+            Err(_) => assert!(true),
+        }
+
+        let data = "d3:abci11e3:abei12ee".as_bytes();
+        match decode_dict(data, 0) {
+            Ok(_) => assert!(true),
+            Err(_) => panic!("error"),
+        }
+
+        eprintln!("{}", "abe" > "ab");
     }
 
     #[test]
