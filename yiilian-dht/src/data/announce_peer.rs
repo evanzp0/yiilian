@@ -1,4 +1,4 @@
-use std::{collections::HashMap, net::SocketAddr};
+use std::{collections::BTreeMap, net::SocketAddr};
 
 use bytes::Bytes;
 use yiilian_core::{common::error::Error, data::BencodeFrame as Frame};
@@ -141,13 +141,13 @@ impl TryFrom<Frame> for AnnouncePeer {
 
 impl From<AnnouncePeer> for Frame {
     fn from(value: AnnouncePeer) -> Self {
-        let mut rst: HashMap<Bytes, Frame> = HashMap::new();
+        let mut rst: BTreeMap<Bytes, Frame> = BTreeMap::new();
         gen_frame_common_field!(rst, value);
 
         rst.insert("y".into(), "q".into());
         rst.insert("q".into(), "announce_peer".into());
 
-        let mut a: HashMap<Bytes, Frame> = HashMap::new();
+        let mut a: BTreeMap<Bytes, Frame> = BTreeMap::new();
         a.insert("id".into(), value.id.get_bytes().into());
         a.insert("info_hash".into(), value.info_hash.get_bytes().into());
         if let Some(implied_port) = value.implied_port {

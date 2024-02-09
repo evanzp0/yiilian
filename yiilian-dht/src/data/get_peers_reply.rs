@@ -1,4 +1,4 @@
-use std::{collections::HashMap, net::SocketAddr};
+use std::{collections::BTreeMap, net::SocketAddr};
 
 use bytes::Bytes;
 use yiilian_core::{
@@ -137,12 +137,12 @@ impl TryFrom<Frame> for GetPeersReply {
 
 impl From<GetPeersReply> for Frame {
     fn from(value: GetPeersReply) -> Self {
-        let mut rst: HashMap<Bytes, Frame> = HashMap::new();
+        let mut rst: BTreeMap<Bytes, Frame> = BTreeMap::new();
         gen_frame_common_field!(rst, value);
 
         rst.insert("y".into(), "r".into());
 
-        let mut r: HashMap<Bytes, Frame> = HashMap::new();
+        let mut r: BTreeMap<Bytes, Frame> = BTreeMap::new();
         r.insert("id".into(), value.id.get_bytes().into());
         r.insert("token".into(), value.token.clone().into());
 

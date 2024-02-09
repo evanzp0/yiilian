@@ -1,4 +1,4 @@
-use std::{collections::HashMap, net::SocketAddr};
+use std::{collections::BTreeMap, net::SocketAddr};
 
 use bytes::Bytes;
 use yiilian_core::{common::error::Error, data::BencodeFrame as Frame};
@@ -85,7 +85,7 @@ impl TryFrom<Frame> for RError {
 
 impl From<RError> for Frame {
     fn from(value: RError) -> Self {
-        let mut rst: HashMap<Bytes, Frame> = HashMap::new();
+        let mut rst: BTreeMap<Bytes, Frame> = BTreeMap::new();
         gen_frame_common_field!(rst, value);
 
         rst.insert("y".into(), "e".into());

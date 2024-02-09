@@ -1,4 +1,4 @@
-use std::{collections::HashMap, net::SocketAddr};
+use std::{collections::BTreeMap, net::SocketAddr};
 
 use bytes::Bytes;
 use yiilian_core::{common::error::Error, data::BencodeFrame as Frame};
@@ -74,12 +74,12 @@ impl TryFrom<Frame> for PingOrAnnounceReply {
 
 impl From<PingOrAnnounceReply> for Frame {
     fn from(value: PingOrAnnounceReply) -> Self {
-        let mut rst: HashMap<Bytes, Frame> = HashMap::new();
+        let mut rst: BTreeMap<Bytes, Frame> = BTreeMap::new();
         gen_frame_common_field!(rst, value);
 
         rst.insert("y".into(), "r".into());
 
-        let mut r: HashMap<Bytes, Frame> = HashMap::new();
+        let mut r: BTreeMap<Bytes, Frame> = BTreeMap::new();
         r.insert("id".into(), value.id.get_bytes().into());
 
         rst.insert("r".into(), r.into());

@@ -1,4 +1,4 @@
-use std::{collections::HashMap, net::SocketAddr};
+use std::{collections::BTreeMap, net::SocketAddr};
 
 use bytes::Bytes;
 use yiilian_core::common::error::Error;
@@ -100,13 +100,13 @@ impl TryFrom<Frame> for FindNode {
 
 impl From<FindNode> for Frame {
     fn from(value: FindNode) -> Self {
-        let mut rst: HashMap<Bytes, Frame> = HashMap::new();
+        let mut rst: BTreeMap<Bytes, Frame> = BTreeMap::new();
         gen_frame_common_field!(rst, value);
 
         rst.insert("y".into(), "q".into());
         rst.insert("q".into(), "find_node".into());
 
-        let mut a: HashMap<Bytes, Frame> = HashMap::new();
+        let mut a: BTreeMap<Bytes, Frame> = BTreeMap::new();
         a.insert("id".into(), value.id.get_bytes().into());
         a.insert("target".into(), value.target.get_bytes().into());
 

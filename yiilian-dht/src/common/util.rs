@@ -39,7 +39,7 @@ pub fn calculate_token<T: AsRef<[u8]>>(remote: &SocketAddr, secret: T) -> [u8; 4
 /// 
 /// let data: Bytes = vec![0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1, 127,0,0,1, 0,80].into();
 /// let rst = bytes_to_nodes4(&data, 20).unwrap();
-/// let id = Id::from_bytes(&vec![0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1]);
+/// let id = Id::from_bytes(&vec![0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1]).unwrap();
 /// let sock_addr: SocketAddr = "127.0.0.1:80".parse().unwrap();
 /// let node = Node::new(id, sock_addr);
 /// assert_eq!(node, rst[0]);
@@ -75,7 +75,7 @@ pub fn bytes_to_nodes4(bytes: &[u8], id_size: usize) -> Result<Vec<Node>, Error>
 /// use std::net::{SocketAddr, ToSocketAddrs};
 /// 
 /// let data: Bytes = vec![0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1, 127,0,0,1, 0,80].into();
-/// let id = Id::from_bytes(&vec![0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1]);
+/// let id = Id::from_bytes(&vec![0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1]).unwrap();
 /// let sock_addr: SocketAddr = "127.0.0.1:80".parse().unwrap();
 /// let node = Node::new(id, sock_addr);
 /// let rst = nodes4_to_bytes(&vec![node], 20);

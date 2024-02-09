@@ -7,9 +7,9 @@ use crate::common::error::Error;
 
 /// Macro for creating a [`HashMap`](std::collections::HashMap).
 #[macro_export]
-macro_rules! hashmap {
+macro_rules! map {
     {$($k: expr => $v: expr),* $(,)?} => {
-        std::collections::HashMap::from([$(($k, $v),)*])
+        std::collections::BTreeMap::from([$(($k, $v),)*])
     };
 }
 
@@ -141,16 +141,16 @@ pub fn hash_it<T: Hash>(name: T) -> u64 {
 
 #[cfg(test)]
 mod test {
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
 
     #[test]
     fn test_hashmap_macro() {
-        let map: HashMap<String, String> = hashmap! {
+        let map: BTreeMap<String, String> = map! {
             "en".into() => "Goodbye".into(),
             "de".into() => "Auf Wiedersehen".into(),
         };
 
-        let mut map1: HashMap<String, String> = HashMap::new();
+        let mut map1: BTreeMap<String, String> = BTreeMap::new();
         map1.insert("en".into(), "Goodbye".into());
         map1.insert("de".into(), "Auf Wiedersehen".into());
 

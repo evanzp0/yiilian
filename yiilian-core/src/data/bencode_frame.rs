@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Display};
+use std::{collections::BTreeMap, fmt::Display};
 
 use bytes::Bytes;
 use crate::common::{util::atoi, error::Error};
@@ -10,7 +10,7 @@ pub enum BencodeFrame {
     Str(Bytes),
     Int(i32),
     List(Vec<BencodeFrame>),
-    Map(HashMap<Bytes, BencodeFrame>),
+    Map(BTreeMap<Bytes, BencodeFrame>),
 }
 
 impl BencodeFrame {
@@ -35,7 +35,7 @@ impl BencodeFrame {
         }
     }
 
-    pub fn as_map(&self) -> Result<&HashMap<Bytes, BencodeFrame>, Error> {
+    pub fn as_map(&self) -> Result<&BTreeMap<Bytes, BencodeFrame>, Error> {
         if let BencodeFrame::Map(v) = self {
             Ok(v)
         } else {
@@ -178,15 +178,15 @@ impl From<Vec<BencodeFrame>> for BencodeFrame {
     }
 }
 
-impl From<HashMap<Bytes, BencodeFrame>> for BencodeFrame {
-    fn from(value: HashMap<Bytes, BencodeFrame>) -> Self {
+impl From<BTreeMap<Bytes, BencodeFrame>> for BencodeFrame {
+    fn from(value: BTreeMap<Bytes, BencodeFrame>) -> Self {
         BencodeFrame::Map(value)
     }
 }
 
-impl From<HashMap<String, BencodeFrame>> for BencodeFrame {
-    fn from(value: HashMap<String, BencodeFrame>) -> Self {
-        let mut rst: HashMap<Bytes, BencodeFrame> = HashMap::new();
+impl From<BTreeMap<String, BencodeFrame>> for BencodeFrame {
+    fn from(value: BTreeMap<String, BencodeFrame>) -> Self {
+        let mut rst: BTreeMap<Bytes, BencodeFrame> = BTreeMap::new();
 
         for (key, val) in value {
             rst.insert(key.into(), val);
@@ -314,7 +314,7 @@ pub fn decode_dict(data: &[u8], start: usize) -> Result<(BencodeFrame, usize), E
             Error::new_frame(None, Some("invalid dict bencode".to_owned())));
     }
 
-    let mut rst: HashMap<Bytes, BencodeFrame> = HashMap::new();
+    let mut rst: BTreeMap<Bytes, BencodeFrame> = BTreeMap::new();
     let mut index = start + 1;
 
     while index < data.len() {
@@ -421,7 +421,7 @@ where
     }
 }
 
-impl<K, V> Encode for HashMap<K, V>
+impl<K, V> Encode for BTreeMap<K, V>
 where
     K: Encode,
     V: Encode,
@@ -487,7 +487,7 @@ impl TryFrom<BencodeFrame> for Vec<BencodeFrame> {
     }
 }
 
-impl TryFrom<BencodeFrame> for HashMap<Bytes, BencodeFrame> {
+impl TryFrom<BencodeFrame> for BTreeMap<Bytes, BencodeFrame> {
     type Error = Error;
 
     fn try_from(value: BencodeFrame) -> Result<Self, Self::Error> {
@@ -501,7 +501,8 @@ impl TryFrom<BencodeFrame> for HashMap<Bytes, BencodeFrame> {
 
 #[cfg(test)]
 mod tests {
-    use crate::hashmap;
+
+    use crate::map;
 
     use super::*;
     use super::BencodeFrame::*;
@@ -562,13 +563,13 @@ mod tests {
     #[test]
     fn test_decode_dict() {
         let data = "d2:abi12ee".as_bytes();
-        let mut rst: HashMap<String, BencodeFrame> = HashMap::new();
+        let mut rst: BTreeMap<String, BencodeFrame> = BTreeMap::new();
         rst.insert("ab".into(), 12.into());
 
         assert_eq!((rst.into(), 10), decode_dict(data, 0).unwrap());
 
         let data = "d2:ab3:xyze".as_bytes();
-        let mut rst: HashMap<Bytes, BencodeFrame> = HashMap::new();
+        let mut rst: BTreeMap<Bytes, BencodeFrame> = BTreeMap::new();
         rst.insert("ab".into(), "xyz".into());
 
         assert_eq!((rst.into(), 11), decode_dict(data, 0).unwrap());
@@ -577,7 +578,8 @@ mod tests {
     #[test]
     fn test_decode() {
         let data = "d2:abl3:xyzi123ee3:aaa2:bbe";
-        let data_decoded: HashMap<Bytes, BencodeFrame> = hashmap! {
+
+        let data_decoded: BTreeMap<Bytes, BencodeFrame> = map! {
             "ab".into() => vec![BencodeFrame::from("xyz"), 123.into()].into(),
             "aaa".into() => "bb".into()
         };
@@ -594,7 +596,7 @@ mod tests {
         assert_eq!("l3:abc2:dee", vec!["abc", "de"].encode());
         assert_eq!("li1ei22ee", vec![1, 22].encode());
 
-        let m: HashMap<Bytes, String> = hashmap!{
+        let m: BTreeMap<Bytes, String> = map!{
             "k1".into() => "aa".into(),
         };
         assert_eq!("d2:k12:aae", m.encode());
