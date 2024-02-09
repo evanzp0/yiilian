@@ -184,7 +184,7 @@ mod tests {
         };
         let rst: Frame = af.clone().into();
 
-        let data = b"d1:t2:t11:v2:v12:ip6:\x7f\0\0\x01\0\x502:roi1e1:q13:announce_peer1:ad2:id20:id0000000000000000019:info_hash20:info00000000000000014:porti80e5:token2:0112:implied_porti1ee1:y1:qe";
+        let data = b"d1:ad2:id20:id00000000000000000112:implied_porti1e9:info_hash20:info00000000000000014:porti80e5:token2:01e2:ip6:\x7f\0\0\x01\0P1:q13:announce_peer2:roi1e1:t2:t11:v2:v11:y1:qe";
         let data_frame = decode(data.as_slice().into()).unwrap();
         assert_eq!(data_frame, rst);
 

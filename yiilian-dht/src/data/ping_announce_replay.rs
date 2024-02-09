@@ -91,7 +91,7 @@ impl From<PingOrAnnounceReply> for Frame {
 #[cfg(test)]
 mod tests {
 
-    use yiilian_core::data::decode;
+    use yiilian_core::data::*;
 
     use super::*;
 
@@ -106,7 +106,8 @@ mod tests {
         );
         let rst: Frame = af.clone().into();
 
-        let data = b"d1:t2:t11:y1:r1:rd2:id20:id000000000000000001e2:roi1e2:ip6:\x7f\0\0\x01\0\x501:v2:v1e";
+        let data = b"d2:ip6:\x7f\0\0\x01\0P1:rd2:id20:id000000000000000001e2:roi1e1:t2:t11:v2:v11:y1:re";
+
         let data_frame = decode(data.as_slice().into()).unwrap();
         assert_eq!(data_frame, rst);
 

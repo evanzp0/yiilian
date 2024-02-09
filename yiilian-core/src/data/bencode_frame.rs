@@ -628,11 +628,11 @@ mod tests {
 
     #[test]
     fn test_decode() {
-        let data = "d2:abl3:xyzi123ee3:aaa2:bbe";
+        let data = "d3:aaa2:bb2:abl3:xyzi123eee";
 
         let data_decoded: BTreeMap<Bytes, BencodeFrame> = map! {
+            "aaa".into() => "bb".into(),
             "ab".into() => vec![BencodeFrame::from("xyz"), 123.into()].into(),
-            "aaa".into() => "bb".into()
         };
 
         assert_eq!(Map(data_decoded), decode(data.as_bytes()).unwrap());

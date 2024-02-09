@@ -118,7 +118,7 @@ impl From<FindNode> for Frame {
 
 #[cfg(test)]
 mod tests {
-    use yiilian_core::data::decode;
+    use yiilian_core::data::*;
 
     use super::*;
 
@@ -133,8 +133,7 @@ mod tests {
             Some(1),
         );
         let rst: Frame = af.clone().into();
-
-        let data = b"d2:ip6:\x7f\0\0\x01\0\x501:t2:t12:roi1e1:ad2:id20:id0000000000000000016:target20:info0000000000000001e1:y1:q1:q9:find_node1:v2:v1e";
+        let data = b"d1:ad2:id20:id0000000000000000016:target20:info0000000000000001e2:ip6:\x7f\0\0\x01\0P1:q9:find_node2:roi1e1:t2:t11:v2:v11:y1:qe";
         let data_frame = decode(data.as_slice().into()).unwrap();
         assert_eq!(data_frame, rst);
 

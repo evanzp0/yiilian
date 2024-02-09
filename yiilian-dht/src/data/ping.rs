@@ -84,7 +84,7 @@ impl From<Ping> for Frame {
 #[cfg(test)]
 mod tests {
 
-    use yiilian_core::data::decode;
+    use yiilian_core::data::*;
 
     use super::*;
 
@@ -98,8 +98,9 @@ mod tests {
             Some(1),
         );
         let rst: Frame = af.clone().into();
+        eprintln!("{:?}", rst.encode());
 
-        let data = b"d1:v2:v11:t2:t12:ip6:\x7f\0\0\x01\0\x502:roi1e1:q4:ping1:y1:q1:ad2:id20:id000000000000000001ee";
+        let data = b"d1:ad2:id20:id000000000000000001e2:ip6:\x7f\0\0\x01\0P1:q4:ping2:roi1e1:t2:t11:v2:v11:y1:qe";
         let data_frame = decode(data.as_slice().into()).unwrap();
         assert_eq!(data_frame, rst);
 

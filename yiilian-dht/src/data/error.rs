@@ -103,7 +103,7 @@ impl From<RError> for Frame {
 #[cfg(test)]
 mod tests {
 
-    use yiilian_core::data::decode;
+    use yiilian_core::data::*;
 
     use super::*;
 
@@ -119,8 +119,7 @@ mod tests {
         );
 
         let rst: Frame = af.clone().into();
-
-        let data = b"d1:v2:v11:t2:t12:ip6:\x7f\0\0\x01\0\x502:roi1e1:y1:e1:eli200e7:a_erroree";
+        let data = b"d1:eli200e7:a_errore2:ip6:\x7f\0\0\x01\0P2:roi1e1:t2:t11:v2:v11:y1:ee";
         // let data = b"d1:eli202e12:Server Errore1:t2:&]1:y1:ee";
         // let data = b"d1:eli203e17:No transaction IDe1:v4:lt\r`1:y1:ee";
         let data_frame = decode(data.as_slice().into()).unwrap();

@@ -124,7 +124,7 @@ impl From<FindNodeReply> for Frame {
 #[cfg(test)]
 mod tests {
 
-    use yiilian_core::data::decode;
+    use yiilian_core::data::*;
 
     use super::*;
 
@@ -144,7 +144,8 @@ mod tests {
 
         let rst: Frame = af.clone().into();
 
-        let data = b"d1:v2:v11:t2:t12:roi1e1:y1:r1:rd5:nodes52:node0000000000000001\xc0\xa8\0\x01\0\x01node0000000000000002\xc0\xa8\0\x01\0\x012:id20:id000000000000000001e2:ip6:\xc0\xa8\0\x01\0\x01e";
+        let data = b"d2:ip6:\xc0\xa8\0\x01\0\x011:rd2:id20:id0000000000000000015:nodes52:node0000000000000001\xc0\xa8\0\x01\0\x01node0000000000000002\xc0\xa8\0\x01\0\x01e2:roi1e1:t2:t11:v2:v11:y1:re";
+
         let data_frame = decode(data.as_slice().into()).unwrap();
         assert_eq!(data_frame, rst);
 

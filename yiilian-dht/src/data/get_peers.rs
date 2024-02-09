@@ -125,7 +125,8 @@ mod tests {
             Some(1),
         );
         let rst: Frame = af.clone().into();
-        let data = b"d1:v2:v11:t2:t12:roi1e1:y1:q2:ip6:\x7f\0\0\x01\0\x501:q9:get_peers1:ad2:id20:id0000000000000000019:info_hash20:info0000000000000001ee";
+
+        let data = b"d1:ad2:id20:id0000000000000000019:info_hash20:info0000000000000001e2:ip6:\x7f\0\0\x01\0P1:q9:get_peers2:roi1e1:t2:t11:v2:v11:y1:qe";
         let data_frame = decode(data.as_slice().into()).unwrap();
         assert_eq!(data_frame, rst);
 
