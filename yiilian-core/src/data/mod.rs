@@ -1,9 +1,9 @@
 mod request;
-mod bencode_frame;
+mod bencode;
 mod response;
 mod body;
 
 pub use request::*; 
-pub use bencode_frame::*;
+pub use bencode::*;
 pub use response::*;
 pub use body::*;

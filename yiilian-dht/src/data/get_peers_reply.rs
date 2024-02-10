@@ -6,7 +6,7 @@ use yiilian_core::{
         error::Error,
         util::{bytes_to_sockaddr, sockaddr_to_bytes},
     },
-    data::BencodeFrame as Frame,
+    data::BencodeData as Frame,
 };
 
 use crate::{

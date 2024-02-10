@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
 use bytes::Bytes;
-use yiilian_core::{common::error::Error, data::BencodeFrame};
+use yiilian_core::{common::error::Error, data::BencodeData};
 
 use crate::transaction::TransactionId;
 
@@ -34,7 +34,7 @@ pub(crate) fn reply_matches_query(query: &Query, reply: &Reply) -> bool {
 
 /// 提取 frame 中的通用字段
 pub(crate) fn extract_frame_common_field(
-    frame: &BencodeFrame,
+    frame: &BencodeData,
 ) -> Result<
     (
         TransactionId,

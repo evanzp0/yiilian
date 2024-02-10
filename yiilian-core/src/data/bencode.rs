@@ -5,22 +5,22 @@ use crate::common::{util::atoi, error::Error};
 
 /// Frame 的帧
 #[derive(Debug, Eq, PartialEq, Clone)]
-pub enum BencodeFrame {
+pub enum BencodeData {
     Empty,
     Str(Bytes),
     Int(i32),
-    List(Vec<BencodeFrame>),
-    Map(BTreeMap<Bytes, BencodeFrame>),
+    List(Vec<BencodeData>),
+    Map(BTreeMap<Bytes, BencodeData>),
 }
 
-impl BencodeFrame {
+impl BencodeData {
     /// 从 Bytes 中解析出 Frame
-    pub fn parse(data: &[u8]) -> Result<BencodeFrame, Error> {
+    pub fn parse(data: &[u8]) -> Result<BencodeData, Error> {
         decode(data)
     }
 
     pub fn as_bstr(&self) -> Result<&Bytes, Error> {
-        if let BencodeFrame::Str(v) = self {
+        if let BencodeData::Str(v) = self {
             Ok(v)
         } else {
             Err(Error::new_frame(None, Some("Invalid type for Frame's as_bstr()".to_owned())))?
@@ -28,23 +28,23 @@ impl BencodeFrame {
     }
 
     pub fn as_int(&self) -> Result<i32, Error> {
-        if let BencodeFrame::Int(v) = self {
+        if let BencodeData::Int(v) = self {
             Ok(v.to_owned())
         } else {
             Err(Error::new_frame(None, Some("Invalid type for Frame's as_int()".to_owned())))?
         }
     }
 
-    pub fn as_map(&self) -> Result<&BTreeMap<Bytes, BencodeFrame>, Error> {
-        if let BencodeFrame::Map(v) = self {
+    pub fn as_map(&self) -> Result<&BTreeMap<Bytes, BencodeData>, Error> {
+        if let BencodeData::Map(v) = self {
             Ok(v)
         } else {
             Err(Error::new_frame(None, Some("Invalid type for Frame's as_map()".to_owned())))?
         }
     }
 
-    pub fn as_list(&self) -> Result<&[BencodeFrame], Error> {
-        if let BencodeFrame::List(v) = self {
+    pub fn as_list(&self) -> Result<&[BencodeData], Error> {
+        if let BencodeData::List(v) = self {
             Ok(v)
         } else {
             Err(Error::new_frame(None, Some("Invalid type for Frame's as_list()".to_owned())))?
@@ -52,7 +52,7 @@ impl BencodeFrame {
     }
 
     pub fn verify_items(&self, items: &[(&str, &str)]) -> bool {
-        if let BencodeFrame::Map(m) = self {
+        if let BencodeData::Map(m) = self {
             for (key, val) in items {
                 if let Some(v) = m.get(key.as_bytes()) {
                     match v.as_bstr() {
@@ -74,7 +74,7 @@ impl BencodeFrame {
     }
 
     pub fn has_key(&self, key: &'static str) -> bool {
-        if let BencodeFrame::Map(m) = self {
+        if let BencodeData::Map(m) = self {
             match m.get(&Bytes::from(key)) {
                 Some(_) => true,
                 None => false,
@@ -86,13 +86,13 @@ impl BencodeFrame {
 
     fn to_string(&self) -> String {
         match self {
-            BencodeFrame::Str(s) => {
+            BencodeData::Str(s) => {
                 format!("{:?}", s)
             },
-            BencodeFrame::Int(i) => {
+            BencodeData::Int(i) => {
                 format!("{}", i)
             },
-            BencodeFrame::List(l) => {
+            BencodeData::List(l) => {
                 let mut rst = format!("[ ");
                 for item in l {
                     rst += &format!("{}, ", item.to_string());
@@ -102,7 +102,7 @@ impl BencodeFrame {
 
                 rst
             },
-            BencodeFrame::Map(m) => {
+            BencodeData::Map(m) => {
                 let mut rst = format!("{{ ");
                 for (key, val) in m {
                     rst += &format!("{:?}: {}, ", key, val.to_string());
@@ -112,14 +112,14 @@ impl BencodeFrame {
 
                 rst
             },
-            BencodeFrame::Empty => {
+            BencodeData::Empty => {
                 "".to_owned()
             }
         }
     }
 
-    pub fn get_dict_item(&self, key: &str) -> Option<&BencodeFrame> {
-        if let BencodeFrame::Map(m) = self {
+    pub fn get_dict_item(&self, key: &str) -> Option<&BencodeData> {
+        if let BencodeData::Map(m) = self {
             let rst = m.get(key.as_bytes().into());
 
             // rst.map(|val| val.to_owned())
@@ -130,69 +130,69 @@ impl BencodeFrame {
     }
 }
 
-impl Display for BencodeFrame {
+impl Display for BencodeData {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.to_string())
     }
 }
 
-impl From<&'static str> for BencodeFrame {
+impl From<&'static str> for BencodeData {
     fn from(value: &'static str) -> Self {
-        BencodeFrame::Str(Bytes::from(value))
+        BencodeData::Str(Bytes::from(value))
     }
 }
 
-impl From<&'static [u8]> for BencodeFrame {
+impl From<&'static [u8]> for BencodeData {
     fn from(value: &'static [u8]) -> Self {
-        BencodeFrame::Str(value.into())
+        BencodeData::Str(value.into())
     }
 }
 
-impl From<Bytes> for BencodeFrame {
+impl From<Bytes> for BencodeData {
     fn from(value: Bytes) -> Self {
-        BencodeFrame::Str(value)
+        BencodeData::Str(value)
     }
 }
 
-impl From<Vec<u8>> for BencodeFrame {
+impl From<Vec<u8>> for BencodeData {
     fn from(value: Vec<u8>) -> Self {
-        BencodeFrame::Str(value.into())
+        BencodeData::Str(value.into())
     }
 }
 
-impl From<String> for BencodeFrame {
+impl From<String> for BencodeData {
     fn from(value: String) -> Self {
-        BencodeFrame::Str(value.into())
+        BencodeData::Str(value.into())
     }
 }
 
-impl From<i32> for BencodeFrame {
+impl From<i32> for BencodeData {
     fn from(value: i32) -> Self {
-        BencodeFrame::Int(value)
+        BencodeData::Int(value)
     }
 }
 
-impl From<Vec<BencodeFrame>> for BencodeFrame {
-    fn from(value: Vec<BencodeFrame>) -> Self {
-        BencodeFrame::List(value)
+impl From<Vec<BencodeData>> for BencodeData {
+    fn from(value: Vec<BencodeData>) -> Self {
+        BencodeData::List(value)
     }
 }
 
-impl From<BTreeMap<Bytes, BencodeFrame>> for BencodeFrame {
-    fn from(value: BTreeMap<Bytes, BencodeFrame>) -> Self {
-        BencodeFrame::Map(value)
+impl From<BTreeMap<Bytes, BencodeData>> for BencodeData {
+    fn from(value: BTreeMap<Bytes, BencodeData>) -> Self {
+        BencodeData::Map(value)
     }
 }
 
-impl From<BTreeMap<String, BencodeFrame>> for BencodeFrame {
-    fn from(value: BTreeMap<String, BencodeFrame>) -> Self {
-        let mut rst: BTreeMap<Bytes, BencodeFrame> = BTreeMap::new();
+impl From<BTreeMap<String, BencodeData>> for BencodeData {
+    fn from(value: BTreeMap<String, BencodeData>) -> Self {
+        let mut rst: BTreeMap<Bytes, BencodeData> = BTreeMap::new();
 
         for (key, val) in value {
             rst.insert(key.into(), val);
         }
 
-        BencodeFrame::Map(rst)
+        BencodeData::Map(rst)
     }
 }
 
@@ -208,7 +208,7 @@ pub fn find(data: &[u8], start: usize, target: u8) -> Option<usize> {
 
 /// DecodeString decodes a string in the data. It returns a
 /// Result<(decoded result, the end position), error>.
-pub fn decode_string(data: &[u8], start: usize) -> Result<(BencodeFrame, usize), Error> {
+pub fn decode_string(data: &[u8], start: usize) -> Result<(BencodeData, usize), Error> {
 
     if start >= data.len() || data[start] < b'0' || data[start] > b'9' {
         return Err(
@@ -234,7 +234,7 @@ pub fn decode_string(data: &[u8], start: usize) -> Result<(BencodeFrame, usize),
     Ok((rst.into(), index))
 }
 
-pub fn decode_int(data: &[u8], start: usize) -> Result<(BencodeFrame, usize), Error> {
+pub fn decode_int(data: &[u8], start: usize) -> Result<(BencodeData, usize), Error> {
     if start >= data.len() || data[start] != b'i' {
         return Err(
             Error::new_frame(None, Some("invalid int bencode".to_owned())));
@@ -271,7 +271,7 @@ pub fn decode_int(data: &[u8], start: usize) -> Result<(BencodeFrame, usize), Er
 }
 
 /// decodeItem decodes an item of dict or list.
-pub fn decode_item(data: &[u8], start: usize) -> Result<(BencodeFrame, usize), Error> {
+pub fn decode_item(data: &[u8], start: usize) -> Result<(BencodeData, usize), Error> {
     let decode_func = [decode_string, decode_int, decode_list, decode_dict];
 
     for func in decode_func {
@@ -286,14 +286,14 @@ pub fn decode_item(data: &[u8], start: usize) -> Result<(BencodeFrame, usize), E
 }
 
 /// DecodeList decodes a list value.
-pub fn decode_list(data: &[u8], start: usize) -> Result<(BencodeFrame, usize), Error> {
+pub fn decode_list(data: &[u8], start: usize) -> Result<(BencodeData, usize), Error> {
     if start >= data.len() || data[start] != b'l' {
         return Err(
             Error::new_frame(None, Some("invalid list bencode".to_owned()))
         );
     }
 
-    let mut rst: Vec<BencodeFrame> = Vec::new();
+    let mut rst: Vec<BencodeData> = Vec::new();
     let mut index = start + 1;
 
     while index < data.len() {
@@ -318,13 +318,13 @@ pub fn decode_list(data: &[u8], start: usize) -> Result<(BencodeFrame, usize), E
 }
 
 /// DecodeDict decodes a map value.
-pub fn decode_dict(data: &[u8], start: usize) -> Result<(BencodeFrame, usize), Error> {
+pub fn decode_dict(data: &[u8], start: usize) -> Result<(BencodeData, usize), Error> {
     if start >= data.len() || data[start] != b'd' {
         return Err(
             Error::new_frame(None, Some("invalid dict bencode".to_owned())));
     }
 
-    let mut rst: BTreeMap<Bytes, BencodeFrame> = BTreeMap::new();
+    let mut rst: BTreeMap<Bytes, BencodeData> = BTreeMap::new();
     let mut index = start + 1;
     let mut prev_key = None;
 
@@ -339,7 +339,7 @@ pub fn decode_dict(data: &[u8], start: usize) -> Result<(BencodeFrame, usize), E
         }
 
         let (b_key, idx) = decode_string(data, index)?;
-        let key = if let BencodeFrame::Str(k) = b_key {
+        let key = if let BencodeData::Str(k) = b_key {
             k
         } else {
             panic!("decode_string() must return BencodeFrame::Str()")
@@ -375,7 +375,7 @@ pub fn decode_dict(data: &[u8], start: usize) -> Result<(BencodeFrame, usize), E
 }
 
 /// Decode decodes a bencoded string to string, int, list or map.
-pub fn decode(data: &[u8]) -> Result<BencodeFrame, Error> {
+pub fn decode(data: &[u8]) -> Result<BencodeData, Error> {
     let (rst, _) = decode_item(data, 0)?;
     Ok(rst)
 }
@@ -457,24 +457,24 @@ where
     }
 }
 
-impl Encode for BencodeFrame
+impl Encode for BencodeData
 {
     fn encode(&self) -> Bytes {
         match self {
-            BencodeFrame::Str(v) => v.encode(),
-            BencodeFrame::Int(v) => v.encode(),
-            BencodeFrame::List(v) => v.encode(),
-            BencodeFrame::Map(v) => v.encode(),
-            BencodeFrame::Empty => "".into(),
+            BencodeData::Str(v) => v.encode(),
+            BencodeData::Int(v) => v.encode(),
+            BencodeData::List(v) => v.encode(),
+            BencodeData::Map(v) => v.encode(),
+            BencodeData::Empty => "".into(),
         }
     }
 }
 
-impl TryFrom<BencodeFrame> for Bytes {
+impl TryFrom<BencodeData> for Bytes {
     type Error = Error;
 
-    fn try_from(value: BencodeFrame) -> Result<Self, Self::Error> {
-        if let BencodeFrame::Str(val) = value {
+    fn try_from(value: BencodeData) -> Result<Self, Self::Error> {
+        if let BencodeData::Str(val) = value {
             Ok(val)
         } else {
             Err(Error::new_frame(None, Some(format!("convert frame to bytes error: {:?}", value))))
@@ -482,11 +482,11 @@ impl TryFrom<BencodeFrame> for Bytes {
     }
 }
 
-impl TryFrom<BencodeFrame> for i32 {
+impl TryFrom<BencodeData> for i32 {
     type Error = Error;
 
-    fn try_from(value: BencodeFrame) -> Result<Self, Self::Error> {
-        if let BencodeFrame::Int(val) = value {
+    fn try_from(value: BencodeData) -> Result<Self, Self::Error> {
+        if let BencodeData::Int(val) = value {
             Ok(val)
         } else {
             Err(Error::new_frame(None, Some(format!("convert frame to i32 error: {:?}", value))))
@@ -494,11 +494,11 @@ impl TryFrom<BencodeFrame> for i32 {
     }
 }
 
-impl TryFrom<BencodeFrame> for Vec<BencodeFrame> {
+impl TryFrom<BencodeData> for Vec<BencodeData> {
     type Error = Error;
 
-    fn try_from(value: BencodeFrame) -> Result<Self, Self::Error> {
-        if let BencodeFrame::List(val) = value {
+    fn try_from(value: BencodeData) -> Result<Self, Self::Error> {
+        if let BencodeData::List(val) = value {
             Ok(val)
         } else {
             Err(Error::new_frame(None, Some(format!("convert frame to vec error: {:?}", value))))
@@ -506,11 +506,11 @@ impl TryFrom<BencodeFrame> for Vec<BencodeFrame> {
     }
 }
 
-impl TryFrom<BencodeFrame> for BTreeMap<Bytes, BencodeFrame> {
+impl TryFrom<BencodeData> for BTreeMap<Bytes, BencodeData> {
     type Error = Error;
 
-    fn try_from(value: BencodeFrame) -> Result<Self, Self::Error> {
-        if let BencodeFrame::Map(val) = value {
+    fn try_from(value: BencodeData) -> Result<Self, Self::Error> {
+        if let BencodeData::Map(val) = value {
             Ok(val)
         } else {
             Err(Error::new_frame(None, Some(format!("convert frame to map error: {:?}", value))))
@@ -524,7 +524,7 @@ mod tests {
     use crate::map;
 
     use super::*;
-    use super::BencodeFrame::*;
+    use super::BencodeData::*;
 
     #[test]
     fn test_find() {
@@ -600,13 +600,13 @@ mod tests {
     #[test]
     fn test_decode_dict() {
         let data = "d2:abi12ee".as_bytes();
-        let mut rst: BTreeMap<String, BencodeFrame> = BTreeMap::new();
+        let mut rst: BTreeMap<String, BencodeData> = BTreeMap::new();
         rst.insert("ab".into(), 12.into());
 
         assert_eq!((rst.into(), 10), decode_dict(data, 0).unwrap());
 
         let data = "d2:ab3:xyze".as_bytes();
-        let mut rst: BTreeMap<Bytes, BencodeFrame> = BTreeMap::new();
+        let mut rst: BTreeMap<Bytes, BencodeData> = BTreeMap::new();
         rst.insert("ab".into(), "xyz".into());
 
         assert_eq!((rst.into(), 11), decode_dict(data, 0).unwrap());
@@ -630,9 +630,9 @@ mod tests {
     fn test_decode() {
         let data = "d3:aaa2:bb2:abl3:xyzi123eee";
 
-        let data_decoded: BTreeMap<Bytes, BencodeFrame> = map! {
+        let data_decoded: BTreeMap<Bytes, BencodeData> = map! {
             "aaa".into() => "bb".into(),
-            "ab".into() => vec![BencodeFrame::from("xyz"), 123.into()].into(),
+            "ab".into() => vec![BencodeData::from("xyz"), 123.into()].into(),
         };
 
         assert_eq!(Map(data_decoded), decode(data.as_bytes()).unwrap());
@@ -660,7 +660,7 @@ mod tests {
         let data = b"6:\xc0\xa8\0\x01\0\x01";
         let rst = decode(data).unwrap();
 
-        let frame = BencodeFrame::Str(b"\xc0\xa8\0\x01\0\x01".as_ref().into());
+        let frame = BencodeData::Str(b"\xc0\xa8\0\x01\0\x01".as_ref().into());
 
         assert_eq!(frame, rst);
     }

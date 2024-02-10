@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 
 use bytes::Bytes;
 use yiilian_core::data::{decode, Body, Encode};
-use yiilian_core::{common::error::Error, data::BencodeFrame as Frame};
+use yiilian_core::{common::error::Error, data::BencodeData as Frame};
 
 use crate::common::Id;
 use crate::transaction::TransactionId;
@@ -277,7 +277,7 @@ impl From<Reply> for KrpcBody {
 #[cfg(test)]
 mod tests {
     use bytes::Bytes;
-    use yiilian_core::data::{BencodeFrame as Frame, Encode};
+    use yiilian_core::data::{BencodeData as Frame, Encode};
 
     use crate::data::announce_peer::AnnouncePeer;
 

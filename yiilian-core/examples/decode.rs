@@ -1,4 +1,4 @@
-use yiilian_core::data::{decode, BencodeFrame as Frane};
+use yiilian_core::data::{decode, BencodeData as Frane};
 
 
 

@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, net::SocketAddr};
 
 use bytes::Bytes;
-use yiilian_core::{common::error::Error, data::BencodeFrame as Frame};
+use yiilian_core::{common::error::Error, data::BencodeData as Frame};
 
 use crate::{gen_frame_common_field, transaction::TransactionId};
 
