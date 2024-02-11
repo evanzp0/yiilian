@@ -1,11 +1,11 @@
 use std::net::SocketAddr;
 
 use bytes::Bytes;
-use yiilian_core::{common::error::Error, data::BencodeData};
+use yiilian_core::common::error::Error;
 
 use crate::transaction::TransactionId;
 
-use super::body::{Query, Reply};
+use super::{body::{Query, Reply}, frame::Frame};
 
 /// 对收到的 reply 消息和 发出的query 消息进行匹配
 pub(crate) fn reply_matches_query(query: &Query, reply: &Reply) -> bool {
@@ -34,7 +34,7 @@ pub(crate) fn reply_matches_query(query: &Query, reply: &Reply) -> bool {
 
 /// 提取 frame 中的通用字段
 pub(crate) fn extract_frame_common_field(
-    frame: &BencodeData,
+    frame: &Frame,
 ) -> Result<
     (
         TransactionId,
@@ -45,7 +45,7 @@ pub(crate) fn extract_frame_common_field(
     Error,
 > {
     let t: TransactionId = frame
-        .get_dict_item("t")
+        .get("t")
         .ok_or(Error::new_frame(
             None,
             Some(format!("Field 't' not found in frame: {frame}")),
@@ -54,7 +54,7 @@ pub(crate) fn extract_frame_common_field(
         .to_owned()
         .into();
 
-    let v: Option<Bytes> = if let Some(val) = frame.get_dict_item("v") {
+    let v: Option<Bytes> = if let Some(val) = frame.get("v") {
         if let Ok(val) = val.to_owned().try_into() {
             Some(val)
         } else {
@@ -64,7 +64,7 @@ pub(crate) fn extract_frame_common_field(
         None
     };
 
-    let ro: Option<i32> = if let Some(val) = frame.get_dict_item("ro") {
+    let ro: Option<i32> = if let Some(val) = frame.get("ro") {
         if let Ok(val) = val.to_owned().try_into() {
             Some(val)
         } else {
@@ -74,7 +74,7 @@ pub(crate) fn extract_frame_common_field(
         None
     };
 
-    let ip: Option<Bytes> = if let Some(val) = frame.get_dict_item("ip") {
+    let ip: Option<Bytes> = if let Some(val) = frame.get("ip") {
         if let Ok(val) = val.to_owned().try_into() {
             Some(val)
         } else {

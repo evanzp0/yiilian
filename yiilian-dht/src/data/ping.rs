@@ -1,11 +1,11 @@
 use std::{collections::BTreeMap, net::SocketAddr};
 
 use bytes::Bytes;
-use yiilian_core::{common::error::Error, data::BencodeData as Frame};
+use yiilian_core::{common::error::Error, data::BencodeData};
 
 use crate::{common::Id, gen_frame_common_field, transaction::TransactionId};
 
-use super::util::extract_frame_common_field;
+use super::{frame::Frame, util::extract_frame_common_field};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Ping {
@@ -46,7 +46,7 @@ impl TryFrom<Frame> for Ping {
         if !frame.verify_items(&[("y", "q"), ("q", "ping")]) {
             return Err(Error::new_frame(None, Some(format!("Invalid frame for Ping, frame: {frame}"))))
         }
-        let a = frame.get_dict_item("a").ok_or(Error::new_frame(
+        let a = frame.get("a").ok_or(Error::new_frame(
             None,
             Some(format!("Field 'a' not found in frame: {frame}")),
         ))?;
@@ -67,17 +67,17 @@ impl TryFrom<Frame> for Ping {
 
 impl From<Ping> for Frame {
     fn from(value: Ping) -> Self {
-        let mut rst: BTreeMap<Bytes, Frame> = BTreeMap::new();
+        let mut rst: BTreeMap<Bytes, BencodeData> = BTreeMap::new();
         gen_frame_common_field!(rst, value);
 
         rst.insert("y".into(), "q".into());
         rst.insert("q".into(), "ping".into());
 
-        let mut a: BTreeMap<Bytes, Frame> = BTreeMap::new();
+        let mut a: BTreeMap<Bytes, BencodeData> = BTreeMap::new();
         a.insert("id".into(), value.id.get_bytes().into());
         rst.insert("a".into(), a.into());
 
-        Frame::Map(rst)
+        Frame(rst)
     }
 }
 
@@ -98,13 +98,12 @@ mod tests {
             Some(1),
         );
         let rst: Frame = af.clone().into();
-        eprintln!("{:?}", rst.encode());
 
         let data = b"d1:ad2:id20:id000000000000000001e2:ip6:\x7f\0\0\x01\0P1:q4:ping2:roi1e1:t2:t11:v2:v11:y1:qe";
-        let data_frame = decode(data.as_slice().into()).unwrap();
-        assert_eq!(data_frame, rst);
+        let data = decode(data.as_slice().into()).unwrap();
+        assert_eq!(data, rst.into());
 
-        let rst: Ping = data_frame.try_into().unwrap();
+        let rst: Ping = Frame::try_from(data).unwrap().try_into().unwrap();
         assert_eq!(af, rst);
     }
 }

@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, net::SocketAddr};
 
 use bytes::Bytes;
-use yiilian_core::{common::error::Error, data::BencodeData as Frame};
+use yiilian_core::{common::error::Error, data::BencodeData};
 
 use crate::{
     common::{
@@ -13,7 +13,7 @@ use crate::{
     transaction::TransactionId,
 };
 
-use super::util::extract_frame_common_field;
+use super::{frame::Frame, util::extract_frame_common_field};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FindNodeReply {
@@ -70,7 +70,7 @@ impl TryFrom<Frame> for FindNodeReply {
             ));
         }
 
-        let r = frame.get_dict_item("r").ok_or(Error::new_frame(
+        let r = frame.get("r").ok_or(Error::new_frame(
             None,
             Some(format!("Field 'r' not found in frame: {frame}")),
         ))?;
@@ -103,12 +103,12 @@ impl TryFrom<Frame> for FindNodeReply {
 
 impl From<FindNodeReply> for Frame {
     fn from(value: FindNodeReply) -> Self {
-        let mut rst: BTreeMap<Bytes, Frame> = BTreeMap::new();
+        let mut rst: BTreeMap<Bytes, BencodeData> = BTreeMap::new();
         gen_frame_common_field!(rst, value);
 
         rst.insert("y".into(), "r".into());
 
-        let mut r: BTreeMap<Bytes, Frame> = BTreeMap::new();
+        let mut r: BTreeMap<Bytes, BencodeData> = BTreeMap::new();
         r.insert("id".into(), value.id.get_bytes().into());
 
         let nodes = merge_node_bytes!(&value.nodes, ID_SIZE);
@@ -117,7 +117,7 @@ impl From<FindNodeReply> for Frame {
 
         rst.insert("r".into(), r.into());
 
-        Frame::Map(rst)
+        Frame(rst)
     }
 }
 
@@ -146,10 +146,10 @@ mod tests {
 
         let data = b"d2:ip6:\xc0\xa8\0\x01\0\x011:rd2:id20:id0000000000000000015:nodes52:node0000000000000001\xc0\xa8\0\x01\0\x01node0000000000000002\xc0\xa8\0\x01\0\x01e2:roi1e1:t2:t11:v2:v11:y1:re";
 
-        let data_frame = decode(data.as_slice().into()).unwrap();
-        assert_eq!(data_frame, rst);
+        let data = decode(data.as_slice().into()).unwrap();
+        assert_eq!(data, rst.into());
 
-        let rst: FindNodeReply = data_frame.try_into().unwrap();
+        let rst: FindNodeReply = Frame::try_from(data).unwrap().try_into().unwrap();
         assert_eq!(af, rst);
     }
 }

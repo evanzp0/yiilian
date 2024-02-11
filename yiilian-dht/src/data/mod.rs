@@ -8,4 +8,4 @@ pub mod ping;
 pub mod ping_announce_replay;
 pub mod error;
 pub mod util;
-pub mod krpc_frame;
+pub mod frame;

@@ -4,21 +4,20 @@
 
 1. 数据包是二进制的
 
-2. frame 是根据生成数据的协议来解析数据，数据包转成 frame 做两件事：
-1）数据完整性校验，数据完整性校验是根据 protocol  layout 的规定完成的，并可能要进行解码，比如 DHT 的数据包需要先进行 bencode 解码，然后才能解析出 layout （它就是个 dict）
-2）根据对应 protocol 中的数据 layout 来提取数据，并用它来填充 frame 中对应的 field。
-
-所以 frame 中的field，如果不需要解码，那最简单的就是使用字节数组，如果需要先解码，那就是解码后的数据格式比如 BencodeData
+2. frame 是根据生成数据的协议来解析数据，数据包转成 frame 只做一件事情：
+数据完整性校验，数据完整性校验是根据 protocol  layout 的规定完成的。
+也就是说，frame 中业务指令并不会做校验，它只是关注数据包的数据是不是协议规定的格式。
+比如说 dht 规范要求传输的数据是个 bencoded dict，那我们的 frame 只要保证它是一个 bencoded dict 。至于 这个 dict 中的指令和参数的有效性校验，属于更上一层的业务逻辑了，不需要在 frame 中进行。
 
 3. frame 转换成业务对象，这需要根据业务规则进行业务有效性校验
 
 示例：
 ```
 frame {
-  type: 'request',
-  node_id: '000'
+  q: 'get_peers',
+  info: '000'
 }
 
-// node_id ：在生成frame时，只是从 layout 中提取了 node_id 值，并不会进行业务有效性校验；
-// 但是在生成业务对象 Request 时，可能有各一个规则，就是 node_id 不可为 '000'，这个就是业务校验要做的事了
+// 在生成frame时，并不会对 q 和 info 的值，进行业务有效性校验；
+// 但是在生成业务对象 Query 时，可能有要校验 info 的长度必须是 20 ， get_peers 还需要 node_id 参数等等，这个就是业务校验要做的事了
 ```

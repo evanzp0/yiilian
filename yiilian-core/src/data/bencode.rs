@@ -6,7 +6,6 @@ use crate::common::{util::atoi, error::Error};
 /// Frame 的帧
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum BencodeData {
-    Empty,
     Str(Bytes),
     Int(i32),
     List(Vec<BencodeData>),
@@ -112,9 +111,6 @@ impl BencodeData {
 
                 rst
             },
-            BencodeData::Empty => {
-                "".to_owned()
-            }
         }
     }
 
@@ -465,7 +461,6 @@ impl Encode for BencodeData
             BencodeData::Int(v) => v.encode(),
             BencodeData::List(v) => v.encode(),
             BencodeData::Map(v) => v.encode(),
-            BencodeData::Empty => "".into(),
         }
     }
 }
@@ -622,8 +617,6 @@ mod tests {
             Ok(_) => assert!(true),
             Err(_) => panic!("error"),
         }
-
-        eprintln!("{}", "abe" > "ab");
     }
 
     #[test]

@@ -1,12 +1,13 @@
 use std::net::SocketAddr;
 
 use bytes::Bytes;
-use yiilian_core::data::{decode, Body, Encode};
-use yiilian_core::{common::error::Error, data::BencodeData as Frame};
+use yiilian_core::common::error::Error;
+use yiilian_core::data::{decode, BencodeData, Body, Encode};
 
 use crate::common::Id;
 use crate::transaction::TransactionId;
 
+use super::frame::Frame;
 use super::{
     announce_peer::AnnouncePeer, error::RError, find_node::FindNode,
     find_node_reply::FindNodeReply, get_peers::GetPeers, get_peers_reply::GetPeersReply,
@@ -16,31 +17,39 @@ use super::{
 #[derive(Debug, Clone)]
 pub struct KrpcBody {
     kind: BodyKind,
-    data: Bytes,
+    data: Option<Bytes>,
 }
 
 impl KrpcBody {
     pub fn new(kind: BodyKind) -> Self {
         let data = {
-            let data: Frame = match kind.clone() {
-                BodyKind::Empty => Frame::Empty,
-                BodyKind::Query(val) => val.into(),
-                BodyKind::Reply(val) => val.into(),
-                BodyKind::RError(val) => val.into(),
+            let data: Option<Frame> = match kind.clone() {
+                BodyKind::Empty => None,
+                BodyKind::Query(val) => Some(val.into()),
+                BodyKind::Reply(val) => Some(val.into()),
+                BodyKind::RError(val) => Some(val.into()),
             };
 
-            data.encode()
+            match data {
+                Some(val) => {
+                    Some(BencodeData::from(val).encode())
+                }
+                None => None,
+            }
         };
 
         Self { kind, data }
     }
 
     pub fn from_bytes(data: Bytes) -> Result<Self, Error> {
-        let frame: Frame = decode(&*data)?;
+        let decoded_data = decode(&*data)?;
 
-        let kind: BodyKind = frame.try_into()?;
+        let kind: BodyKind = Frame::try_from(decoded_data)?.try_into()?;
 
-        Ok(Self { kind, data })
+        Ok(Self {
+            kind,
+            data: Some(data),
+        })
     }
 
     pub fn get_kind(&self) -> &BodyKind {
@@ -91,11 +100,19 @@ impl Body for KrpcBody {
 
     fn get_data(&mut self) -> Self::Data {
         let s = std::mem::take(&mut *self);
-        s.data
+        if let Some(val) = s.data {
+            val
+        } else {
+            "".into()
+        }
     }
 
     fn len(&self) -> usize {
-        self.data.len()
+        if let Some(val) = &self.data {
+            val.len()
+        } else {
+            0
+        }
     }
 }
 
@@ -177,30 +194,28 @@ impl TryFrom<Frame> for BodyKind {
     type Error = Error;
 
     fn try_from(frame: Frame) -> Result<Self, Self::Error> {
-        if let Frame::Map(ref m) = frame {
-            if frame.verify_items(&[("y", "q")]) {
-                if frame.verify_items(&[("q", "ping")]) {
-                    return Ok(BodyKind::Query(Query::Ping(frame.try_into()?)));
-                } else if frame.verify_items(&[("q", "find_node")]) {
-                    return Ok(BodyKind::Query(Query::FindNode(frame.try_into()?)));
-                } else if frame.verify_items(&[("q", "get_peers")]) {
-                    return Ok(BodyKind::Query(Query::GetPeers(frame.try_into()?)));
-                } else if frame.verify_items(&[("q", "announce_peer")]) {
-                    return Ok(BodyKind::Query(Query::AnnouncePeer(frame.try_into()?)));
-                }
-            } else if frame.verify_items(&[("y", "r")]) {
-                if let Some(params) = m.get(&b"r"[..]) {
-                    if params.has_key("token") {
-                        return Ok(BodyKind::Reply(Reply::GetPeers(frame.try_into()?)));
-                    } else if params.has_key("nodes") {
-                        return Ok(BodyKind::Reply(Reply::FindNode(frame.try_into()?)));
-                    } else {
-                        return Ok(BodyKind::Reply(Reply::PingOrAnnounce(frame.try_into()?)));
-                    }
-                }
-            } else if frame.verify_items(&[("y", "e")]) {
-                return Ok(BodyKind::RError(frame.try_into()?));
+        if frame.verify_items(&[("y", "q")]) {
+            if frame.verify_items(&[("q", "ping")]) {
+                return Ok(BodyKind::Query(Query::Ping(frame.try_into()?)));
+            } else if frame.verify_items(&[("q", "find_node")]) {
+                return Ok(BodyKind::Query(Query::FindNode(frame.try_into()?)));
+            } else if frame.verify_items(&[("q", "get_peers")]) {
+                return Ok(BodyKind::Query(Query::GetPeers(frame.try_into()?)));
+            } else if frame.verify_items(&[("q", "announce_peer")]) {
+                return Ok(BodyKind::Query(Query::AnnouncePeer(frame.try_into()?)));
             }
+        } else if frame.verify_items(&[("y", "r")]) {
+            if let Some(params) = frame.get("r") {
+                if params.has_key("token") {
+                    return Ok(BodyKind::Reply(Reply::GetPeers(frame.try_into()?)));
+                } else if params.has_key("nodes") {
+                    return Ok(BodyKind::Reply(Reply::FindNode(frame.try_into()?)));
+                } else {
+                    return Ok(BodyKind::Reply(Reply::PingOrAnnounce(frame.try_into()?)));
+                }
+            }
+        } else if frame.verify_items(&[("y", "e")]) {
+            return Ok(BodyKind::RError(frame.try_into()?));
         }
 
         Err(Error::new_frame(
@@ -243,7 +258,7 @@ impl From<Reply> for Frame {
 impl From<BodyKind> for Frame {
     fn from(value: BodyKind) -> Self {
         match value {
-            BodyKind::Empty => Frame::Empty,
+            BodyKind::Empty => Frame::new(),
             BodyKind::Query(val) => val.into(),
             BodyKind::Reply(val) => val.into(),
             BodyKind::RError(val) => val.into(),
@@ -254,7 +269,7 @@ impl From<BodyKind> for Frame {
 impl From<KrpcBody> for Frame {
     fn from(value: KrpcBody) -> Self {
         match value.kind {
-            BodyKind::Empty => Frame::Empty,
+            BodyKind::Empty => Frame::new(),
             BodyKind::Query(val) => val.into(),
             BodyKind::Reply(val) => val.into(),
             BodyKind::RError(val) => val.into(),
@@ -277,9 +292,9 @@ impl From<Reply> for KrpcBody {
 #[cfg(test)]
 mod tests {
     use bytes::Bytes;
-    use yiilian_core::data::{BencodeData as Frame, Encode};
+    use yiilian_core::data::{BencodeData, Encode};
 
-    use crate::data::announce_peer::AnnouncePeer;
+    use crate::data::{announce_peer::AnnouncePeer, frame::Frame};
 
     use super::KrpcBody;
 
@@ -298,7 +313,7 @@ mod tests {
         );
 
         let frame: Frame = af.clone().into();
-        let data: Bytes = frame.encode();
+        let data: Bytes = BencodeData::from(frame.clone()).encode();
         let body = KrpcBody::from_bytes(data).unwrap();
         let rst: Frame = body.into();
 

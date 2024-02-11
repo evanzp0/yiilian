@@ -1,13 +1,10 @@
 use std::{collections::BTreeMap, net::SocketAddr};
 
 use bytes::Bytes;
-use yiilian_core::{
-    common::{
+use yiilian_core::{common::{
         error::Error,
         util::{bytes_to_sockaddr, sockaddr_to_bytes},
-    },
-    data::BencodeData as Frame,
-};
+    }, data::BencodeData};
 
 use crate::{
     common::{
@@ -19,7 +16,7 @@ use crate::{
     transaction::TransactionId,
 };
 
-use super::util::extract_frame_common_field;
+use super::{frame::Frame, util::extract_frame_common_field};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GetPeersReply {
@@ -87,7 +84,7 @@ impl TryFrom<Frame> for GetPeersReply {
             ));
         }
 
-        let r = frame.get_dict_item("r").ok_or(Error::new_frame(
+        let r = frame.get("r").ok_or(Error::new_frame(
             None,
             Some(format!("Field 'r' not found in frame: {frame}")),
         ))?;
@@ -137,12 +134,12 @@ impl TryFrom<Frame> for GetPeersReply {
 
 impl From<GetPeersReply> for Frame {
     fn from(value: GetPeersReply) -> Self {
-        let mut rst: BTreeMap<Bytes, Frame> = BTreeMap::new();
+        let mut rst: BTreeMap<Bytes, BencodeData> = BTreeMap::new();
         gen_frame_common_field!(rst, value);
 
         rst.insert("y".into(), "r".into());
 
-        let mut r: BTreeMap<Bytes, Frame> = BTreeMap::new();
+        let mut r: BTreeMap<Bytes, BencodeData> = BTreeMap::new();
         r.insert("id".into(), value.id.get_bytes().into());
         r.insert("token".into(), value.token.clone().into());
 
@@ -154,13 +151,13 @@ impl From<GetPeersReply> for Frame {
         let mut values = vec![];
         for item in &value.values {
             let compact_ip_port = sockaddr_to_bytes(&item);
-            values.push(Frame::Str(compact_ip_port.into()));
+            values.push(BencodeData::Str(compact_ip_port.into()));
         }
         r.insert("values".into(), values.into());
 
         rst.insert("r".into(), r.into());
 
-        Frame::Map(rst)
+        Frame(rst)
     }
 }
 
@@ -186,20 +183,20 @@ mod tests {
         let rst: Frame = af.clone().into();
 
         let data = b"d2:ip6:\x7f\0\0\x01\0P2:roi1e1:t2:t11:rd2:id20:id0000000000000000015:token7:token016:valuesl6:\xc0\xa8\0\x01\0P6:\xc0\xa8\0\x01\0Pe5:nodes0:e1:y1:r1:v2:v1e";
-        let data_frame = decode(data).unwrap();
-        assert_eq!(data_frame, rst);
+        let data = decode(data).unwrap();
+        assert_eq!(data, rst.into());
 
-        let rst: GetPeersReply = data_frame.try_into().unwrap();
+        let rst: GetPeersReply = Frame::try_from(data).unwrap().try_into().unwrap();
         assert_eq!(af, rst);
     }
 
     #[test]
     fn test_decode() {
         let data = b"d2:ip6:e];\x99\x11\xae1:rd2:id20:d\x8d\x89W\xe3\xa9D\x1cF\xa4'7\xf0\xfbf\xf6\x81\x1d\xbd\xd95:nodes208:dD0\xf5x-E\x84\xa1l\x9a\x90\x9dU\x804\xeb\0\x03`t\xe9\xd6\xad4\xa0d[\xa0\x86*\xeb\x8c*@\xdeR?\r\x93!D\xe4\x9c\x95z\x01\xa0\xd7\x0e[(de\x9fM36\xf7\xa6Y\xdb\x83\xd7o\xe9\xed\x0b\x861\xf5h\xc9)\xce\xfa\x958d~D\x1aO\x01-O\xa4i\0\xf6\x98\x13\xaa<3<\x87\xca\xd2\xc3\xe0\xffK\x16d\x01\xe1\xf6\xf9\xd9=I\x85L\xca\xd5h\x8d\xdbuC\xce\xfd1R+\xf7\x0e\xe63d\x19\xae\xfeV*\x07\x91\xfcTu\xc6(\xaf\0\x8d\xd6\xdd\x15\xb5t\x11f\x82^\x1dd(\xd6nZ@\x1c\xf7A\x8cK\x97W\x8b\xfc\x12\xfc\xc5\x1f\xa5ZOA\x07\x1a\xe1d:\xc0\xb9\xfb\x83\xdb<\x1a\xdf;Pd\xb8\xc7aGE\xbe\xc8Y\x85\xa0g?T5:token20:\xb3\xfa\xbaA\xc0~b\x08\x8cz\xa6\xa1\xdf\x87\x9aP\xc9\x88K\xd56:valuesl6:\xa8w$\xaeV\xcfee1:t2:\x94\x881:v4:UT\xb7`1:y1:re";
-        let data_frame: Frame = decode(data).unwrap();
+        let data: Frame = Frame::try_from(decode(data).unwrap()).unwrap();
         // println!("{:#?}", data_frame);
 
-        let _rst: GetPeersReply = data_frame.try_into().unwrap();
+        let _rst: GetPeersReply = data.try_into().unwrap();
         // println!("{:#?}", rst);
     }
 }

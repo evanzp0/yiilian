@@ -1,11 +1,11 @@
 use std::{collections::BTreeMap, net::SocketAddr};
 
 use bytes::Bytes;
-use yiilian_core::{common::error::Error, data::BencodeData as Frame};
+use yiilian_core::{common::error::Error, data::BencodeData};
 
 use crate::{common::Id, gen_frame_common_field, transaction::TransactionId};
 
-use super::util::extract_frame_common_field;
+use super::{frame::Frame, util::extract_frame_common_field};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PingOrAnnounceReply {
@@ -53,7 +53,7 @@ impl TryFrom<Frame> for PingOrAnnounceReply {
             ));
         }
 
-        let r = frame.get_dict_item("r").ok_or(Error::new_frame(
+        let r = frame.get("r").ok_or(Error::new_frame(
             None,
             Some(format!("Field 'r' not found in frame: {frame}")),
         ))?;
@@ -74,17 +74,17 @@ impl TryFrom<Frame> for PingOrAnnounceReply {
 
 impl From<PingOrAnnounceReply> for Frame {
     fn from(value: PingOrAnnounceReply) -> Self {
-        let mut rst: BTreeMap<Bytes, Frame> = BTreeMap::new();
+        let mut rst: BTreeMap<Bytes, BencodeData> = BTreeMap::new();
         gen_frame_common_field!(rst, value);
 
         rst.insert("y".into(), "r".into());
 
-        let mut r: BTreeMap<Bytes, Frame> = BTreeMap::new();
+        let mut r: BTreeMap<Bytes, BencodeData> = BTreeMap::new();
         r.insert("id".into(), value.id.get_bytes().into());
 
         rst.insert("r".into(), r.into());
 
-        Frame::Map(rst)
+        Frame(rst)
     }
 }
 
@@ -108,10 +108,10 @@ mod tests {
 
         let data = b"d2:ip6:\x7f\0\0\x01\0P1:rd2:id20:id000000000000000001e2:roi1e1:t2:t11:v2:v11:y1:re";
 
-        let data_frame = decode(data.as_slice().into()).unwrap();
-        assert_eq!(data_frame, rst);
+        let data = decode(data.as_slice().into()).unwrap();
+        assert_eq!(data, rst.into());
 
-        let rst: PingOrAnnounceReply = data_frame.try_into().unwrap();
+        let rst: PingOrAnnounceReply = Frame::try_from(data).unwrap().try_into().unwrap();
         assert_eq!(af, rst);
     }
 }

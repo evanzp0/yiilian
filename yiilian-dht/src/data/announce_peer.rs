@@ -1,11 +1,11 @@
 use std::{collections::BTreeMap, net::SocketAddr};
 
 use bytes::Bytes;
-use yiilian_core::{common::error::Error, data::BencodeData as Frame};
+use yiilian_core::{common::error::Error, data::BencodeData};
 
 use crate::{common::Id, gen_frame_common_field, transaction::TransactionId};
 
-use super::util::extract_frame_common_field;
+use super::{frame::Frame, util::extract_frame_common_field};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AnnouncePeer {
@@ -76,7 +76,7 @@ impl TryFrom<Frame> for AnnouncePeer {
             ))?
         }
 
-        let a = frame.get_dict_item("a").ok_or(Error::new_frame(
+        let a = frame.get("a").ok_or(Error::new_frame(
             None,
             Some(format!("Field 'a' not found in frame: {frame}")),
         ))?;
@@ -141,13 +141,13 @@ impl TryFrom<Frame> for AnnouncePeer {
 
 impl From<AnnouncePeer> for Frame {
     fn from(value: AnnouncePeer) -> Self {
-        let mut rst: BTreeMap<Bytes, Frame> = BTreeMap::new();
+        let mut rst: BTreeMap<Bytes, BencodeData> = BTreeMap::new();
         gen_frame_common_field!(rst, value);
 
         rst.insert("y".into(), "q".into());
         rst.insert("q".into(), "announce_peer".into());
 
-        let mut a: BTreeMap<Bytes, Frame> = BTreeMap::new();
+        let mut a: BTreeMap<Bytes, BencodeData> = BTreeMap::new();
         a.insert("id".into(), value.id.get_bytes().into());
         a.insert("info_hash".into(), value.info_hash.get_bytes().into());
         if let Some(implied_port) = value.implied_port {
@@ -158,7 +158,7 @@ impl From<AnnouncePeer> for Frame {
 
         rst.insert("a".into(), a.into());
 
-        Frame::Map(rst)
+        Frame(rst)
     }
 }
 
@@ -185,10 +185,10 @@ mod tests {
         let rst: Frame = af.clone().into();
 
         let data = b"d1:ad2:id20:id00000000000000000112:implied_porti1e9:info_hash20:info00000000000000014:porti80e5:token2:01e2:ip6:\x7f\0\0\x01\0P1:q13:announce_peer2:roi1e1:t2:t11:v2:v11:y1:qe";
-        let data_frame = decode(data.as_slice().into()).unwrap();
-        assert_eq!(data_frame, rst);
+        let data = decode(data.as_slice().into()).unwrap();
+        assert_eq!(data, rst.into());
 
-        let rst: AnnouncePeer = data_frame.try_into().unwrap();
+        let rst: AnnouncePeer = Frame::try_from(data).unwrap().try_into().unwrap();
         assert_eq!(af, rst);
     }
 }

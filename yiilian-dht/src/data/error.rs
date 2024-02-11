@@ -1,11 +1,11 @@
 use std::{collections::BTreeMap, net::SocketAddr};
 
 use bytes::Bytes;
-use yiilian_core::{common::error::Error, data::BencodeData as Frame};
+use yiilian_core::{common::error::Error, data::BencodeData};
 
 use crate::{gen_frame_common_field, transaction::TransactionId};
 
-use super::util::extract_frame_common_field;
+use super::{frame::Frame, util::extract_frame_common_field};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RError {
@@ -52,7 +52,7 @@ impl TryFrom<Frame> for RError {
             ));
         }
         let e = frame
-            .get_dict_item("e")
+            .get("e")
             .ok_or(Error::new_frame(
                 None,
                 Some(format!("Field 'e' not found in frame: {frame}")),
@@ -85,18 +85,18 @@ impl TryFrom<Frame> for RError {
 
 impl From<RError> for Frame {
     fn from(value: RError) -> Self {
-        let mut rst: BTreeMap<Bytes, Frame> = BTreeMap::new();
+        let mut rst: BTreeMap<Bytes, BencodeData> = BTreeMap::new();
         gen_frame_common_field!(rst, value);
 
         rst.insert("y".into(), "e".into());
 
-        let mut e: Vec<Frame> = Vec::new();
-        e.push(Frame::Int(value.e.0));
-        e.push(Frame::Str(value.e.1.clone()));
+        let mut e: Vec<BencodeData> = Vec::new();
+        e.push(BencodeData::Int(value.e.0));
+        e.push(BencodeData::Str(value.e.1.clone()));
 
         rst.insert("e".into(), e.into());
 
-        Frame::Map(rst)
+        Frame(rst)
     }
 }
 
@@ -122,11 +122,12 @@ mod tests {
         let data = b"d1:eli200e7:a_errore2:ip6:\x7f\0\0\x01\0P2:roi1e1:t2:t11:v2:v11:y1:ee";
         // let data = b"d1:eli202e12:Server Errore1:t2:&]1:y1:ee";
         // let data = b"d1:eli203e17:No transaction IDe1:v4:lt\r`1:y1:ee";
-        let data_frame = decode(data.as_slice().into()).unwrap();
+        let data = decode(data.as_slice().into()).unwrap();
         // println!("frame: {:#?}", data_frame);
-        assert_eq!(data_frame, rst);
+        assert_eq!(data, rst.into());
 
-        let rst: RError = data_frame.try_into().unwrap();
+        let frame = Frame::try_from(data).unwrap();
+        let rst: RError = frame.try_into().unwrap();
         assert_eq!(af, rst);
     }
 }
