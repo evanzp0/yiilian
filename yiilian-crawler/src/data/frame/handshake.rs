@@ -26,7 +26,7 @@ impl Handshake {
         }
     }
 
-    pub fn verify(data: &[u8]) -> bool {
+    pub fn verify_bytes(data: &[u8]) -> bool {
         let prefix_len = HANDSHAKE_PREFIX.len() as u8;
 
         if data.len() == HANDSHAKE_LEN
@@ -39,6 +39,12 @@ impl Handshake {
             false
         }
             
+    }
+}
+
+impl From<&Handshake> for Bytes {
+    fn from(value: &Handshake) -> Self {
+        value.to_owned().into()
     }
 }
 
@@ -130,18 +136,18 @@ mod tests {
         let hs = Handshake::new(&MESSAGE_EXTENSION_ENABLE, info_hash, peer_id);
         let mut data: BytesMut = hs.clone().try_into().unwrap();
 
-        assert_eq!(true, Handshake::verify(&data));
-        assert_eq!(false, Handshake::verify(&data[0..data.len() - 1]));
+        assert_eq!(true, Handshake::verify_bytes(&data));
+        assert_eq!(false, Handshake::verify_bytes(&data[0..data.len() - 1]));
 
         data[0] = 17;
-        assert_eq!(false, Handshake::verify(&data));
+        assert_eq!(false, Handshake::verify_bytes(&data));
         data[0] = 19;
 
         data[1] = b'a';
-        assert_eq!(false, Handshake::verify(&data));
+        assert_eq!(false, Handshake::verify_bytes(&data));
         data[1] = b'B';
 
         data[25] = 0;
-        assert_eq!(false, Handshake::verify(&data));
+        assert_eq!(false, Handshake::verify_bytes(&data));
     }
 }
