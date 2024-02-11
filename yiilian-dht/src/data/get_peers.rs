@@ -53,7 +53,7 @@ impl TryFrom<Frame> for GetPeers {
 
     fn try_from(frame: Frame) -> Result<Self, Self::Error> {
         let (t, v, ip, ro) = extract_frame_common_field(&frame)?;
-        if !frame.verify_items(&[("y", "q"), ("q", "get_peers")]) {
+        if !frame.is_exist_items(&[("y", "q"), ("q", "get_peers")]) {
             return Err(Error::new_frame(
                 None,
                 Some(format!("Invalid frame for GetPeers, frame: {frame}")),

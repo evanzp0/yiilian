@@ -54,7 +54,7 @@ impl TryFrom<Frame> for FindNode {
 
     fn try_from(frame: Frame) -> Result<Self, Self::Error> {
         let (t, v, ip, ro) = extract_frame_common_field(&frame)?;
-        if !frame.verify_items(&[("y", "q"), ("q", "find_node")]) {
+        if !frame.is_exist_items(&[("y", "q"), ("q", "find_node")]) {
             return Err(Error::new_frame(
                 None,
                 Some(format!("Invalid frame for FindNode, frame: {frame}")),

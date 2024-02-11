@@ -69,7 +69,7 @@ impl TryFrom<Frame> for AnnouncePeer {
 
     fn try_from(frame: Frame) -> Result<Self, Self::Error> {
         let (t, v, ip, ro) = extract_frame_common_field(&frame)?;
-        if !frame.verify_items(&[("y", "q"), ("q", "announce_peer")]) {
+        if !frame.is_exist_items(&[("y", "q"), ("q", "announce_peer")]) {
             Err(Error::new_frame(
                 None,
                 Some(format!("Invalid frame for AnnouncePeer, frame: {frame}")),

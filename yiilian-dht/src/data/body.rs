@@ -194,17 +194,17 @@ impl TryFrom<Frame> for BodyKind {
     type Error = Error;
 
     fn try_from(frame: Frame) -> Result<Self, Self::Error> {
-        if frame.verify_items(&[("y", "q")]) {
-            if frame.verify_items(&[("q", "ping")]) {
+        if frame.is_exist_items(&[("y", "q")]) {
+            if frame.is_exist_items(&[("q", "ping")]) {
                 return Ok(BodyKind::Query(Query::Ping(frame.try_into()?)));
-            } else if frame.verify_items(&[("q", "find_node")]) {
+            } else if frame.is_exist_items(&[("q", "find_node")]) {
                 return Ok(BodyKind::Query(Query::FindNode(frame.try_into()?)));
-            } else if frame.verify_items(&[("q", "get_peers")]) {
+            } else if frame.is_exist_items(&[("q", "get_peers")]) {
                 return Ok(BodyKind::Query(Query::GetPeers(frame.try_into()?)));
-            } else if frame.verify_items(&[("q", "announce_peer")]) {
+            } else if frame.is_exist_items(&[("q", "announce_peer")]) {
                 return Ok(BodyKind::Query(Query::AnnouncePeer(frame.try_into()?)));
             }
-        } else if frame.verify_items(&[("y", "r")]) {
+        } else if frame.is_exist_items(&[("y", "r")]) {
             if let Some(params) = frame.get("r") {
                 if params.has_key("token") {
                     return Ok(BodyKind::Reply(Reply::GetPeers(frame.try_into()?)));
@@ -214,7 +214,7 @@ impl TryFrom<Frame> for BodyKind {
                     return Ok(BodyKind::Reply(Reply::PingOrAnnounce(frame.try_into()?)));
                 }
             }
-        } else if frame.verify_items(&[("y", "e")]) {
+        } else if frame.is_exist_items(&[("y", "e")]) {
             return Ok(BodyKind::RError(frame.try_into()?));
         }
 

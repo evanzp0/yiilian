@@ -15,7 +15,9 @@ impl Frame {
         self.0.get(key.as_bytes().into())
     }
 
-    pub fn verify_items(&self, items: &[(&str, &str)]) -> bool {
+    /// 检查 frame 中是否有存在和 items 中相同的 key + value 条目。
+    /// items 是一个 (key, value) 列表
+    pub fn is_exist_items(&self, items: &[(&str, &str)]) -> bool {
         for (key, val) in items {
             if let Some(v) = self.0.get(key.as_bytes()) {
                 match v.as_bstr() {

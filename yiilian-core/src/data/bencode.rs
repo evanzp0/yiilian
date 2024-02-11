@@ -50,7 +50,7 @@ impl BencodeData {
         }
     }
 
-    pub fn verify_items(&self, items: &[(&str, &str)]) -> bool {
+    pub fn is_exist_items(&self, items: &[(&str, &str)]) -> bool {
         if let BencodeData::Map(m) = self {
             for (key, val) in items {
                 if let Some(v) = m.get(key.as_bytes()) {

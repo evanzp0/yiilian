@@ -44,7 +44,7 @@ impl TryFrom<Frame> for PingOrAnnounceReply {
     fn try_from(frame: Frame) -> Result<Self, Self::Error> {
         let (t, v, ip, ro) = extract_frame_common_field(&frame)?;
 
-        if !frame.verify_items(&[("y", "r")]) {
+        if !frame.is_exist_items(&[("y", "r")]) {
             return Err(Error::new_frame(
                 None,
                 Some(format!(

@@ -45,7 +45,7 @@ impl TryFrom<Frame> for RError {
 
     fn try_from(frame: Frame) -> Result<Self, Self::Error> {
         let (t, v, ip, ro) = extract_frame_common_field(&frame)?;
-        if !frame.verify_items(&[("y", "e")]) {
+        if !frame.is_exist_items(&[("y", "e")]) {
             return Err(Error::new_frame(
                 None,
                 Some(format!("Invalid frame for Error, frame: {frame}")),
