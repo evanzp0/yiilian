@@ -16,3 +16,4 @@ bloomfilter = { version = "1", features = ["serde"] }
 bincode = "1"
 hex = "0.4"
 bytes = "1.5"
+num_enum = "0.7"

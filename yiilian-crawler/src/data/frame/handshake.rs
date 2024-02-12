@@ -26,7 +26,7 @@ impl Handshake {
         }
     }
 
-    pub fn verify_bytes(data: &[u8]) -> bool {
+    pub fn verify(data: &[u8]) -> bool {
         let prefix_len = HANDSHAKE_PREFIX.len() as u8;
 
         if data.len() == HANDSHAKE_LEN
@@ -66,7 +66,7 @@ impl TryFrom<Bytes> for Handshake {
     type Error = Error;
 
     fn try_from(value: Bytes) -> Result<Self, Self::Error> {
-        if value.len() != HANDSHAKE_LEN {
+        if !Handshake::verify(&value) {
             Err(Error::new_frame(
                 None,
                 Some(format!(
@@ -84,7 +84,7 @@ impl TryFrom<BytesMut> for Handshake {
     type Error = Error;
 
     fn try_from(value: BytesMut) -> Result<Self, Self::Error> {
-        if value.len() != HANDSHAKE_LEN {
+        if !Handshake::verify(&value) {
             Err(Error::new_frame(
                 None,
                 Some(format!(
@@ -136,18 +136,18 @@ mod tests {
         let hs = Handshake::new(&MESSAGE_EXTENSION_ENABLE, info_hash, peer_id);
         let mut data: BytesMut = hs.clone().try_into().unwrap();
 
-        assert_eq!(true, Handshake::verify_bytes(&data));
-        assert_eq!(false, Handshake::verify_bytes(&data[0..data.len() - 1]));
+        assert_eq!(true, Handshake::verify(&data));
+        assert_eq!(false, Handshake::verify(&data[0..data.len() - 1]));
 
         data[0] = 17;
-        assert_eq!(false, Handshake::verify_bytes(&data));
+        assert_eq!(false, Handshake::verify(&data));
         data[0] = 19;
 
         data[1] = b'a';
-        assert_eq!(false, Handshake::verify_bytes(&data));
+        assert_eq!(false, Handshake::verify(&data));
         data[1] = b'B';
 
         data[25] = 0;
-        assert_eq!(false, Handshake::verify_bytes(&data));
+        assert_eq!(false, Handshake::verify(&data));
     }
 }
