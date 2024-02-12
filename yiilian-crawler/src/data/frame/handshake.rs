@@ -70,7 +70,7 @@ impl TryFrom<Bytes> for Handshake {
             Err(Error::new_frame(
                 None,
                 Some(format!(
-                    "Bytes is invalid to convert to Handshake: {:?}",
+                    "Can't Convert Bytes to Handshake: {:?}",
                     value
                 )),
             ))?
@@ -88,7 +88,7 @@ impl TryFrom<BytesMut> for Handshake {
             Err(Error::new_frame(
                 None,
                 Some(format!(
-                    "Bytes is invalid to convert to Handshake: {:?}",
+                    "Can't Convert Bytes to Handshake: {:?}",
                     value
                 )),
             ))?
