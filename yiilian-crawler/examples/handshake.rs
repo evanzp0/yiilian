@@ -11,8 +11,8 @@ use yiilian_crawler::net::tcp::read_all;
 
 #[tokio::main]
 async fn main() {
-    let peer_address: SocketAddr = "142.215.164.109:6882".parse().unwrap();
-    let info_hash = "f7707928c2c3f3655c62ec3c7b0ef4dcd99ae3f3";
+    let peer_address: SocketAddr = "112.244.15.28:8134".parse().unwrap();
+    let info_hash = "a93f35d9c1ba7557fb8fb7a59f36a051cc9c88a1";
     let info_hash = hex::decode(info_hash)
         .map_err(|hex_err| Error::new_id(Some(hex_err.into()), None))
         .unwrap();

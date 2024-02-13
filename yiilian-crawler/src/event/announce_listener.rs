@@ -65,8 +65,9 @@ impl RecvAnnounceListener<Request<KrpcBody>> {
                                     .set(&bloom_val);
                                 log::info!(
                                     target: "yiilian_crawler::event::announce_listener",
-                                    "recv announce: {:?} {:?}",
+                                    "recv announce: {:?} {}, remote addr: {:?}",
                                     val.info_hash,
+                                    val.port,
                                     req.remote_addr
                                 );
                             }

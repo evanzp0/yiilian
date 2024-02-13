@@ -1,26 +1,22 @@
-use std::net::SocketAddr;
-use tokio::{io::AsyncWriteExt, net::TcpStream};
-use yiilian_core::common::error::Error;
+use std::{error::Error, net::SocketAddr};
+use tokio::{io::AsyncWriteExt, net::TcpStream, time::timeout};
 use yiilian_crawler::net::tcp::read_all;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Box<dyn Error>>{
     let peer_address: SocketAddr = "180.101.50.188:80".parse().unwrap();
 
     let content = "GET / HTTP/1.0\r\nHost:www.baidu.com\r\n\r\n";
 
-    let mut stream = TcpStream::connect(peer_address)
-        .await
-        .map_err(|error| Error::new_net(Some(error.into()), None, Some(peer_address)))
-        .unwrap();
+    let net_timeout = tokio::time::Duration::from_millis(5000);
 
-    stream
-        .write_all(&content.as_bytes())
-        .await
-        .map_err(|error| Error::new_net(Some(error.into()), None, Some(peer_address)))
-        .unwrap();
+    let mut stream = timeout(net_timeout, TcpStream::connect(peer_address)).await??;
+    
+    timeout(net_timeout, stream.write_all(&content.as_bytes())).await??;
 
-    let rst = read_all(&mut stream).await.unwrap();
+    let rst = timeout(net_timeout, read_all(&mut stream)).await??;
 
     println!("{}", String::from_utf8_lossy(&rst));
+
+    Ok(())
 }
