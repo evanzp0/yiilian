@@ -1,13 +1,14 @@
-
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 use bytes::Bytes;
 use rand::thread_rng;
+use tokio::net::UdpSocket;
 use tokio::{io::AsyncWriteExt, net::TcpStream};
 use yiilian_core::common::error::Error;
 use yiilian_crawler::data::frame::{Handshake, MESSAGE_EXTENSION_ENABLE};
-use yiilian_dht::common::Id;
 use yiilian_crawler::net::tcp::read_all;
+use yiilian_dht::common::Id;
 
 #[tokio::main]
 async fn main() {
@@ -21,10 +22,10 @@ async fn main() {
     let hs = Handshake::new(&MESSAGE_EXTENSION_ENABLE, &info_hash, &peer_id);
     let hs: Bytes = hs.into();
 
-    let mut stream = TcpStream::connect(peer_address)
-        .await
-        .unwrap();
-    
+    // let mut stream = TcpStream::connect(peer_address)
+    //     .await
+    //     .unwrap();
+
     // stream
     //     .write_all(&hs)
     //     .await
@@ -36,4 +37,18 @@ async fn main() {
     // let rst = read_all(&mut stream).await.unwrap();
 
     // println!("{:?}", rst);
+
+    let std_sock =
+        std::net::UdpSocket::bind("0.0.0.0:0").unwrap();
+    std_sock
+        .set_nonblocking(true)
+        .unwrap();
+
+    let socket = Arc::new(UdpSocket::from_std(std_sock).unwrap());
+
+    yiilian_core::net::udp::send_to(&socket, &hs, peer_address).await.unwrap();
+
+    let a = yiilian_core::net::udp::recv_from(&socket).await.unwrap();
+
+    println!("{:?}", a);
 }
