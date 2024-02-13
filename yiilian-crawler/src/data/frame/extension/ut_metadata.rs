@@ -6,7 +6,10 @@ use yiilian_core::{
     data::{decode_dict, BencodeData, Encode},
 };
 
+use crate::data::frame::PeerMessage;
+
 pub const UT_METADATA_NAME: &str = "ut_metadata";
+pub const UT_METADATA_ID: u8 = 2;
 
 #[derive(Debug, Clone)]
 pub enum UtMetadata {
@@ -132,15 +135,19 @@ impl From<UtMetadata> for Bytes {
                 let mut rst: BTreeMap<Bytes, BencodeData> = BTreeMap::new();
                 rst.insert("msg_type".into(), 0.into());
                 rst.insert("piece".into(), piece.into());
-                
+
                 rst.encode()
             }
-            UtMetadata::Data { piece, total_size, block } => {
+            UtMetadata::Data {
+                piece,
+                total_size,
+                block,
+            } => {
                 let mut rst: BTreeMap<Bytes, BencodeData> = BTreeMap::new();
                 rst.insert("msg_type".into(), 1.into());
                 rst.insert("piece".into(), piece.into());
                 rst.insert("total_size".into(), total_size.into());
-                
+
                 let mut bytes = BytesMut::new();
                 bytes.extend(rst.encode());
                 bytes.extend(block);
@@ -151,9 +158,18 @@ impl From<UtMetadata> for Bytes {
                 let mut rst: BTreeMap<Bytes, BencodeData> = BTreeMap::new();
                 rst.insert("msg_type".into(), 2.into());
                 rst.insert("piece".into(), piece.into());
-                
+
                 rst.encode()
             }
+        }
+    }
+}
+
+impl From<UtMetadata> for PeerMessage {
+    fn from(value: UtMetadata) -> Self {
+        PeerMessage::Extended {
+            ext_msg_id: UT_METADATA_ID,
+            payload: value.into(),
         }
     }
 }
