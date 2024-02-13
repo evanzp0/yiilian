@@ -44,7 +44,6 @@ impl ExtensionHeader {
 
     pub fn get_extension_id(&self, extension_name: &str) -> Option<i32> {
         if let Some(m) = &self.m {
-            println!("{:?}", m);
             if let Some(val) = m.get(extension_name.as_bytes()) {
                 val.as_int()
                     .map(|msg_id| Some(msg_id))
