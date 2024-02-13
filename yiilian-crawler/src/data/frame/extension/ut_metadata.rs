@@ -1,12 +1,14 @@
-use bytes::Bytes;
+use std::collections::BTreeMap;
+
+use bytes::{Bytes, BytesMut};
 use yiilian_core::{
     common::error::Error,
-    data::{decode_dict, BencodeData},
+    data::{decode_dict, BencodeData, Encode},
 };
 
 pub const UT_METADATA_NAME: &str = "ut_metadata";
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum UtMetadata {
     Request {
         piece: i32,
@@ -29,6 +31,7 @@ impl TryFrom<Bytes> for UtMetadata {
         let body: Bytes = value[index..].to_owned().into();
 
         if let BencodeData::Map(message) = header {
+            println!("{:?}", message.clone().get(b"msg_type"[..].into()));
             if let Some(BencodeData::Int(msg_type)) = message.get(b"msg_type"[..].into()) {
                 match msg_type {
                     0 => {
@@ -74,7 +77,11 @@ impl TryFrom<Bytes> for UtMetadata {
                             }
                         };
 
-                        Ok(UtMetadata::Data { piece, total_size, block: body })
+                        Ok(UtMetadata::Data {
+                            piece,
+                            total_size,
+                            block: body,
+                        })
                     }
                     2 => {
                         let piece = {
@@ -115,5 +122,58 @@ impl TryFrom<Bytes> for UtMetadata {
                 )),
             ))?
         }
+    }
+}
+
+impl From<UtMetadata> for Bytes {
+    fn from(value: UtMetadata) -> Self {
+        match value {
+            UtMetadata::Request { piece } => {
+                let mut rst: BTreeMap<Bytes, BencodeData> = BTreeMap::new();
+                rst.insert("msg_type".into(), 0.into());
+                rst.insert("piece".into(), piece.into());
+                
+                rst.encode()
+            }
+            UtMetadata::Data { piece, total_size, block } => {
+                let mut rst: BTreeMap<Bytes, BencodeData> = BTreeMap::new();
+                rst.insert("msg_type".into(), 1.into());
+                rst.insert("piece".into(), piece.into());
+                rst.insert("total_size".into(), total_size.into());
+                
+                let mut bytes = BytesMut::new();
+                bytes.extend(rst.encode());
+                bytes.extend(block);
+
+                bytes.into()
+            }
+            UtMetadata::Reject { piece } => {
+                let mut rst: BTreeMap<Bytes, BencodeData> = BTreeMap::new();
+                rst.insert("msg_type".into(), 2.into());
+                rst.insert("piece".into(), piece.into());
+                
+                rst.encode()
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_codec() {
+        let message = UtMetadata::Data {
+            piece: 0,
+            total_size: 100,
+            block: b"abcd"[..].into(),
+        };
+
+        let data: Bytes = message.into();
+        let message: UtMetadata = data.clone().try_into().unwrap();
+        let data1: Bytes = message.into();
+
+        assert_eq!(data, data1);
     }
 }
