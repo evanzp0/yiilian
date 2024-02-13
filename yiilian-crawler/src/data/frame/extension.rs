@@ -168,3 +168,34 @@ impl From<ExtensionHeader> for Bytes {
         value.encode()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeMap;
+
+    use bytes::Bytes;
+    use yiilian_core::{data::BencodeData, map};
+
+    use super::ExtensionHeader;
+
+    #[test]
+    fn test() {
+        let mut m = BTreeMap::new();
+        let m_item: BTreeMap<Bytes, BencodeData> = map! {
+            "ut_metadata".into() => 1.into(),
+        };
+        m.insert("m".into(), m_item.into());
+        let m = Some(m);
+        
+        let eh = ExtensionHeader::new(m, None, None, None, None, None, Some(250));
+        let rst: Bytes = eh.into();
+
+        let bytes: Bytes = b"d1:md1:md11:ut_metadatai1eee4:reqqi250ee"[..].into();
+
+        assert_eq!(bytes, rst);
+
+        let eh: ExtensionHeader = bytes.clone().try_into().unwrap();
+        let rst: Bytes = eh.into();
+        assert_eq!(bytes, rst);
+    }
+}
