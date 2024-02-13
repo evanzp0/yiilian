@@ -1,8 +1,8 @@
 use bytes::{BufMut, Bytes, BytesMut};
 use yiilian_core::common::error::Error;
 
-pub const HANDSHAKE_PREFIX: &'static [u8] = b"BitTorrent protocol";
-pub const HANDSHAKE_LEN: usize = 68;
+const HANDSHAKE_PREFIX: &'static [u8] = b"BitTorrent protocol";
+const HANDSHAKE_LEN: usize = 68;
 
 pub const MESSAGE_EXTENSION_ENABLE: [u8; 8] = [0, 0, 0, 0, 0, 0x10, 0, 0];
 

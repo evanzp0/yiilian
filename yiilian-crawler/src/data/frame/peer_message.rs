@@ -1,14 +1,12 @@
 use bytes::{BufMut, Bytes, BytesMut};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-use yiilian_core::common::error::Error;
+use yiilian_core::common::{error::Error, util::be_bytes_to_u32};
 
-use crate::common::bytes_to_u32;
-
-pub const KEEP_ALIVE_MESSAGE: [u8;4] = [0, 0, 0, 0];
+const KEEP_ALIVE_MESSAGE: [u8;4] = [0, 0, 0, 0];
 
 #[derive(Debug, Eq, PartialEq, TryFromPrimitive, IntoPrimitive)]
 #[repr(u8)]
-pub enum MessageId {
+enum MessageId {
     Choke = 0,
     UnChoke = 1,
     Interested = 2,
@@ -78,7 +76,7 @@ impl PeerMessage {
             return false;
         }
 
-        let payload_len = if let Ok(val) = bytes_to_u32(&bytes[0..4]) {
+        let payload_len = if let Ok(val) = be_bytes_to_u32(&bytes[0..4]) {
             val
         } else {
             return false
@@ -130,7 +128,7 @@ impl TryFrom<Bytes> for PeerMessage {
             MessageId::Interested => PeerMessage::Interested,
             MessageId::NotInterested => PeerMessage::NotInterested,
             MessageId::Have => {
-                let index = bytes_to_u32(&value[5..])?;
+                let index = be_bytes_to_u32(&value[5..])?;
                 PeerMessage::Have { index }
             }
             MessageId::Bitfield => {
@@ -138,9 +136,9 @@ impl TryFrom<Bytes> for PeerMessage {
                 PeerMessage::Bitfield { bitfield }
             }
             MessageId::Request => {
-                let index = bytes_to_u32(&value[5..9])?;
-                let offset_begin = bytes_to_u32(&value[9..13])?;
-                let offset_length = bytes_to_u32(&value[13..17])?;
+                let index = be_bytes_to_u32(&value[5..9])?;
+                let offset_begin = be_bytes_to_u32(&value[9..13])?;
+                let offset_length = be_bytes_to_u32(&value[13..17])?;
                 PeerMessage::Request {
                     index,
                     offset_begin,
@@ -148,8 +146,8 @@ impl TryFrom<Bytes> for PeerMessage {
                 }
             }
             MessageId::Piece => {
-                let index = bytes_to_u32(&value[5..9])?;
-                let offset_begin = bytes_to_u32(&value[9..13])?;
+                let index = be_bytes_to_u32(&value[5..9])?;
+                let offset_begin = be_bytes_to_u32(&value[9..13])?;
                 let piece: Bytes = value[13..].to_owned().into();
                 PeerMessage::Piece {
                     index,
@@ -158,9 +156,9 @@ impl TryFrom<Bytes> for PeerMessage {
                 }
             }
             MessageId::Cancel => {
-                let index = bytes_to_u32(&value[5..9])?;
-                let offset_begin = bytes_to_u32(&value[9..13])?;
-                let offset_length = bytes_to_u32(&value[13..17])?;
+                let index = be_bytes_to_u32(&value[5..9])?;
+                let offset_begin = be_bytes_to_u32(&value[9..13])?;
+                let offset_length = be_bytes_to_u32(&value[13..17])?;
                 PeerMessage::Cancel {
                     index,
                     offset_begin,

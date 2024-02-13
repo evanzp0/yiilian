@@ -1,5 +1,5 @@
 use std::hash::{Hash, Hasher};
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 use fnv::FnvHasher;
 
@@ -51,6 +51,105 @@ pub fn random_bytes(size: usize) -> Vec<u8> {
     let random_bytes: Vec<u8> = (0..size).map(|_| rand::random::<u8>()).collect();
 
     random_bytes.into()
+}
+
+/// 将 4 个大端字节数组转为 u32
+pub fn be_bytes_to_u32(bytes: &[u8]) -> Result<u32, Error> {
+    let array: [u8; 4] = bytes.try_into().map_err(|_| {
+        Error::new_frame(
+            None,
+            Some(format!("Can't convert slice to [u8; 4]: {:?}", bytes)),
+        )
+    })?;
+
+    Ok(u32::from_be_bytes(array))
+}
+
+/// 将 2 个小端字节数组转为 u16
+pub fn be_bytes_to_u16(bytes: &[u8]) -> Result<u16, Error> {
+    let array: [u8; 2] = bytes.try_into().map_err(|_| {
+        Error::new_frame(
+            None,
+            Some(format!("Can't convert slice to [u8; 2]: {:?}", bytes)),
+        )
+    })?;
+
+    Ok(u16::from_be_bytes(array))
+}
+
+/// 紧凑格式转 ip
+///
+/// # Example
+/// ```
+/// # use yiilian_core::common::util::*;
+/// use std::net::{IpAddr, Ipv4Addr, ToSocketAddrs};
+///
+/// let compacted_ip = vec![127,0,0,1];
+/// let ip = bytes_to_ip(&compacted_ip).unwrap();
+/// assert_eq!(ip, IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)));
+/// ```
+pub fn bytes_to_ip(bytes: &[u8]) -> Result<IpAddr, Error> {
+    let bytes = bytes.as_ref();
+    match bytes.len() {
+        4 => {
+            let ip = Ipv4Addr::new(bytes[0], bytes[1], bytes[2], bytes[3]);
+
+            Ok(IpAddr::V4(ip))
+        }
+
+        16 => {
+            let b0 = be_bytes_to_u16(&bytes[0..=1])?;
+            let b1 = be_bytes_to_u16(&bytes[2..=3])?;
+            let b2 = be_bytes_to_u16(&bytes[4..=5])?;
+            let b3 = be_bytes_to_u16(&bytes[6..=7])?;
+            let b4 = be_bytes_to_u16(&bytes[8..=9])?;
+            let b5 = be_bytes_to_u16(&bytes[10..=11])?;
+            let b6 = be_bytes_to_u16(&bytes[12..=13])?;
+            let b7 = be_bytes_to_u16(&bytes[14..=15])?;
+
+            let ip = Ipv6Addr::new(b0, b1, b2, b3, b4, b5, b6, b7);
+
+            Ok(IpAddr::V6(ip))
+        },
+
+        _ => Err(Error::new_frame(
+            None,
+            Some("Wrong number of bytes for ip".to_owned()),
+        )),
+    }
+}
+
+/// IP 转紧凑格式
+///
+/// # Example
+/// ```
+/// # use yiilian_core::common::util::*;
+/// use std::net::{SocketAddr, ToSocketAddrs};
+///
+/// let sockaddr: SocketAddr = "127.0.0.1:80".parse().unwrap();
+/// let compacted_ip_port = sockaddr_to_bytes(&sockaddr);
+/// assert_eq!(vec![127,0,0,1, 0,80], compacted_ip_port)
+/// ```
+pub fn ip_to_bytes(ip: &IpAddr) -> Vec<u8> {
+    let mut to_ret = Vec::new();
+
+    match ip {
+        IpAddr::V4(v4) => {
+            let ip_bytes = v4.octets();
+            for item in ip_bytes {
+                to_ret.push(item);
+            }
+        }
+
+        IpAddr::V6(v6) => {
+            let ip_bytes = v6.octets();
+            for item in ip_bytes {
+                to_ret.push(item);
+            }
+        }
+    }
+
+    to_ret
 }
 
 /// 紧凑格式转 SocketAddr (ip + port)
@@ -142,6 +241,7 @@ pub fn hash_it<T: Hash>(name: T) -> u64 {
 #[cfg(test)]
 mod test {
     use std::collections::BTreeMap;
+    use super::*;
 
     #[test]
     fn test_hashmap_macro() {
@@ -155,5 +255,23 @@ mod test {
         map1.insert("de".into(), "Auf Wiedersehen".into());
 
         assert_eq!(map1, map);
+    }
+
+    #[test]
+    fn test_be_bytes_to_u32() {
+        let bytes = [0, 0, 0, 2, b'a', b'b'];
+        assert_eq!(true,  be_bytes_to_u32(&bytes).is_err());
+
+        let bytes = [0, 0, 0];
+        assert_eq!(true,  be_bytes_to_u32(&bytes).is_err());
+
+        let bytes = [0, 0, 0, 1];
+        assert_eq!(true,  be_bytes_to_u32(&bytes).is_ok());
+    }
+
+    #[test]
+    fn test_be_bytes_to_u16() {
+        let bytes = [255, 0];
+        assert_eq!(65280,  be_bytes_to_u16(&bytes).unwrap());
     }
 }
