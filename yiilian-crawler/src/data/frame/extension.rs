@@ -16,6 +16,7 @@ pub struct ExtensionHeader {
     pub ipv6: Option<Ipv6Addr>,
     pub ipv4: Option<Ipv4Addr>,
     pub reqq: Option<i32>,
+    pub metadata_size: Option<i32>,
 }
 
 impl ExtensionHeader {
@@ -27,6 +28,7 @@ impl ExtensionHeader {
         ipv6: Option<Ipv6Addr>,
         ipv4: Option<Ipv4Addr>,
         reqq: Option<i32>,
+        metadata_size: Option<i32>,
     ) -> Self {
         ExtensionHeader {
             m,
@@ -36,6 +38,22 @@ impl ExtensionHeader {
             ipv6,
             ipv4,
             reqq,
+            metadata_size,
+        }
+    }
+
+    pub fn get_extension_id(&self, extension_name: &str) -> Option<i32> {
+        if let Some(m) = &self.m {
+            println!("{:?}", m);
+            if let Some(val) = m.get(extension_name.as_bytes()) {
+                val.as_int()
+                    .map(|msg_id| Some(msg_id))
+                    .unwrap_or(None)
+            } else {
+                None
+            }
+        } else {
+            None
         }
     }
 }
@@ -91,8 +109,13 @@ impl TryFrom<BencodeData> for ExtensionHeader {
             } else {
                 None
             };
-            let reqq = if let Some(port) = val.get(&b"reqq"[..]) {
-                Some(port.as_int()?)
+            let reqq = if let Some(reqq) = val.get(&b"reqq"[..]) {
+                Some(reqq.as_int()?)
+            } else {
+                None
+            };
+            let metadata_size = if let Some(metadata_size) = val.get(&b"metadata_size"[..]) {
+                Some(metadata_size.as_int()?)
             } else {
                 None
             };
@@ -105,6 +128,7 @@ impl TryFrom<BencodeData> for ExtensionHeader {
                 ipv6,
                 ipv4,
                 reqq,
+                metadata_size,
             );
 
             Ok(eh)
@@ -157,6 +181,9 @@ impl From<ExtensionHeader> for BencodeData {
         if let Some(reqq) = value.reqq {
             rst.insert("reqq".into(), reqq.into());
         }
+        if let Some(metadata_size) = value.metadata_size {
+            rst.insert("metadata_size".into(), metadata_size.into());
+        }
 
         rst.into()
     }
@@ -176,26 +203,37 @@ mod tests {
     use bytes::Bytes;
     use yiilian_core::{data::BencodeData, map};
 
-    use super::ExtensionHeader;
+    use super::{ExtensionHeader, UT_METADATA_NAME};
 
     #[test]
-    fn test() {
-        let mut m = BTreeMap::new();
-        let m_item: BTreeMap<Bytes, BencodeData> = map! {
-            "ut_metadata".into() => 1.into(),
+    fn test_codec() {
+        let m: BTreeMap<Bytes, BencodeData> = map! {
+            UT_METADATA_NAME.into() => 1.into(),
         };
-        m.insert("m".into(), m_item.into());
         let m = Some(m);
         
-        let eh = ExtensionHeader::new(m, None, None, None, None, None, Some(250));
+        let eh = ExtensionHeader::new(m, None, None, None, None, None, Some(250), None);
         let rst: Bytes = eh.into();
 
-        let bytes: Bytes = b"d1:md1:md11:ut_metadatai1eee4:reqqi250ee"[..].into();
+        let bytes: Bytes = b"d1:md11:ut_metadatai1ee4:reqqi250ee"[..].into();
 
         assert_eq!(bytes, rst);
 
         let eh: ExtensionHeader = bytes.clone().try_into().unwrap();
         let rst: Bytes = eh.into();
         assert_eq!(bytes, rst);
+    }
+
+    #[test]
+    fn test_get_extension_id() {
+        let m: BTreeMap<Bytes, BencodeData> = map! {
+            UT_METADATA_NAME.into() => 1.into(),
+        };
+        let m = Some(m);
+        
+        let eh = ExtensionHeader::new(m, None, None, None, None, None, Some(250), None);
+        let ut_metadata_id = eh.get_extension_id(UT_METADATA_NAME).unwrap();
+
+        assert_eq!(ut_metadata_id, 1);
     }
 }
