@@ -3,6 +3,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use yiilian_core::common::{error::Error, util::be_bytes_to_u32};
 
 const KEEP_ALIVE_MESSAGE: [u8;4] = [0, 0, 0, 0];
+pub const MESSAGE_LEN_PREFIX: usize = 4;
 
 #[derive(Debug, Eq, PartialEq, TryFromPrimitive, IntoPrimitive)]
 #[repr(u8)]
