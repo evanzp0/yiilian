@@ -7,7 +7,7 @@ pub const MESSAGE_LEN_PREFIX: usize = 4;
 
 #[derive(Debug, Eq, PartialEq, TryFromPrimitive, IntoPrimitive)]
 #[repr(u8)]
-enum MessageId {
+pub enum MessageId {
     Choke = 0,
     UnChoke = 1,
     Interested = 2,
@@ -56,6 +56,15 @@ pub enum PeerMessage {
 }
 
 impl PeerMessage {
+
+    pub fn new_ext_handshake(payload: Bytes) -> Self {
+        PeerMessage::new_extension(0, payload)
+    }
+
+    pub fn new_extension(ext_msg_id: u8, payload: Bytes) -> Self {
+        PeerMessage::Extended { ext_msg_id, payload }
+    }
+
     pub fn get_message_id(&self) -> Option<u8> {
         match self {
             Self::KeepAlive => None,
@@ -76,7 +85,7 @@ impl PeerMessage {
         if bytes.len() < 4 {
             return false;
         }
-
+        
         let payload_len = if let Ok(val) = be_bytes_to_u32(&bytes[0..4]) {
             val
         } else {

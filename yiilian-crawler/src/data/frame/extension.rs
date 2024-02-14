@@ -4,7 +4,7 @@ pub use ut_metadata::*;
 use std::{collections::BTreeMap, net::{IpAddr, Ipv4Addr, Ipv6Addr}};
 
 use bytes::Bytes;
-use yiilian_core::{common::{error::Error, util::{bytes_to_ip, ip_to_bytes}}, data::{decode, BencodeData, Encode}};
+use yiilian_core::{common::{error::Error, util::{bytes_to_ip, ip_to_bytes}}, data::{decode, BencodeData, Encode}, map};
 
 /// ExtensionHeader 是扩展握手消息中的 payload
 #[derive(Debug)]
@@ -40,6 +40,15 @@ impl ExtensionHeader {
             reqq,
             metadata_size,
         }
+    }
+
+    pub fn new_ut_metadata() -> Self {
+        let m: BTreeMap<Bytes, BencodeData> = map! {
+            UT_METADATA_NAME.into() => (UT_METADATA_ID as i32).into(),
+        };
+        let m = Some(m);
+        
+        ExtensionHeader::new(m, None, None, None, None, None, Some(250), None)
     }
 
     pub fn get_extension_id(&self, extension_name: &str) -> Option<i32> {

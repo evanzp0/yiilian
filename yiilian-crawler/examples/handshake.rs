@@ -1,9 +1,13 @@
 use std::net::SocketAddr;
 
+use bytes::Bytes;
 use rand::thread_rng;
 use tokio::net::TcpStream;
 use yiilian_core::common::error::Error;
-use yiilian_crawler::{data::frame::Handshake, net::tcp::{read_handshake, send_handshake}};
+use yiilian_crawler::{
+    data::frame::{extension::ExtensionHeader, Handshake, PeerMessage},
+    net::tcp::{read_handshake, read_message, send_handshake, send_message},
+};
 use yiilian_dht::common::Id;
 
 #[tokio::main]
@@ -16,14 +20,14 @@ async fn main() {
 
     let peer_id = Id::from_random(&mut thread_rng()).get_bytes();
 
-    let mut stream = TcpStream::connect(peer_address)
-        .await
-        .unwrap();
+    let mut stream = TcpStream::connect(peer_address).await.unwrap();
 
     println!("connected");
 
     // 发送握手消息给对方
-    send_handshake(&mut stream, &info_hash, &peer_id).await.unwrap();
+    send_handshake(&mut stream, &info_hash, &peer_id)
+        .await
+        .unwrap();
 
     // 接收对方回复的握手消息
     let rst = read_handshake(&mut stream).await.unwrap();
@@ -31,10 +35,29 @@ async fn main() {
     // 校验对方握手消息
     if !Handshake::verify(&rst) {
         println!("recv handshake is invalid");
-        return
+        return;
     }
 
     // 发送扩展握手协议
+    let ut_metadata_header = ExtensionHeader::new_ut_metadata();
+    let p_msg = PeerMessage::new_ext_handshake(ut_metadata_header.into());
+    let p_msg: Bytes = p_msg.into();
 
-    todo!()
+    send_message(&mut stream, &p_msg).await.unwrap();
+
+    loop {
+        let rst = read_message(&mut stream).await.unwrap();
+        let p_msg: PeerMessage = rst.try_into().unwrap();
+
+        match p_msg {
+            PeerMessage::Extended {
+                ext_msg_id,
+                payload,
+            } => {
+                println!("{}: {:?}", ext_msg_id, payload);
+                break;
+            },
+            _ => (),
+        }
+    }
 }

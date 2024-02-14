@@ -9,7 +9,7 @@ use yiilian_core::{
 use crate::data::frame::PeerMessage;
 
 pub const UT_METADATA_NAME: &str = "ut_metadata";
-pub const UT_METADATA_ID: u8 = 2;
+pub const UT_METADATA_ID: u8 = 1;
 
 #[derive(Debug, Clone)]
 pub enum UtMetadata {

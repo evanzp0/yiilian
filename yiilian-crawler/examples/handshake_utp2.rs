@@ -10,7 +10,7 @@ use yiilian_dht::common::Id;
 #[tokio::main]
 async fn main() {
 	// bind a standard UDP socket. (transport is over a `tokio::net::UdpSocket`.)
-	let socket_addr = SocketAddr::from(([0, 0, 0, 0], 16500));
+	let socket_addr: SocketAddr = "0.0.0.0:16500".parse().unwrap();
 	let udp_socket = UtpSocket::bind(socket_addr).await.unwrap();
 
 	// connect to a remote peer over uTP.
