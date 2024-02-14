@@ -10,8 +10,8 @@ use yiilian_dht::common::Id;
 
 #[tokio::main]
 async fn main() {
-    let peer_address: SocketAddr = "142.215.164.105:6882".parse().unwrap();
-    let info_hash = "7f8313c8731bf43bb8e18db21ac8fc2545451ac2";
+    let peer_address: SocketAddr = "192.168.31.6:15000".parse().unwrap();
+    let info_hash = "FA84A39C18D5960B0272D3E1D2A7900FB09F5EB3";
     let info_hash = hex::decode(info_hash)
         .map_err(|hex_err| Error::new_id(Some(hex_err.into()), None))
         .unwrap();
@@ -24,6 +24,8 @@ async fn main() {
         .await
         .unwrap();
 
+    println!("connected");
+
     stream
         .write_all(&hs)
         .await
@@ -31,6 +33,8 @@ async fn main() {
         .unwrap();
 
     stream.flush().await.unwrap();
+
+    println!("write handshake");
 
     let rst = read_all(&mut stream).await.unwrap();
 
