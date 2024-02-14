@@ -63,12 +63,18 @@ impl RecvAnnounceListener<Request<KrpcBody>> {
                                     .write()
                                     .expect_error("bloom.write() error")
                                     .set(&bloom_val);
+
+                                let port = match val.implied_port {
+                                    Some(p) if p == 0 => val.port,
+                                    _ => req.remote_addr.port(),
+                                };
+
                                 log::info!(
                                     target: "yiilian_crawler::event::announce_listener",
-                                    "recv announce: {:?} {}, remote addr: {:?}",
+                                    "recv announce: {} {}:{}",
                                     val.info_hash,
-                                    val.port,
-                                    req.remote_addr
+                                    req.remote_addr.ip(),
+                                    port,
                                 );
                             }
                         }

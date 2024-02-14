@@ -28,7 +28,7 @@ pub struct AnnouncePeer {
     /// 资源 info_hash
     pub info_hash: Id,
 
-    /// 0：使用 sock 连接时的 port 作为端口号； 1：使用 port 参数作为端口号
+    /// 1：使用 sock 连接时的 port 作为端口号； 0：使用 port 参数作为端口号
     pub implied_port: Option<u8>,
 
     /// 端口号
