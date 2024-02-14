@@ -5,7 +5,7 @@ use rand::thread_rng;
 use tokio::net::TcpStream;
 use yiilian_core::common::error::Error;
 use yiilian_crawler::{
-    data::frame::{extension::ExtensionHeader, Handshake, PeerMessage},
+    data::frame::{extension::{ExtensionHeader, UtMetadata, UT_METADATA_ID, UT_METADATA_NAME}, Handshake, PeerMessage},
     net::tcp::{read_handshake, read_message, send_handshake, send_message},
 };
 use yiilian_dht::common::Id;
@@ -13,6 +13,7 @@ use yiilian_dht::common::Id;
 #[tokio::main]
 async fn main() {
     let peer_address: SocketAddr = "192.168.31.6:15000".parse().unwrap();
+    // let peer_address: SocketAddr = "192.168.31.6:22223".parse().unwrap();
     let info_hash = "FA84A39C18D5960B0272D3E1D2A7900FB09F5EB3";
     let info_hash = hex::decode(info_hash)
         .map_err(|hex_err| Error::new_id(Some(hex_err.into()), None))
@@ -32,6 +33,8 @@ async fn main() {
     // 接收对方回复的握手消息
     let rst = read_handshake(&mut stream).await.unwrap();
 
+    println!("handshake: {:?}", rst);
+
     // 校验对方握手消息
     if !Handshake::verify(&rst) {
         println!("recv handshake is invalid");
@@ -48,14 +51,34 @@ async fn main() {
     loop {
         let rst = read_message(&mut stream).await.unwrap();
         let p_msg: PeerMessage = rst.try_into().unwrap();
+        // println!("{:?}", p_msg);
 
         match p_msg {
             PeerMessage::Extended {
                 ext_msg_id,
                 payload,
             } => {
-                println!("{}: {:?}", ext_msg_id, payload);
-                break;
+                // 处理扩展握手消息
+                if ext_msg_id == 0 {
+                    let ext_header: ExtensionHeader = payload.try_into().unwrap();
+                    println!("{:?}", ext_header);
+
+                    if let Some(ut_metadata_id) = ext_header.get_extension_id(UT_METADATA_NAME) {
+                        let metadata_size = ext_header.metadata_size;
+
+                        println!("{ut_metadata_id}, {:?}", metadata_size);
+
+                        let request = UtMetadata::Request { piece: 0 };
+                        let msg: Bytes = request.into_peer_message(ut_metadata_id as u8).into();
+
+                        send_message(&mut stream, &msg).await.unwrap();
+                    } else {
+                        break;
+                    }
+                } else {
+                    println!("{:?}", payload);
+                }
+
             },
             _ => (),
         }

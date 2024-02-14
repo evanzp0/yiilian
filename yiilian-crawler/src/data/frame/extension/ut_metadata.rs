@@ -26,6 +26,17 @@ pub enum UtMetadata {
     },
 }
 
+impl UtMetadata {
+    pub fn into_peer_message(self, message_id: u8) -> PeerMessage {
+        let payload: Bytes = self.into();
+
+        PeerMessage::Extended {
+            ext_msg_id: message_id,
+            payload,
+        }
+    }
+}
+
 impl TryFrom<Bytes> for UtMetadata {
     type Error = Error;
 
@@ -161,15 +172,6 @@ impl From<UtMetadata> for Bytes {
 
                 rst.encode()
             }
-        }
-    }
-}
-
-impl From<UtMetadata> for PeerMessage {
-    fn from(value: UtMetadata) -> Self {
-        PeerMessage::Extended {
-            ext_msg_id: UT_METADATA_ID,
-            payload: value.into(),
         }
     }
 }
