@@ -1,4 +1,4 @@
-use std::io::{self, Read};
+use std::io::Read;
 
 use bytes::{Bytes, BytesMut};
 use utp::UtpStream;

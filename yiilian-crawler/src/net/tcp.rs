@@ -1,11 +1,24 @@
 use bytes::{Bytes, BytesMut};
-use tokio::{io::AsyncReadExt, net::TcpStream};
+use tokio::{io::{AsyncReadExt, AsyncWriteExt}, net::TcpStream};
 use yiilian_core::{common::error::Error, net::tcp::read};
 
-use crate::data::frame::{HANDSHAKE_LEN, MESSAGE_LEN_PREFIX};
+use crate::data::frame::{Handshake, HANDSHAKE_LEN, MESSAGE_EXTENSION_ENABLE, MESSAGE_LEN_PREFIX};
+
+pub async fn send_handshake(stream: &mut TcpStream, info_hash: &[u8], peer_id: &[u8]) -> Result<(), Error> {
+    let hs = Handshake::new(&MESSAGE_EXTENSION_ENABLE, &info_hash, &peer_id);
+    let hs: Bytes = hs.into();
+    
+    stream
+        .write_all(&hs)
+        .await
+        .map_err(|error| Error::new_net(Some(error.into()), None, None))
+        .unwrap();
+
+    Ok(())
+}
 
 pub async fn read_handshake(stream: &mut TcpStream) -> Result<Bytes, Error> {
-    let mut buf:[u8; HANDSHAKE_LEN] = [0; HANDSHAKE_LEN];
+    let mut buf: [u8; HANDSHAKE_LEN] = [0; HANDSHAKE_LEN];
     read(stream, &mut buf)
         .await
         .map_err(|error| Error::new_net(Some(error.into()), None, None))?;
@@ -16,7 +29,7 @@ pub async fn read_handshake(stream: &mut TcpStream) -> Result<Bytes, Error> {
 }
 
 pub async fn read_message(stream: &mut TcpStream) -> Result<Bytes, Error> {
-    let mut buf:[u8; MESSAGE_LEN_PREFIX] = [0; MESSAGE_LEN_PREFIX];
+    let mut buf: [u8; MESSAGE_LEN_PREFIX] = [0; MESSAGE_LEN_PREFIX];
     read(stream, &mut buf)
         .await
         .map_err(|error| Error::new_net(Some(error.into()), None, None))?;
@@ -24,7 +37,7 @@ pub async fn read_message(stream: &mut TcpStream) -> Result<Bytes, Error> {
     let message_len = u32::from_be_bytes(buf[..].try_into().expect("bytes len is invalid"));
 
     let mut buf: Vec<u8> = vec![0; message_len as usize];
-    let val = read(stream, &mut buf)
+    read(stream, &mut buf)
         .await
         .map_err(|error| Error::new_net(Some(error.into()), None, None))?;
 
@@ -43,9 +56,7 @@ pub async fn read_all(stream: &mut TcpStream) -> Result<Bytes, Error> {
                 println!("{:?}", &buf[0..n]);
                 rst.extend(&buf[0..n]);
             }
-            Err(e) => {
-                Err(Error::new_net(Some(e.into()), None, None))?
-            }
+            Err(e) => Err(Error::new_net(Some(e.into()), None, None))?,
         }
     }
 

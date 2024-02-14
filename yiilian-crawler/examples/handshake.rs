@@ -1,10 +1,9 @@
 use std::net::SocketAddr;
 
-use bytes::Bytes;
 use rand::thread_rng;
-use tokio::{io::AsyncWriteExt, net::TcpStream};
+use tokio::net::TcpStream;
 use yiilian_core::common::error::Error;
-use yiilian_crawler::{data::frame::{Handshake, MESSAGE_EXTENSION_ENABLE}, net::tcp::read_handshake};
+use yiilian_crawler::{data::frame::Handshake, net::tcp::{read_handshake, send_handshake}};
 use yiilian_dht::common::Id;
 
 #[tokio::main]
@@ -16,8 +15,6 @@ async fn main() {
         .unwrap();
 
     let peer_id = Id::from_random(&mut thread_rng()).get_bytes();
-    let hs = Handshake::new(&MESSAGE_EXTENSION_ENABLE, &info_hash, &peer_id);
-    let hs: Bytes = hs.into();
 
     let mut stream = TcpStream::connect(peer_address)
         .await
@@ -25,15 +22,19 @@ async fn main() {
 
     println!("connected");
 
-    stream
-        .write_all(&hs)
-        .await
-        .map_err(|error| Error::new_net(Some(error.into()), None, Some(peer_address)))
-        .unwrap();
+    // 发送握手消息给对方
+    send_handshake(&mut stream, &info_hash, &peer_id).await.unwrap();
 
-    println!("write handshake");
-
+    // 接收对方回复的握手消息
     let rst = read_handshake(&mut stream).await.unwrap();
 
-    println!("{:?}", rst);
+    // 校验对方握手消息
+    if !Handshake::verify(&rst) {
+        println!("recv handshake is invalid");
+        return
+    }
+
+    // 发送扩展握手协议
+
+    todo!()
 }
