@@ -10,6 +10,7 @@ use crate::data::frame::PeerMessage;
 
 pub const UT_METADATA_NAME: &str = "ut_metadata";
 pub const UT_METADATA_ID: u8 = 1;
+pub const METADATA_PIECE_BLOCK: usize = 16 * 1024;
 
 #[derive(Debug, Clone)]
 pub enum UtMetadata {
@@ -45,7 +46,6 @@ impl TryFrom<Bytes> for UtMetadata {
         let body: Bytes = value[index..].to_owned().into();
 
         if let BencodeData::Map(message) = header {
-            println!("{:?}", message.clone().get(b"msg_type"[..].into()));
             if let Some(BencodeData::Int(msg_type)) = message.get(b"msg_type"[..].into()) {
                 match msg_type {
                     0 => {
