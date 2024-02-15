@@ -128,7 +128,7 @@ impl Default for Settings {
             find_nodes_interval_secs: 33,
             find_nodes_skip_count: 32,
             max_resources: 50,
-            max_peers_per_resource: 20,
+            max_peers_per_resource: 100,
             ping_check_interval_secs: 10,
             outgoing_request_prune_secs: 30,
             read_only: false,
