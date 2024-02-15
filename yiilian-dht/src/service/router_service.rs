@@ -41,9 +41,10 @@ impl Service<Request<KrpcBody>> for RouterService {
 
         let res = match req_body {
             BodyKind::Query(query) => {
-                let read_only = dht_ctx_settings(ctx_index).read_only;
+                let local_read_only = dht_ctx_settings(ctx_index).read_only;
 
-                if !read_only {
+                // 本地是只读节点，不处理对方 query
+                if !local_read_only {
                     let sender_id = query.get_sender_id();
 
                     let is_id_valid = {
@@ -56,10 +57,10 @@ impl Service<Request<KrpcBody>> for RouterService {
                         )
                     };
 
-                    let read_only = query.is_read_only();
+                    let remote_read_only = query.is_read_only();
 
                     // 有效，且对方不是 readonly （允许加入到我方的路由表的未验证 bucket 中）
-                    if is_id_valid && !read_only {
+                    if is_id_valid && !remote_read_only {
                         dht_ctx_routing_tbl(ctx_index)
                             .lock()
                             .expect_error("Lock context routing_table failed")
