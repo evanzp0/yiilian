@@ -5,3 +5,5 @@ Cargo.lock
 bloom_state.dat
 yiilian-dht/snip_tmp.rs
 release
+*.torrent
+/torrent

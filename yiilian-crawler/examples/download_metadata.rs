@@ -1,8 +1,7 @@
-use std::net::SocketAddr;
+use std::{fs::File, io::Write, net::SocketAddr};
 
-use bytes::{BufMut, BytesMut};
 use rand::thread_rng;
-use yiilian_core::{common::error::Error, data::decode};
+use yiilian_core::{common::error::Error, data::Encode};
 
 use yiilian_crawler::peer_wire::PeerWire;
 use yiilian_dht::common::Id;
@@ -10,8 +9,8 @@ use yiilian_dht::common::Id;
 #[tokio::main]
 async fn main() {
     let peer_address: SocketAddr = "192.168.31.6:15000".parse().unwrap();
-    let info_hash = "FA84A39C18D5960B0272D3E1D2A7900FB09F5EB3";
-    let info_hash = hex::decode(info_hash)
+    let info_hash_str = "FA84A39C18D5960B0272D3E1D2A7900FB09F5EB3";
+    let info_hash = hex::decode(info_hash_str)
         .map_err(|hex_err| Error::new_id(Some(hex_err.into()), None))
         .unwrap();
 
@@ -20,21 +19,25 @@ async fn main() {
     println!("connected");
 
     let peer_wire = PeerWire::new();
-    let metadata = peer_wire.fetch_metdata(peer_address, &info_hash, &peer_id).await.unwrap();
-    let mut info = BytesMut::new();
-    info.put(&b"d4:info"[..]);
-    info.extend(metadata);
-    info.put(&b"e"[..]);
+    let info = peer_wire
+        .fetch_info(peer_address, &info_hash, &peer_id)
+        .await
+        .unwrap();
 
-    let info = decode(&info).unwrap();
+    let torrent = info.encode();
 
-    let m = info.as_map().unwrap();
-    let info = m.get(&b"info"[..]).unwrap().as_map().unwrap();
-    let name = info.get(&b"name"[..]).unwrap();
-    let piece_length = info.get(&b"piece length"[..]).unwrap();
+    match std::fs::create_dir_all("./torrent/") {
+        Ok(_) => {
+            let mut f = File::create("./torrent/".to_string() + info_hash_str + ".torrent")
+                .expect("File::create() node file failed");
 
-    println!("{:?}, {}", name, piece_length);
-} 
+            f.write_all(&torrent).expect("f.write_all() nodes failed");
+        }
+        Err(e) => {
+            println!("{:?}", e);
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -42,7 +45,6 @@ mod tests {
 
     use bytes::Bytes;
     use yiilian_core::data::{BencodeData, Encode};
-
 
     #[test]
     fn test() {

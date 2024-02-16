@@ -1,10 +1,13 @@
-use std::net::SocketAddr;
+use std::{collections::BTreeMap, net::SocketAddr};
 
-use bytes::{Bytes, BytesMut};
+use bytes::{BufMut, Bytes, BytesMut};
 use rand::thread_rng;
 use sha1::{Digest, Sha1};
 use tokio::{io::AsyncWriteExt, net::TcpStream};
-use yiilian_core::common::error::Error;
+use yiilian_core::{
+    common::error::Error,
+    data::{decode, BencodeData},
+};
 use yiilian_dht::common::Id;
 
 use crate::{
@@ -44,8 +47,30 @@ impl PeerWire {
         todo!()
     }
 
-    pub async fn fetch_metdata(&self, peer_address: SocketAddr, info_hash: &[u8], peer_id: &[u8]) -> Result<Bytes, Error> {
+    pub async fn fetch_info(
+        &self,
+        peer_address: SocketAddr,
+        info_hash: &[u8],
+        peer_id: &[u8],
+    ) -> Result<BTreeMap<Bytes, BencodeData>, Error> {
+        let metadata = self
+            .fetch_metdata(peer_address, &info_hash, &peer_id)
+            .await
+            .unwrap();
+        let mut info = BytesMut::new();
+        info.put(&b"d4:info"[..]);
+        info.extend(metadata);
+        info.put(&b"e"[..]);
 
+        decode(&info)?.as_map().map(|m| m.to_owned())
+    }
+
+    pub async fn fetch_metdata(
+        &self,
+        peer_address: SocketAddr,
+        info_hash: &[u8],
+        peer_id: &[u8],
+    ) -> Result<Bytes, Error> {
         let mut stream = TcpStream::connect(peer_address)
             .await
             .map_err(|err| Error::new_net(Some(err.into()), None, Some(peer_address)))?;
@@ -164,15 +189,15 @@ impl PeerWire {
 
                                         let mut hasher = Sha1::new();
                                         hasher.update(&metadata_info);
-                                        let info = hasher.finalize().to_vec();
+                                        let i_hash = hasher.finalize().to_vec();
 
-                                        if info != info_hash {
+                                        if i_hash != info_hash {
                                             println!("metadata is not valid for info_hash");
                                             return Err(Error::new_frame(
                                                 None,
                                                 Some(format!(
                                                     "metadata info_hash is invalid: {:?}",
-                                                    info
+                                                    i_hash
                                                 )),
                                             ));
                                         }
