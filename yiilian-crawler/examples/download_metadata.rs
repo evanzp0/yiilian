@@ -4,7 +4,7 @@ use bytes::{BufMut, BytesMut};
 use rand::thread_rng;
 use yiilian_core::{common::error::Error, data::decode};
 
-use yiilian_crawler::crawler::Crawler;
+use yiilian_crawler::peer_wire::PeerWire;
 use yiilian_dht::common::Id;
 
 #[tokio::main]
@@ -19,8 +19,8 @@ async fn main() {
 
     println!("connected");
 
-    let crawler = Crawler::new();
-    let metadata = crawler.fetch_metdata(peer_address, &info_hash, &peer_id).await.unwrap();
+    let peer_wire = PeerWire::new();
+    let metadata = peer_wire.fetch_metdata(peer_address, &info_hash, &peer_id).await.unwrap();
     let mut info = BytesMut::new();
     info.put(&b"d4:info"[..]);
     info.extend(metadata);

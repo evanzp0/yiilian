@@ -17,11 +17,11 @@ use crate::{
     net::tcp::{read_handshake, read_message, send_handshake, send_message},
 };
 
-pub struct Crawler;
+pub struct PeerWire;
 
-impl Crawler {
+impl PeerWire {
     pub fn new() -> Self {
-        Crawler
+        PeerWire
     }
 
     pub async fn download_metadata(
