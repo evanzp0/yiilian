@@ -46,11 +46,13 @@ impl TryFrom<Bytes> for UtMetadata {
         let body: Bytes = value[index..].to_owned().into();
 
         if let BencodeData::Map(message) = header {
-            if let Some(BencodeData::Int(msg_type)) = message.get(b"msg_type"[..].into()) {
+            let key: Bytes = b"msg_type"[..].into();
+            if let Some(BencodeData::Int(msg_type)) = message.get(&key) {
                 match msg_type {
                     0 => {
                         let piece = {
-                            if let Some(piece) = message.get(b"piece"[..].into()) {
+                            let key: Bytes = b"piece"[..].into();
+                            if let Some(piece) = message.get(&key) {
                                 piece.as_int()?
                             } else {
                                 Err(Error::new_frame(
@@ -66,7 +68,8 @@ impl TryFrom<Bytes> for UtMetadata {
                     }
                     1 => {
                         let piece = {
-                            if let Some(piece) = message.get(b"piece"[..].into()) {
+                            let key: Bytes = b"piece"[..].into();
+                            if let Some(piece) = message.get(&key) {
                                 piece.as_int()?
                             } else {
                                 Err(Error::new_frame(
@@ -79,7 +82,8 @@ impl TryFrom<Bytes> for UtMetadata {
                         };
 
                         let total_size = {
-                            if let Some(total_size) = message.get(b"total_size"[..].into()) {
+                            let key: Bytes = b"total_size"[..].into();
+                            if let Some(total_size) = message.get(&key) {
                                 total_size.as_int()?
                             } else {
                                 Err(Error::new_frame(
@@ -99,7 +103,8 @@ impl TryFrom<Bytes> for UtMetadata {
                     }
                     2 => {
                         let piece = {
-                            if let Some(piece) = message.get(b"piece"[..].into()) {
+                            let key: Bytes = b"piece"[..].into();
+                            if let Some(piece) = message.get(&key) {
                                 piece.as_int()?
                             } else {
                                 Err(Error::new_frame(
