@@ -61,15 +61,8 @@ pub async fn read_message(stream: &mut TcpStream) -> Result<Bytes, Error> {
 }
 
 pub async fn send_message(stream: &mut TcpStream, data: &[u8]) -> Result<(), Error> {
-    let len = data.len() as u32;
-    let prefix = u32::to_be_bytes(len);
-
-    let mut buf: BytesMut = BytesMut::with_capacity(prefix.len() + len as usize);
-    buf.extend(prefix);
-    buf.extend(data);
-
     stream
-        .write_all(&buf)
+        .write_all(data)
         .await
         .map_err(|error| Error::new_net(Some(error.into()), None, None))?;
 

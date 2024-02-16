@@ -199,8 +199,9 @@ impl From<PeerMessage> for Bytes {
             }
             PeerMessage::Bitfield { bitfield } => {
                 let len = 1 + bitfield.len();
-                let mut rst = BytesMut::with_capacity(len);
+                let mut rst = BytesMut::with_capacity(4 + len);
                 
+                rst.extend((len as u32).to_be_bytes());
                 rst.put_u8(message_id.expect("message_id can't be none"));
                 rst.extend(bitfield);
 
@@ -208,8 +209,9 @@ impl From<PeerMessage> for Bytes {
             }
             PeerMessage::Have { index } => {
                 let len = 5;
-                let mut rst = BytesMut::with_capacity(len);
+                let mut rst = BytesMut::with_capacity(4 + len);
 
+                rst.extend((len as u32).to_be_bytes());
                 rst.put_u8(message_id.expect("message_id can't be none"));
                 rst.extend(index.to_be_bytes());
 
@@ -217,8 +219,9 @@ impl From<PeerMessage> for Bytes {
             }
             PeerMessage::Request { index, offset_begin, offset_length } => {
                 let len = 13;
-                let mut rst = BytesMut::with_capacity(len);
+                let mut rst = BytesMut::with_capacity(4 + len);
 
+                rst.extend((len as u32).to_be_bytes());
                 rst.put_u8(message_id.expect("message_id can't be none"));
                 rst.extend(index.to_be_bytes());
                 rst.extend(offset_begin.to_be_bytes());
@@ -228,8 +231,9 @@ impl From<PeerMessage> for Bytes {
             }
             PeerMessage::Cancel { index, offset_begin, offset_length } => {
                 let len = 13;
-                let mut rst = BytesMut::with_capacity(len);
+                let mut rst = BytesMut::with_capacity(4 + len);
 
+                rst.extend((len as u32).to_be_bytes());
                 rst.put_u8(message_id.expect("message_id can't be none"));
                 rst.extend(index.to_be_bytes());
                 rst.extend(offset_begin.to_be_bytes());
@@ -239,8 +243,9 @@ impl From<PeerMessage> for Bytes {
             }
             PeerMessage::Piece { index, offset_begin, piece } => {
                 let len = 9 + piece.len();
-                let mut rst = BytesMut::with_capacity(len);
+                let mut rst = BytesMut::with_capacity(4 + len);
 
+                rst.extend((len as u32).to_be_bytes());
                 rst.put_u8(message_id.expect("message_id can't be none"));
                 rst.extend(index.to_be_bytes());
                 rst.extend(offset_begin.to_be_bytes());
@@ -250,40 +255,45 @@ impl From<PeerMessage> for Bytes {
             }
             PeerMessage::NotInterested => {
                 let len = 1;
-                let mut rst = BytesMut::with_capacity(len);
+                let mut rst = BytesMut::with_capacity(4 + len);
 
+                rst.extend((len as u32).to_be_bytes());
                 rst.put_u8(message_id.expect("message_id can't be none"));
 
                 rst.into()
             }
             PeerMessage::Interested => {
                 let len = 1;
-                let mut rst = BytesMut::with_capacity(len);
+                let mut rst = BytesMut::with_capacity(4 + len);
 
+                rst.extend((len as u32).to_be_bytes());
                 rst.put_u8(message_id.expect("message_id can't be none"));
 
                 rst.into()
             }
             PeerMessage::UnChoke => {
                 let len = 1;
-                let mut rst = BytesMut::with_capacity(len);
+                let mut rst = BytesMut::with_capacity(4 + len);
 
+                rst.extend((len as u32).to_be_bytes());
                 rst.put_u8(message_id.expect("message_id can't be none"));
 
                 rst.into()
             }
             PeerMessage::Choke => {
                 let len = 1;
-                let mut rst = BytesMut::with_capacity(len);
+                let mut rst = BytesMut::with_capacity(4 + len);
 
+                rst.extend((len as u32).to_be_bytes());
                 rst.put_u8(message_id.expect("message_id can't be none"));
 
                 rst.into()
             }
             PeerMessage::Extended { ext_msg_id, payload } => {
                 let len = 2 + payload.len();
-                let mut rst = BytesMut::with_capacity(len);
+                let mut rst = BytesMut::with_capacity(4 + len);
 
+                rst.extend((len as u32).to_be_bytes());
                 rst.put_u8(message_id.expect("message_id can't be none"));
                 rst.put_u8(ext_msg_id);
                 rst.extend(payload);
