@@ -27,7 +27,7 @@ pub struct FindNodeReply {
     pub ip: Option<SocketAddr>,
 
     /// readonly
-    pub ro: Option<i32>,
+    pub ro: Option<u8>,
 
     // ----------------------------
     /// sender node id
@@ -45,7 +45,7 @@ impl FindNodeReply {
         t: TransactionId,
         v: Option<Bytes>,
         ip: Option<SocketAddr>,
-        ro: Option<i32>,
+        ro: Option<u8>,
     ) -> Self {
         Self {
             id,

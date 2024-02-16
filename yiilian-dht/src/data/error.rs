@@ -19,21 +19,21 @@ pub struct RError {
     pub ip: Option<SocketAddr>,
 
     /// readonly
-    pub ro: Option<i32>,
+    pub ro: Option<u8>,
 
     // ----------------------------
     /// error code & message
-    pub e: (i32, Bytes),
+    pub e: (i64, Bytes),
 }
 
 impl RError {
     pub fn new(
-        code: i32,
+        code: i64,
         message: Bytes,
         t: TransactionId,
         v: Option<Bytes>,
         ip: Option<SocketAddr>,
-        ro: Option<i32>,
+        ro: Option<u8>,
     ) -> Self {
         let e = (code, message);
         Self { e, t, v, ip, ro }

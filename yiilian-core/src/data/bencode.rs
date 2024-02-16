@@ -7,7 +7,7 @@ use crate::common::{util::atoi, error::Error};
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum BencodeData {
     Str(Bytes),
-    Int(i32),
+    Int(i64),
     List(Vec<BencodeData>),
     Map(BTreeMap<Bytes, BencodeData>),
 }
@@ -26,7 +26,7 @@ impl BencodeData {
         }
     }
 
-    pub fn as_int(&self) -> Result<i32, Error> {
+    pub fn as_int(&self) -> Result<i64, Error> {
         if let BencodeData::Int(v) = self {
             Ok(v.to_owned())
         } else {
@@ -162,8 +162,14 @@ impl From<String> for BencodeData {
     }
 }
 
-impl From<i32> for BencodeData {
-    fn from(value: i32) -> Self {
+// impl From<i32> for BencodeData {
+//     fn from(value: i32) -> Self {
+//         BencodeData::Int(value as i64)
+//     }
+// }
+
+impl From<i64> for BencodeData {
+    fn from(value: i64) -> Self {
         BencodeData::Int(value)
     }
 }
@@ -254,9 +260,10 @@ pub fn decode_int(data: &[u8], start: usize) -> Result<(BencodeData, usize), Err
     }
     
     let s = String::from_utf8_lossy(data);
-    let rst = if let Ok(v) = s.parse::<i32>() {
+    let rst = if let Ok(v) = s.parse::<i64>() {
         v
     } else {
+        // println!("{:?}", s);
         return Err(
             Error::new_frame(None, Some("can't pasrse to i32".to_owned())));
     };
@@ -274,7 +281,10 @@ pub fn decode_item(data: &[u8], start: usize) -> Result<(BencodeData, usize), Er
         let rst = func(data, start);
         if let Ok(_) = rst {
             return rst;
-        }
+        } 
+        // else {
+        //     println!("{:?}", rst);
+        // }
     }
 
     Err(
@@ -341,8 +351,11 @@ pub fn decode_dict(data: &[u8], start: usize) -> Result<(BencodeData, usize), Er
             panic!("decode_string() must return BencodeFrame::Str()")
         };
 
+        
         if let Some(ref p_key) = prev_key {
             if *p_key > key {
+                println!("prev_key: {:?}, key: {:?}", prev_key, key);
+
                 Err(Error::new_frame(None, Some("invalid dict, key order is invalid".to_owned())))?
             }
         } else {
@@ -381,6 +394,12 @@ pub trait Encode {
 }
 
 impl Encode for i32 {
+    fn encode(&self) -> Bytes {
+        ("i".to_string() + &self.to_string() + "e").into()
+    }
+}
+
+impl Encode for i64 {
     fn encode(&self) -> Bytes {
         ("i".to_string() + &self.to_string() + "e").into()
     }
@@ -458,7 +477,7 @@ impl Encode for BencodeData
     fn encode(&self) -> Bytes {
         match self {
             BencodeData::Str(v) => v.encode(),
-            BencodeData::Int(v) => v.encode(),
+            BencodeData::Int(v) => (*v).encode(),
             BencodeData::List(v) => v.encode(),
             BencodeData::Map(v) => v.encode(),
         }
@@ -477,7 +496,7 @@ impl TryFrom<BencodeData> for Bytes {
     }
 }
 
-impl TryFrom<BencodeData> for i32 {
+impl TryFrom<BencodeData> for i64 {
     type Error = Error;
 
     fn try_from(value: BencodeData) -> Result<Self, Self::Error> {

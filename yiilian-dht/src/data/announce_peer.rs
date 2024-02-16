@@ -19,7 +19,7 @@ pub struct AnnouncePeer {
     pub ip: Option<SocketAddr>,
 
     /// readonly
-    pub ro: Option<i32>,
+    pub ro: Option<u8>,
 
     // ----------------------------
     /// sender node id
@@ -48,7 +48,7 @@ impl AnnouncePeer {
         t: TransactionId,
         v: Option<Bytes>,
         ip: Option<SocketAddr>,
-        ro: Option<i32>,
+        ro: Option<u8>,
     ) -> Self {
         Self {
             id,
@@ -151,9 +151,9 @@ impl From<AnnouncePeer> for Frame {
         a.insert("id".into(), value.id.get_bytes().into());
         a.insert("info_hash".into(), value.info_hash.get_bytes().into());
         if let Some(implied_port) = value.implied_port {
-            a.insert("implied_port".into(), (implied_port as i32).into());
+            a.insert("implied_port".into(), (implied_port as i64).into());
         }
-        a.insert("port".into(), (value.port as i32).into());
+        a.insert("port".into(), (value.port as i64).into());
         a.insert("token".into(), value.token.clone().into());
 
         rst.insert("a".into(), a.into());

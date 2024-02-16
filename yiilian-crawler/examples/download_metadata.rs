@@ -1,7 +1,8 @@
 use std::net::SocketAddr;
 
+use bytes::{BufMut, BytesMut};
 use rand::thread_rng;
-use yiilian_core::common::error::Error;
+use yiilian_core::{common::error::Error, data::decode};
 
 use yiilian_crawler::crawler::Crawler;
 use yiilian_dht::common::Id;
@@ -20,6 +21,37 @@ async fn main() {
 
     let crawler = Crawler::new();
     let metadata = crawler.fetch_metdata(peer_address, &info_hash, &peer_id).await.unwrap();
+    let mut info = BytesMut::new();
+    info.put(&b"d4:info"[..]);
+    info.extend(metadata);
+    info.put(&b"e"[..]);
 
-    println!("{:?}", metadata);
+    let info = decode(&info).unwrap();
+
+    let m = info.as_map().unwrap();
+    let info = m.get(&b"info"[..]).unwrap().as_map().unwrap();
+    let name = info.get(&b"name"[..]).unwrap();
+    let piece_length = info.get(&b"piece length"[..]).unwrap();
+
+    println!("{:?}, {}", name, piece_length);
 } 
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeMap;
+
+    use bytes::Bytes;
+    use yiilian_core::data::{BencodeData, Encode};
+
+
+    #[test]
+    fn test() {
+        let mut m = BencodeData::Map(BTreeMap::new());
+
+        let mut m2: BTreeMap<Bytes, BencodeData> = BTreeMap::new();
+        m2.insert(b"info"[..].into(), m);
+        let a = BencodeData::Map(m2);
+
+        println!("{:?}", a.encode());
+    }
+}

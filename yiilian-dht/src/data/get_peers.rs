@@ -19,7 +19,7 @@ pub struct GetPeers {
     pub ip: Option<SocketAddr>,
 
     /// readonly
-    pub ro: Option<i32>,
+    pub ro: Option<u8>,
 
     // ----------------------------
     /// sender node id
@@ -35,7 +35,7 @@ impl GetPeers {
         t: TransactionId,
         v: Option<Bytes>,
         ip: Option<SocketAddr>,
-        ro: Option<i32>,
+        ro: Option<u8>,
     ) -> Self {
         Self {
             id,

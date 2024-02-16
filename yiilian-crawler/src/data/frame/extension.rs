@@ -16,7 +16,7 @@ pub struct ExtensionHeader {
     pub ipv6: Option<Ipv6Addr>,
     pub ipv4: Option<Ipv4Addr>,
     pub reqq: Option<i32>,
-    pub metadata_size: Option<i32>,
+    pub metadata_size: Option<i64>,
 }
 
 impl ExtensionHeader {
@@ -28,7 +28,7 @@ impl ExtensionHeader {
         ipv6: Option<Ipv6Addr>,
         ipv4: Option<Ipv4Addr>,
         reqq: Option<i32>,
-        metadata_size: Option<i32>,
+        metadata_size: Option<i64>,
     ) -> Self {
         ExtensionHeader {
             m,
@@ -44,7 +44,7 @@ impl ExtensionHeader {
 
     pub fn new_ut_metadata() -> Self {
         let m: BTreeMap<Bytes, BencodeData> = map! {
-            UT_METADATA_NAME.into() => (UT_METADATA_ID as i32).into(),
+            UT_METADATA_NAME.into() => (UT_METADATA_ID as i64).into(),
         };
         let m = Some(m);
         
@@ -55,7 +55,7 @@ impl ExtensionHeader {
         if let Some(m) = &self.m {
             if let Some(val) = m.get(extension_name.as_bytes()) {
                 val.as_int()
-                    .map(|msg_id| Some(msg_id))
+                    .map(|msg_id| Some(msg_id as i32))
                     .unwrap_or(None)
             } else {
                 None
@@ -118,7 +118,7 @@ impl TryFrom<BencodeData> for ExtensionHeader {
                 None
             };
             let reqq = if let Some(reqq) = val.get(&b"reqq"[..]) {
-                Some(reqq.as_int()?)
+                Some(reqq.as_int()? as i32)
             } else {
                 None
             };
@@ -167,7 +167,7 @@ impl From<ExtensionHeader> for BencodeData {
         }
         
         if let Some(p) = value.p {
-            rst.insert("p".into(), (p as i32).into());
+            rst.insert("p".into(), (p as i64).into());
         }
 
         if let Some(v) = value.v {
@@ -187,7 +187,7 @@ impl From<ExtensionHeader> for BencodeData {
         }
 
         if let Some(reqq) = value.reqq {
-            rst.insert("reqq".into(), reqq.into());
+            rst.insert("reqq".into(), (reqq as i64).into());
         }
         if let Some(metadata_size) = value.metadata_size {
             rst.insert("metadata_size".into(), metadata_size.into());

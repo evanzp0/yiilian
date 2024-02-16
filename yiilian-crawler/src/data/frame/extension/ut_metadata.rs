@@ -22,7 +22,7 @@ pub enum UtMetadata {
     },
     Data {
         piece: i32,
-        total_size: i32,
+        total_size: i64,
         block: Bytes,
     },
 }
@@ -53,7 +53,7 @@ impl TryFrom<Bytes> for UtMetadata {
                         let piece = {
                             let key: Bytes = b"piece"[..].into();
                             if let Some(piece) = message.get(&key) {
-                                piece.as_int()?
+                                piece.as_int()? as i32
                             } else {
                                 Err(Error::new_frame(
                                     None,
@@ -70,7 +70,7 @@ impl TryFrom<Bytes> for UtMetadata {
                         let piece = {
                             let key: Bytes = b"piece"[..].into();
                             if let Some(piece) = message.get(&key) {
-                                piece.as_int()?
+                                piece.as_int()? as i32
                             } else {
                                 Err(Error::new_frame(
                                     None,
@@ -105,7 +105,7 @@ impl TryFrom<Bytes> for UtMetadata {
                         let piece = {
                             let key: Bytes = b"piece"[..].into();
                             if let Some(piece) = message.get(&key) {
-                                piece.as_int()?
+                                piece.as_int()? as i32
                             } else {
                                 Err(Error::new_frame(
                                     None,
@@ -150,7 +150,7 @@ impl From<UtMetadata> for Bytes {
             UtMetadata::Request { piece } => {
                 let mut rst: BTreeMap<Bytes, BencodeData> = BTreeMap::new();
                 rst.insert("msg_type".into(), 0.into());
-                rst.insert("piece".into(), piece.into());
+                rst.insert("piece".into(), (piece as i64).into());
 
                 rst.encode()
             }
@@ -161,7 +161,7 @@ impl From<UtMetadata> for Bytes {
             } => {
                 let mut rst: BTreeMap<Bytes, BencodeData> = BTreeMap::new();
                 rst.insert("msg_type".into(), 1.into());
-                rst.insert("piece".into(), piece.into());
+                rst.insert("piece".into(), (piece as i64).into());
                 rst.insert("total_size".into(), total_size.into());
 
                 let mut bytes = BytesMut::new();
@@ -173,7 +173,7 @@ impl From<UtMetadata> for Bytes {
             UtMetadata::Reject { piece } => {
                 let mut rst: BTreeMap<Bytes, BencodeData> = BTreeMap::new();
                 rst.insert("msg_type".into(), 2.into());
-                rst.insert("piece".into(), piece.into());
+                rst.insert("piece".into(), (piece as i64).into());
 
                 rst.encode()
             }

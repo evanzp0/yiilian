@@ -40,7 +40,7 @@ pub(crate) fn extract_frame_common_field(
         TransactionId,
         Option<Bytes>,
         Option<SocketAddr>,
-        Option<i32>,
+        Option<u8>,
     ),
     Error,
 > {
@@ -64,9 +64,9 @@ pub(crate) fn extract_frame_common_field(
         None
     };
 
-    let ro: Option<i32> = if let Some(val) = frame.get("ro") {
-        if let Ok(val) = val.to_owned().try_into() {
-            Some(val)
+    let ro: Option<u8> = if let Some(val) = frame.get("ro") {
+        if let Ok(val) = val.as_int() {
+            Some(val as u8)
         } else {
             None
         }
@@ -112,7 +112,7 @@ macro_rules! gen_frame_common_field {
             );
         }
         if let Some(ro) = $value.ro {
-            $rst.insert("ro".into(), ro.clone().into());
+            $rst.insert("ro".into(), (ro as i64).into());
         }
     };
 }
