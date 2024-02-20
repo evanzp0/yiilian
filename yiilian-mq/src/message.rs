@@ -23,6 +23,10 @@ impl Message {
     pub fn len(&self) -> usize {
         self.length
     }
+
+    pub fn get_crc(&self) -> u32 {
+        crc32fast::hash(&self.value)
+    }
 }
 
 /// offset(8) + message_size(4) + crc32(4) + timestamp(8) + value(x)
@@ -54,6 +58,9 @@ impl TryFrom<Bytes> for Message {
         }
 
         let message_size = u32::from_be_bytes(data[8..12].try_into().expect("data[8..12] is not satisfy"));
+        if message_size < 12 {
+            Err(Error::new_decode(&format!("Decoding message is failed at verify message_size: {:?}", data)))?;
+        }
         let total_size = 12 + message_size;
 
         if data.len() < total_size as usize {
@@ -96,5 +103,46 @@ mod tests {
 
         let msg: Message = data.try_into().unwrap();
         assert_eq!(msg_len, msg.len());
+
+        let data = Bytes::from_static(&[0, 0, 0, 0]);
+        if Message::try_from(data).is_ok() {
+            panic!("error")
+        }
+
+        let data = Bytes::from_static(&[
+            0, 0, 0, 0, 0, 0, 0, 0, 
+            0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0,
+        ]);
+        if Message::try_from(data).is_ok() {
+            panic!("error")
+        }
+
+
+        let data = Bytes::from_static(&[
+            0, 0, 0, 0, 0, 0, 0, 0, 
+            0, 0, 0, 20, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0,
+        ]);
+        if Message::try_from(data).is_ok() {
+            panic!("error")
+        }
+
+        let crc = crc32fast::hash(&[0, 0, 0, 0, 0, 0, 0, 0]);
+        println!("{}, {:?}", crc, crc.to_be_bytes());
+
+        let data = Bytes::from_static(&[
+            0, 0, 0, 0, 0, 0, 0, 0, 
+            0, 0, 0, 20, 101, 34, 223, 105,
+            0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0,
+        ]);
+
+        if let Err(_) = Message::try_from(data) {
+            panic!("error")
+        }
+
     }
 }
