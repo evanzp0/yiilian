@@ -36,7 +36,7 @@ impl From<Message> for Bytes {
 
         let mut buf = BytesMut::with_capacity(total_size);
         buf.put_u64(message.offset);
-        buf.put_u64(message_size as u64);
+        buf.put_u32(message_size as u32);
         buf.put_u32(crc);
         buf.put_i64(message.timestamp);
         buf.extend(message.value);
@@ -53,7 +53,7 @@ impl TryFrom<Bytes> for Message {
             Err(Error::new_decode(&format!("Data is too short to decode message: {:?}", data)))?;
         }
 
-        let message_size = u32::from_le_bytes(data[8..12].try_into().expect("data[8..12] is not satisfy"));
+        let message_size = u32::from_be_bytes(data[8..12].try_into().expect("data[8..12] is not satisfy"));
         let total_size = 12 + message_size;
 
         if data.len() < total_size as usize {
@@ -61,15 +61,15 @@ impl TryFrom<Bytes> for Message {
         }
 
         let value_size = (message_size - 12) as usize;
-        let crc = u32::from_le_bytes(data[12..16].try_into().expect("data[12..16] is not satisfy"));
-        let value: Bytes = data[24..value_size].to_owned().into();
+        let crc = u32::from_be_bytes(data[12..16].try_into().expect("data[12..16] is not satisfy"));
+        let value: Bytes = data[24..24 + value_size].to_owned().into();
 
         if crc32fast::hash(&value) != crc {
             Err(Error::new_decode(&format!("Decoding message is failed at verify crc: {:?}", data)))?;
         }
-        
-        let offset = u64::from_le_bytes(data[0..8].try_into().expect("data[0..8] is not satisfy"));
-        let timestamp = i64::from_le_bytes(data[16..24].try_into().expect("data[16..24] is not satisfy"));
+
+        let offset = u64::from_be_bytes(data[0..8].try_into().expect("data[0..8] is not satisfy"));
+        let timestamp = i64::from_be_bytes(data[16..24].try_into().expect("data[16..24] is not satisfy"));
 
         Ok(Message::new(offset, timestamp, value))
     }
@@ -77,18 +77,24 @@ impl TryFrom<Bytes> for Message {
 
 #[cfg(test)]
 mod tests {
-    use std::mem::size_of;
+    use bytes::Bytes;
+    use chrono::Utc;
 
-    use chrono::{DateTime, Utc};
+    use super::Message;
 
     #[test]
     fn test() {
-        let a = Utc::now();
-        println!("{}", a.timestamp());
-        println!("{}", a.timestamp_millis());
-        println!("{}", a.timestamp_micros());
-        println!("{}", i64::MAX);
-        println!("{:?}", DateTime::from_timestamp_millis(1708356965920896));
-        println!("{}", size_of::<DateTime<Utc>>())
+        let offset = 1 as u64;
+        let timestamp = Utc::now().timestamp_millis();
+        let value: Bytes = b"hello"[..].into();
+
+        let msg = Message::new(offset, timestamp, value);
+        let msg_len = msg.len();
+        let data: Bytes = msg.into();
+
+        assert_eq!(msg_len, data.len());
+
+        let msg: Message = data.try_into().unwrap();
+        assert_eq!(msg_len, msg.len());
     }
 }
