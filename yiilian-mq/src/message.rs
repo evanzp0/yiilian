@@ -26,6 +26,7 @@ impl Message {
 }
 
 /// offset(8) + message_size(4) + crc32(4) + timestamp(8) + value(x)
+/// message = crc + timestamp + value
 impl From<Message> for Bytes {
     fn from(message: Message) -> Self {
         let value_size = message.value.len();
@@ -48,7 +49,7 @@ impl TryFrom<Bytes> for Message {
     type Error = Error;
 
     fn try_from(data: Bytes) -> Result<Self, Self::Error> {
-        if data.len() < 12 {
+        if data.len() < 24 {
             Err(Error::new_decode(&format!("Data is too short to decode message: {:?}", data)))?;
         }
 
@@ -66,8 +67,8 @@ impl TryFrom<Bytes> for Message {
         if crc32fast::hash(&value) != crc {
             Err(Error::new_decode(&format!("Decoding message is failed at verify crc: {:?}", data)))?;
         }
+        
         let offset = u64::from_le_bytes(data[0..8].try_into().expect("data[0..8] is not satisfy"));
-
         let timestamp = i64::from_le_bytes(data[16..24].try_into().expect("data[16..24] is not satisfy"));
 
         Ok(Message::new(offset, timestamp, value))
