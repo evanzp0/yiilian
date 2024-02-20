@@ -1,5 +1,6 @@
 use std::error::Error;
 use std::fs::OpenOptions;
+use std::io::Write;
 use std::path::PathBuf;
 
 use memmap::MmapMut;
@@ -15,8 +16,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     
     let mut mmap = unsafe { MmapMut::map_mut(&file)? };
     
-    mmap.copy_from_slice(b"12345");
-
+    // mmap.copy_from_slice(b"12345");
+    (&mut mmap[..]).write_all(b"1234")?;
+    
     println!("{:?}", &mmap[0..5]);
 
     
