@@ -9,6 +9,7 @@ const TIME_INDEX__FILE_EXTENSION: &str = ".timeindex";
 
 pub struct LogSegment {
     length: usize,
+    max_length: usize,
     message_count: usize,
     offset: u64,
     prefix_path: PathBuf,
