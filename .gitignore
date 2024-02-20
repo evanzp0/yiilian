@@ -7,3 +7,4 @@ yiilian-dht/snip_tmp.rs
 release
 *.torrent
 /torrent
+test_file.txt
