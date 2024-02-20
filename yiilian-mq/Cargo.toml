@@ -1,0 +1,11 @@
+[package]
+name = "yiilian-mq"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+yiilian-core = "0.1"
+bytes = "1"
+tokio = { version = "1", features = ["full"]}
+chrono = "0.4"
+crc32fast = "1"

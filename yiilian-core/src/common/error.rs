@@ -69,6 +69,9 @@ pub enum Kind {
 
     /// Indicates Network error
     Net,
+
+    /// Indicates Decode error
+    Decode,
 }
 
 impl Error {
@@ -134,6 +137,11 @@ impl Error {
     pub fn new_frame(cause: Option<Cause>, description: Option<String>) -> Self {
         Error::new(Kind::Frame, description, cause, None)
     }
+
+    pub fn new_decode(description: &str) -> Self {
+        Error::new(Kind::Frame, Some(description.to_owned()), None, None)
+    }
+
 
     pub fn is_timeout(&self) -> bool {
         matches!(self.inner.kind, Kind::Timeout)

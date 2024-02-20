@@ -4,6 +4,7 @@ members = [
     "yiilian-raw", 
     "yiilian-dht", 
     "yiilian-crawler", 
+    "yiilian-mq", 
 ]
 resolver = "2"
 
