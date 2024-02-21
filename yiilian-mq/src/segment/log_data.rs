@@ -88,29 +88,56 @@ impl LogData {
         Ok(())
     }
 
-    pub fn get_message_by_pos(&self, start_pos: usize) -> Option<Message> {
-        if start_pos + MESSAGE_PREFIX_LEN > self.length {
+    /// start_pos 不包含 LOGDATA_PREFIX_LEN
+    // 返回找到的消息，以及下一次起始位置
+    pub fn next(&self, pos: usize) -> Option<(Message, usize)> {
+        let cache = &self.cache[LOGDATA_PREFIX_LEN..];
+
+        if pos + MESSAGE_PREFIX_LEN > self.length {
             return None;
         }
 
         let message_len = {
-            let val = &self.cache[start_pos..start_pos + MESSAGE_PREFIX_LEN];
+            let val = &cache[pos..pos + MESSAGE_PREFIX_LEN];
             let val =
-                usize::from_be_bytes(val.try_into().expect("message length bytes is invalid"));
+                u32::from_be_bytes(val.try_into().expect("message length bytes is invalid"));
 
             val
-        };
+        } as usize;
 
-        let end_pos = start_pos + MESSAGE_PREFIX_LEN + message_len;
+        let end_pos = pos + MESSAGE_PREFIX_LEN + message_len;
         if end_pos > self.length {
             return None;
         }
 
-        let message = &self.cache[start_pos..end_pos];
+        let message = &cache[pos..end_pos];
 
         match message.try_into() {
-            Ok(val) => Some(val),
+            Ok(val) => Some((val, end_pos)),
             Err(_) => return None,
+        }
+    }
+
+    pub fn get_messages(&self, mut pos: usize, expected_count: usize) -> Option<Vec<Message>> {
+        let mut count = 1;
+        let mut messages = vec![];
+        
+        while pos < self.len() && count <= expected_count {
+
+            if let Some((message, inner_pos)) = self.next(pos) {
+                messages.push(message);
+                pos = inner_pos;
+            } else {
+                break;
+            }
+
+            count += 1;
+        }
+
+        if messages.len() > 0 {
+            Some(messages)
+        } else {
+            None
         }
     }
 }
@@ -127,13 +154,26 @@ mod tests {
     use super::LogData;
 
     #[test]
-    fn test_get_message_by_pos() {
+    fn test_get_message() {
         let offset = 1;
         let cache = MmapMut::map_anon(100).unwrap();
-
         let mut log_data = LogData::new(offset, cache).unwrap();
 
+        let value: Bytes = b"11"[..].into();
+        let timestamp: i64 = Utc::now().timestamp_millis();
+        let message = Message::new(offset, timestamp, value);
+
+        log_data.push(message).unwrap();
+
+        let offset = 2;
         let value: Bytes = b"12"[..].into();
+        let timestamp: i64 = Utc::now().timestamp_millis();
+        let message = Message::new(offset, timestamp, value);
+
+        log_data.push(message).unwrap();
+
+        let offset = 3;
+        let value: Bytes = b"13"[..].into();
         let timestamp: i64 = Utc::now().timestamp_millis();
         let message = Message::new(offset, timestamp, value);
 
@@ -142,5 +182,22 @@ mod tests {
         let cache_len =
             usize::from_be_bytes(log_data.cache[0..LOGDATA_PREFIX_LEN].try_into().unwrap());
         assert_eq!(cache_len, log_data.len());
+
+        let (message, pos) = log_data.next(26).unwrap();
+        assert_eq!(2, message.offset());
+
+        let (message, pos) = log_data.next(pos).unwrap();
+        assert_eq!(3, message.offset());
+
+        assert_eq!(pos, log_data.len());
+
+        let message = log_data.next(27);
+        assert_eq!(true, message.is_none());
+
+        let messages = log_data.get_messages(26, 3).unwrap();
+        assert_eq!(2, messages.len());
+
+        let messages = log_data.get_messages(100, 3);
+        assert_eq!(true, messages.is_none());
     }
 }
