@@ -18,8 +18,11 @@ pub struct LogData {
 
 impl LogData {
     pub fn new(offset: u64, cache: MmapMut) -> Result<Self, Error> {
-        let length =
-            usize::from_be_bytes(cache[0..8].try_into().expect("Incorrect mem cache length"));
+        let length = if cache.len() < LOGDATA_PREFIX_LEN {
+            Err(Error::new_memory(None, Some(format!("cache size can't less than {LOGDATA_PREFIX_LEN} bytes"))))?
+        } else {
+            usize::from_be_bytes(cache[0..8].try_into().expect("Incorrect mem cache length"))
+        };
 
         Ok(LogData {
             length,
@@ -47,6 +50,10 @@ impl LogData {
 
     pub fn offset(&self) -> u64 {
         self.offset
+    }
+
+    pub fn free_space(&self) -> usize {
+        self.capacity() - self.total_size()
     }
 
     pub fn set_len(&mut self, length: usize) {
