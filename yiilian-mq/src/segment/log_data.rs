@@ -56,6 +56,11 @@ impl LogData {
         })
     }
 
+    pub fn clear(&mut self) {
+        self.cache.fill(0);
+        self.length = 0;
+    }
+
     pub fn capacity(&self) -> usize {
         self.cache.len()
     }
@@ -155,6 +160,7 @@ mod tests {
                                .unwrap();
 
         let mut log_data = LogData::new(offset, base_file, capacity).unwrap();
+        log_data.clear();
 
         let value: Bytes = b"12"[..].into();
         let timestamp: i64 = Utc::now().timestamp_millis();
