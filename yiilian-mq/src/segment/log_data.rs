@@ -51,4 +51,25 @@ impl LogData {
             cache,
         })
     }
+
+    pub fn capacity(&self) -> usize {
+        self.cache.len()
+    }
+
+    pub fn len(&self) -> usize {
+        self.length
+    }
+
+    pub fn base_file(&self) -> &File {
+        &self.base_file
+    }
+
+    pub fn offset(&self) -> u64 {
+        self.offset
+    }
+}
+
+
+impl LogData {
+    
 }
