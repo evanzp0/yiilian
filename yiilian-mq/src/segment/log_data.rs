@@ -4,11 +4,11 @@ use bytes::Bytes;
 use memmap::MmapMut;
 use yiilian_core::common::error::Error;
 
-use crate::message::{Message, MESSAGE_LENGTH_LEN, MESSAGE_PREFIX_LEN, MIN_MESSAGE_LEN};
+use crate::message::{Message, MESSAGE_PREFIX_LEN, MIN_MESSAGE_LEN};
 
 const DEFAULT_LOG_DATA_CAPACITY: usize = 10 * 1024 * 1024;
 
-const DATA_PREFIX_LEN: usize = 8;
+const LOGDATA_PREFIX_LEN: usize = 8;
 
 #[derive(Debug)]
 /// LogData = length(8) + messages
@@ -82,11 +82,11 @@ impl LogData {
 
 impl LogData {
     pub fn push(&mut self, message: Message) -> Result<(), Error> {
-        let start_pos = DATA_PREFIX_LEN + self.length;
-        let msg_len = message.len();
+        let start_pos = LOGDATA_PREFIX_LEN + self.length;
+        let msg_total_len = message.len() + MESSAGE_PREFIX_LEN;
 
-        if start_pos + msg_len > self.capacity() {
-            Err(Error::new_general("push message over capacity limited"))?
+        if start_pos + msg_total_len > self.capacity() {
+            Err(Error::new_general("Push message over capacity limited"))?
         }
 
         let message_bytes: Bytes = message.into();
@@ -98,7 +98,9 @@ impl LogData {
             )
         })?;
 
-        self.set_len(msg_len);
+        println!("{}, {}" , self.length, msg_total_len);
+
+        self.set_len(self.length + msg_total_len);
 
         Ok(())
     }
@@ -109,7 +111,7 @@ impl LogData {
         }
 
         let message_len = {
-            let val = &self.cache[start_pos..start_pos + MESSAGE_LENGTH_LEN];
+            let val = &self.cache[start_pos..start_pos + MESSAGE_PREFIX_LEN];
             let val = usize::from_be_bytes(val.try_into().expect("message length bytes is invalid"));
 
             val
@@ -140,7 +142,6 @@ mod tests {
 
     use super::LogData;
 
-
     #[test]
     fn test_get_message_by_pos() {
         let offset = 1;
@@ -158,6 +159,7 @@ mod tests {
         let value: Bytes = b"12"[..].into();
         let timestamp: i64 = Utc::now().timestamp_millis();
         let message = Message::new(offset, timestamp, value);
+        println!("message: {:?}", message);
 
         log_data.push(message).unwrap();
 
