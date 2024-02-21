@@ -68,7 +68,7 @@ impl LogData {
         let start_pos = LOGDATA_PREFIX_LEN + self.length;
         let msg_total_size = message.total_size();
 
-        if start_pos + message.total_size() > self.capacity() {
+        if message.total_size() > self.free_space() {
             Err(Error::new_general("Push message over capacity limited"))?
         }
 
