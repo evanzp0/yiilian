@@ -1,8 +1,6 @@
 pub mod log_data;
 
-use std::path::PathBuf;
 
-use memmap::MmapMut;
 
 const CONSUMER_OFFSETS_FILE_NAME: &str = "__consumer_offsets";
 const LOG_DATA__FILE_EXTENSION: &str = ".log";
@@ -15,8 +13,8 @@ pub struct Segment {
     // message_count: usize,
     // offset: u64,
     // prefix_path: PathBuf,
-    log_data: MmapMut,
-    log_index: MmapMut,
-    time_index: MmapMut,
-    consumer_offsets: MmapMut,
+    // log_data: MmapMut,
+    // log_index: MmapMut,
+    // time_index: MmapMut,
+    // consumer_offsets: MmapMut,
 }

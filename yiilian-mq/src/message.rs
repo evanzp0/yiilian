@@ -1,7 +1,12 @@
 use bytes::{BufMut, Bytes, BytesMut};
 use yiilian_core::common::error::Error;
 
-pub const MIN_MESSAGE_LEN: usize = 24;
+pub const MESSAGE_OFFSET_LEN: usize = 8;
+pub const MESSAGE_LENGTH_LEN: usize = 4;
+pub const MESSAGE_PREFIX_LEN: usize = MESSAGE_OFFSET_LEN + MESSAGE_LENGTH_LEN;
+pub const MESSAGE_CRC_LEN: usize = 4;
+pub const MESSAGE_TIMESTAMP_LEN: usize = 8;
+pub const MIN_MESSAGE_LEN: usize = MESSAGE_PREFIX_LEN + MESSAGE_CRC_LEN + MESSAGE_TIMESTAMP_LEN;
 
 pub struct Message {
     length: usize,
@@ -36,14 +41,14 @@ impl Message {
 /// message = crc + timestamp + value
 impl From<Message> for Bytes {
     fn from(message: Message) -> Self {
-        let value_size = message.value.len();
-        let message_size = 12 + value_size;
-        let total_size = 12 + message_size;
+        let value_len = message.value.len();
+        let message_len = 12 + value_len;
+        let total_len = 12 + message_len;
         let crc = crc32fast::hash(&message.value);
 
-        let mut buf = BytesMut::with_capacity(total_size);
+        let mut buf = BytesMut::with_capacity(total_len);
         buf.put_u64(message.offset);
-        buf.put_u32(message_size as u32);
+        buf.put_u32(message_len as u32);
         buf.put_u32(crc);
         buf.put_i64(message.timestamp);
         buf.extend(message.value);
@@ -52,10 +57,11 @@ impl From<Message> for Bytes {
     }
 }
 
-impl TryFrom<Bytes> for Message {
+
+impl TryFrom<&[u8]> for Message {
     type Error = Error;
 
-    fn try_from(data: Bytes) -> Result<Self, Self::Error> {
+    fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
         if data.len() < 24 {
             Err(Error::new_decode(&format!("Data is too short to decode message: {:?}", data)))?;
         }
@@ -82,6 +88,14 @@ impl TryFrom<Bytes> for Message {
         let timestamp = i64::from_be_bytes(data[16..24].try_into().expect("data[16..24] is not satisfy"));
 
         Ok(Message::new(offset, timestamp, value))
+    }
+}
+
+impl TryFrom<Bytes> for Message {
+    type Error = Error;
+
+    fn try_from(data: Bytes) -> Result<Self, Self::Error> {
+        (&data[..]).try_into()
     }
 }
 
