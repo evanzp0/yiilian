@@ -103,8 +103,6 @@ impl LogData {
             )
         })?;
 
-        println!("{}, {}" , self.length, msg_total_len);
-
         self.set_len(self.length + msg_total_len);
 
         Ok(())
@@ -143,7 +141,7 @@ mod tests {
     use bytes::Bytes;
     use chrono::Utc;
 
-    use crate::message::Message;
+    use crate::{message::Message, segment::log_data::LOGDATA_PREFIX_LEN};
 
     use super::LogData;
 
@@ -165,11 +163,10 @@ mod tests {
         let value: Bytes = b"12"[..].into();
         let timestamp: i64 = Utc::now().timestamp_millis();
         let message = Message::new(offset, timestamp, value);
-        println!("message: {:?}", message);
 
         log_data.push(message).unwrap();
 
-        println!("{:?}", log_data);
-        println!("{:?}", &log_data.cache[..]);
+        let cache_len = usize::from_be_bytes(log_data.cache[0..LOGDATA_PREFIX_LEN].try_into().unwrap());
+        assert_eq!(cache_len, log_data.len());
     }
 }
