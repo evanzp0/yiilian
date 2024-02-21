@@ -35,6 +35,10 @@ impl Message {
         self.length
     }
 
+    pub fn total_size(&self) -> usize {
+        self.length + MESSAGE_PREFIX_LEN
+    }
+
     pub fn crc(&self) -> u32 {
         crc32fast::hash(&self.value)
     }
