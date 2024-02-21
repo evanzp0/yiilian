@@ -1,5 +1,8 @@
 use bytes::{BufMut, Bytes, BytesMut};
 use yiilian_core::common::error::Error;
+
+pub const MIN_MESSAGE_LEN: usize = 24;
+
 pub struct Message {
     length: usize,
     pub offset: u64,

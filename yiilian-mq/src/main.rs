@@ -12,8 +12,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                            .write(true)
                            .create(true)
                            .open(&path)?;
-    file.set_len(5)?;
-    
+    // file.set_len(10)?;
+    println!("{}", file.metadata().unwrap().len());
     let mut mmap = unsafe { MmapMut::map_mut(&file)? };
     
     // mmap.copy_from_slice(b"12345");

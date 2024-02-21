@@ -1,2 +1,2 @@
 pub mod message;
-pub mod log_segment;
+pub mod segment;

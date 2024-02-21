@@ -72,6 +72,9 @@ pub enum Kind {
 
     /// Indicates Decode error
     Decode,
+
+    /// Indicates Memory allocate error
+    Allocate,
 }
 
 impl Error {
@@ -85,6 +88,10 @@ impl Error {
             }),
         }
     }
+
+    pub fn new_allocate(cause: Option<Cause>, description: Option<String>) ->Self {
+        Error::new(Kind::Allocate, description, cause, None)
+    } 
 
     pub fn new_conntrack(cause: Option<Cause>, description: Option<String>, connect_info: Option<SocketAddr>) -> Self {
         Error::new(Kind::Conntrack, description, cause, connect_info)
@@ -139,7 +146,7 @@ impl Error {
     }
 
     pub fn new_decode(description: &str) -> Self {
-        Error::new(Kind::Frame, Some(description.to_owned()), None, None)
+        Error::new(Kind::Decode, Some(description.to_owned()), None, None)
     }
 
 
