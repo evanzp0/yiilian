@@ -118,6 +118,27 @@ impl LogData {
         }
     }
 
+    /// 从指定位置开始查找 offset 的消息
+    pub fn get_message(&self, offset: u64, mut pos: usize) -> Option<Message> {
+        while pos < self.len() {
+
+            if let Some((message, inner_pos)) = self.next(pos) {
+                
+                if message.offset() == offset {
+                    return Some(message)
+                } else if message.offset() > offset {
+                    return None
+                }
+
+                pos = inner_pos;
+            } else {
+                break;
+            }
+        }
+
+        None
+    }
+
     pub fn get_messages(&self, mut pos: usize, expected_count: usize) -> Option<Vec<Message>> {
         let mut count = 1;
         let mut messages = vec![];
@@ -199,5 +220,11 @@ mod tests {
 
         let messages = log_data.get_messages(100, 3);
         assert_eq!(true, messages.is_none());
+
+        let message = log_data.get_message(3, 26).unwrap();
+        assert_eq!(3, message.offset());
+
+        let message = log_data.get_message(4, 26);
+        assert_eq!(true, message.is_none());
     }
 }
