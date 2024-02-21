@@ -73,8 +73,8 @@ pub enum Kind {
     /// Indicates Decode error
     Decode,
 
-    /// Indicates Memory allocate error
-    Allocate,
+    /// Indicates Memory error
+    Memory,
 }
 
 impl Error {
@@ -89,8 +89,8 @@ impl Error {
         }
     }
 
-    pub fn new_allocate(cause: Option<Cause>, description: Option<String>) ->Self {
-        Error::new(Kind::Allocate, description, cause, None)
+    pub fn new_memory(cause: Option<Cause>, description: Option<String>) ->Self {
+        Error::new(Kind::Memory, description, cause, None)
     } 
 
     pub fn new_conntrack(cause: Option<Cause>, description: Option<String>, connect_info: Option<SocketAddr>) -> Self {

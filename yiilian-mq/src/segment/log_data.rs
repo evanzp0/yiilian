@@ -1,11 +1,14 @@
-use std::fs::File;
+use std::{fs::File, io::Write};
 
+use bytes::Bytes;
 use memmap::MmapMut;
 use yiilian_core::common::error::Error;
 
-use crate::message::MIN_MESSAGE_LEN;
+use crate::message::{Message, MIN_MESSAGE_LEN};
 
 const DEFAULT_LOG_DATA_CAPACITY: usize = 10 * 1024 * 1024;
+
+const PREFIX_LENGTH_SIZE: usize = 8;
 
 /// LogData = length(8) + messages
 pub struct LogData {
@@ -26,7 +29,7 @@ impl LogData {
         });
 
         base_file.set_len(capacity as u64).map_err(|error| {
-            Error::new_allocate(
+            Error::new_memory(
                 Some(error.into()),
                 Some("Set file len for memory mapping is failed".to_owned()),
             )
@@ -34,7 +37,7 @@ impl LogData {
 
         let cache = unsafe {
             MmapMut::map_mut(&base_file).map_err(|error| {
-                Error::new_allocate(
+                Error::new_memory(
                     Some(error.into()),
                     Some("Mapping memory from file is failed".to_owned()),
                 )
@@ -71,5 +74,25 @@ impl LogData {
 
 
 impl LogData {
-    
+    pub fn push(&mut self, message: Message) -> Result<(), Error> {
+        let start_pos = PREFIX_LENGTH_SIZE + self.length;
+        let msg_len = message.len();
+
+        if start_pos + msg_len > self.capacity() {
+            Err(Error::new_general("push message over capacity limited"))?
+        }
+
+        let message_bytes: Bytes = message.into();
+
+        (&mut self.cache[start_pos..]).write_all(&message_bytes).map_err(|error| {
+            Error::new_memory(
+                Some(error.into()),
+                Some("writing Cache is failed".to_owned()),
+            )
+        })?;
+
+        self.length += msg_len;
+
+        Ok(())
+    }
 }
