@@ -1,4 +1,5 @@
 pub mod log_data;
+pub mod log_index;
 
 
 

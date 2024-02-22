@@ -9,7 +9,7 @@ use crate::message::{Message, MESSAGE_PREFIX_LEN};
 const LOGDATA_PREFIX_LEN: usize = 8;
 
 #[derive(Debug)]
-/// LogData = length(8) + messages
+/// LogData = length(8) + [ message .. ]
 pub struct LogData {
     length: usize,
     offset: u64,
@@ -21,7 +21,7 @@ impl LogData {
         let length = if cache.len() < LOGDATA_PREFIX_LEN {
             Err(Error::new_memory(None, Some(format!("cache size can't less than {LOGDATA_PREFIX_LEN} bytes"))))?
         } else {
-            usize::from_be_bytes(cache[0..8].try_into().expect("Incorrect mem cache length"))
+            usize::from_be_bytes(cache[0..8].try_into().expect("Incorrect mem cache length for LogData"))
         };
 
         Ok(LogData {
@@ -29,11 +29,6 @@ impl LogData {
             offset,
             cache,
         })
-    }
-
-    pub fn clear(&mut self) {
-        self.cache.fill(0);
-        self.length = 0;
     }
 
     pub fn capacity(&self) -> usize {
@@ -64,12 +59,19 @@ impl LogData {
 }
 
 impl LogData {
-    pub fn push(&mut self, message: Message) -> Result<(), Error> {
-        let start_pos = LOGDATA_PREFIX_LEN + self.length;
+
+    pub fn clear(&mut self) {
+        self.cache.fill(0);
+        self.length = 0;
+    }
+
+    /// 返回 LogData 末尾的 pos, 不包含 LOGDATA_PREFIX_LEN
+    pub fn push(&mut self, message: Message) -> Result<usize, Error> {
+        let start_pos = LOGDATA_PREFIX_LEN + self.len();
         let msg_total_size = message.total_size();
 
         if message.total_size() > self.free_space() {
-            Err(Error::new_general("Push message over capacity limited"))?
+            Err(Error::new_general("Push message for LogData over capacity limited"))?
         }
 
         let message_bytes: Bytes = message.into();
@@ -79,13 +81,13 @@ impl LogData {
             .map_err(|error| {
                 Error::new_memory(
                     Some(error.into()),
-                    Some("writing Cache is failed".to_owned()),
+                    Some("writing Cache for LogData is failed".to_owned()),
                 )
             })?;
 
-        self.set_len(self.length + msg_total_size);
+        self.set_len(self.len() + msg_total_size);
 
-        Ok(())
+        Ok(self.len())
     }
 
     /// start_pos 不包含 LOGDATA_PREFIX_LEN
@@ -93,20 +95,20 @@ impl LogData {
     pub fn next(&self, pos: usize) -> Option<(Message, usize)> {
         let cache = &self.cache[LOGDATA_PREFIX_LEN..];
 
-        if pos + MESSAGE_PREFIX_LEN > self.length {
+        if pos + MESSAGE_PREFIX_LEN > self.len() {
             return None;
         }
 
         let message_len = {
             let val = &cache[pos..pos + MESSAGE_PREFIX_LEN];
             let val =
-                u32::from_be_bytes(val.try_into().expect("message length bytes is invalid"));
+                u32::from_be_bytes(val.try_into().expect("Message length bytes is invalid"));
 
             val
         } as usize;
 
         let end_pos = pos + MESSAGE_PREFIX_LEN + message_len;
-        if end_pos > self.length {
+        if end_pos > self.len() {
             return None;
         }
 
