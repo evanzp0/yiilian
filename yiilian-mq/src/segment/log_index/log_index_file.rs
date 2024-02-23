@@ -109,7 +109,7 @@ impl LogIndexFile {
 
 #[cfg(test)]
 mod tests {
-    use std::{fs::OpenOptions, io::Write, path::PathBuf};
+    use std::{fs::{self, OpenOptions}, io::Write, path::PathBuf};
 
     use bytes::{BufMut, Bytes, BytesMut};
 
@@ -150,5 +150,7 @@ mod tests {
 
         let item = log_index_file.get_by_offset(1).unwrap();
         assert_eq!(1, item.message_offset());
+
+        fs::remove_file(path).unwrap();
     }
 }
