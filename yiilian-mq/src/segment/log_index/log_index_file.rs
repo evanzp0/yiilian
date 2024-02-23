@@ -10,7 +10,6 @@ pub struct LogIndexFile {
     length: usize,
     offset: u64,
     file: File,
-    capacity: usize,
 }
 
 impl LogIndexFile {
@@ -18,7 +17,7 @@ impl LogIndexFile {
     pub fn new(offset: u64, mut file: File) -> Result<Self, Error> {
         let capacity = file.metadata().expect("Get file metadata error").len() as usize;
         let length = if capacity < LOGINDEX_PREFIX_LEN {
-            Err(Error::new_memory(None, Some(format!("file size can't less than {LOGINDEX_PREFIX_LEN} bytes"))))?
+            Err(Error::new_file(None, Some(format!("File size can't less than {LOGINDEX_PREFIX_LEN} bytes"))))?
         } else {
             file.seek(SeekFrom::Start(0)).expect("seek error");
             let mut buf = [0; 8];
@@ -31,12 +30,7 @@ impl LogIndexFile {
             length,
             offset,
             file,
-            capacity,
         })
-    }
-
-    pub fn capacity(&self) -> usize {
-        self.capacity
     }
 
     pub fn total_size(&self) -> usize {
@@ -51,9 +45,6 @@ impl LogIndexFile {
         self.offset
     }
 
-    pub fn free_space(&self) -> usize {
-        self.capacity() - self.total_size()
-    }
 }
 
 impl LogIndexFile {

@@ -1,3 +1,5 @@
+pub mod log_data_file;
+
 use std::io::Write;
 
 use bytes::Bytes;
@@ -204,6 +206,7 @@ mod tests {
 
         let cache_len =
             usize::from_be_bytes(log_data.cache[0..LOGDATA_PREFIX_LEN].try_into().unwrap());
+
         assert_eq!(cache_len, log_data.len());
 
         let (message, pos) = log_data.next(26).unwrap();
