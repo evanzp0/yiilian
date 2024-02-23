@@ -1,3 +1,5 @@
+pub mod log_index_file;
+
 use std::io::Write;
 
 use bytes::{BufMut, Bytes, BytesMut};
@@ -147,7 +149,6 @@ impl LogIndexItem {
     fn message_offset(&self) -> u64 {
         self.message_offset
     }
-
 
     fn message_pos(&self) -> usize {
         self.message_pos
