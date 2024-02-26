@@ -7,7 +7,7 @@ edition = "2021"
 tokio = {version = "1", features = ["full"]}
 serde = { version = "1", features = ["derive"] }
 futures = "0.3"
-serde_yaml = "0.9.25"
+serde_yaml = "0.9"
 yiilian-core = "0.1"
 yiilian-dht = "0.1"
 log ="0.4"

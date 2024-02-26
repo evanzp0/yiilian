@@ -10,3 +10,5 @@ tokio = { version = "1", features = ["full"]}
 chrono = "0.4"
 crc32fast = "1"
 memmap = "0.7"
+serde = { version = "1", features = ["derive"] }
+serde_yaml = "0.9"
