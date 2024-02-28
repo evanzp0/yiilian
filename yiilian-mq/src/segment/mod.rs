@@ -1,6 +1,6 @@
 pub mod log_data;
 pub mod log_index;
-
+pub mod active_segment;
 
 
 const CONSUMER_OFFSETS_FILE_NAME: &str = "__consumer_offsets";
