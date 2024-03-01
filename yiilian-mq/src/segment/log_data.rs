@@ -8,7 +8,7 @@ use yiilian_core::common::error::Error;
 
 use crate::message::{Message, MESSAGE_PREFIX_LEN};
 
-const LOGDATA_PREFIX_LEN: usize = 8;
+pub const LOGDATA_PREFIX_LEN: usize = 8;
 
 #[derive(Debug)]
 /// LogData = length(8) + [ message .. ]
