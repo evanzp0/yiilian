@@ -17,6 +17,10 @@ pub struct ActiveSegment {
 }
 
 impl ActiveSegment {
+    pub fn offset(&self) -> u64 {
+        self.offset
+    }
+
     pub fn new(offset: u64, base_path: PathBuf) -> Result<Self, Error> {
         let log_data_file = {
             let mut path = base_path.clone();
@@ -72,5 +76,17 @@ impl ActiveSegment {
         self.log_index.push(index_item)?;
 
         Ok(())
+    }
+
+    pub fn enough_space(&self, message: &Message) -> bool {
+        self.log_data.enough_space(message)
+    }
+
+    pub fn get_last_message_offset(&self) -> Option<u64> {
+        let last_idx = self.log_index.count() - 1;
+
+        self.log_index.get(last_idx).map(|item| {
+            item.message_offset()
+        })
     }
 }

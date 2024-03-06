@@ -22,7 +22,7 @@ struct ErrorImpl {
     connect_info: Option<SocketAddr>,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Kind {
     // Failure to parse bytes of a frame
     Frame,
@@ -75,6 +75,8 @@ pub enum Kind {
 
     /// Indicates Memory error
     Memory,
+
+    OverCapacity,
 }
 
 impl Error {
@@ -88,6 +90,11 @@ impl Error {
             }),
         }
     }
+
+    pub fn new_over_capacity(description: &str) ->Self {
+        Error::new(Kind::OverCapacity, Some(description.to_owned()), None, None)
+    } 
+
 
     pub fn new_memory(cause: Option<Cause>, description: Option<String>) ->Self {
         Error::new(Kind::Memory, description, cause, None)

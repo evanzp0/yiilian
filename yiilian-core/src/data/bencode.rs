@@ -223,7 +223,7 @@ pub fn decode_string(data: &[u8], start: usize) -> Result<(BencodeData, usize), 
         None => Err(Error::new_frame(None, Some("':' not found when decode string".to_owned())))?,
     };
     
-    let length = atoi(&data[start..idx])?;
+    let length: u64 = atoi(&data[start..idx])?;
     let index = idx + 1 + (length as usize);
 
     if index > data.len() || index < idx + 1 {

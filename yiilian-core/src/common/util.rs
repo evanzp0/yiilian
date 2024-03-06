@@ -1,5 +1,6 @@
 use std::hash::{Hash, Hasher};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::str::FromStr;
 
 use fnv::FnvHasher;
 
@@ -29,11 +30,15 @@ macro_rules! arcmut {
 ///
 /// assert_eq!(-12, atoi("-12".as_bytes()).unwrap());
 /// ```
-pub fn atoi(data: &[u8]) -> Result<i32, Error> {
+pub fn atoi<T>(data: &[u8]) -> Result<T, Error> 
+where
+    T: std::str::FromStr,
+    <T as FromStr>::Err: std::error::Error + Sync + Send,
+{
     let s = String::from_utf8_lossy(data);
     let rst = s
-        .parse::<i32>()
-        .map_err(|e| Error::new_frame(Some(Box::new(e)), Some("atoi error".to_owned())))?;
+        .parse::<T>()
+        .map_err(|_| Error::new_frame(None, Some("atoi error".to_owned())))?;
 
     Ok(rst)
 }
@@ -273,5 +278,11 @@ mod test {
     fn test_be_bytes_to_u16() {
         let bytes = [255, 0];
         assert_eq!(65280,  be_bytes_to_u16(&bytes).unwrap());
+    }
+
+    #[test]
+    fn test_atoi() {
+        let num: u64 = atoi(b"000012").unwrap();
+        assert_eq!(12, num);
     }
 }

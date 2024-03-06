@@ -63,6 +63,7 @@ impl LogIndex {
 
 impl LogIndex {
     
+    /// 索引的消息数
     pub fn count(&self) -> usize {
         self.len() / LOGINDEX_ITEM_LEN
     }
@@ -146,11 +147,11 @@ impl LogIndexItem {
         }
     }
 
-    fn message_offset(&self) -> u64 {
+    pub fn message_offset(&self) -> u64 {
         self.message_offset
     }
 
-    fn message_pos(&self) -> usize {
+    pub fn message_pos(&self) -> usize {
         self.message_pos
     }
 }
