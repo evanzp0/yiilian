@@ -11,6 +11,9 @@ pub struct Engine {
 
 impl Engine {
     pub fn new(path: PathBuf) -> Result<Self, Error> {
+        fs::create_dir_all(path.clone())
+            .map_err(|error| Error::new_file(Some(error.into()), None))?;
+
         let dir = path
             .as_path()
             .read_dir()

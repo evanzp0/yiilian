@@ -4,7 +4,7 @@ use std::{
 };
 
 use yiilian_core::common::{
-    error::{Error, Kind},
+    error::Error,
     util::atoi,
 };
 
