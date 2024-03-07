@@ -4,9 +4,9 @@ pub mod active_segment;
 
 
 pub const CONSUMER_OFFSETS_FILE_NAME: &str = "__consumer_offsets";
-pub const LOG_DATA_FILE_EXTENSION: &str = ".log";
-pub const LOG_INDEX_FILE_EXTENSION: &str = ".index";
-pub const TIME_INDEX_FILE_EXTENSION: &str = ".timeindex";
+pub const LOG_DATA_FILE_EXTENSION: &str = "log";
+pub const LOG_INDEX_FILE_EXTENSION: &str = "index";
+pub const TIME_INDEX_FILE_EXTENSION: &str = "timeindex";
 
 const  LOG_DATA_SIZE: usize = 10 * 1024 * 1024;
 

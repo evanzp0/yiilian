@@ -78,12 +78,19 @@ impl ActiveSegment {
         Ok(())
     }
 
-    pub fn enough_space(&self, message: &Message) -> bool {
-        self.log_data.enough_space(message)
+    pub fn enough_space(&self, message_size: usize) -> bool {
+        self.log_data.enough_space(message_size)
     }
 
     pub fn get_last_message_offset(&self) -> Option<u64> {
-        let last_idx = self.log_index.count() - 1;
+
+        let last_idx = {
+            if self.log_index.count() == 0 {
+                return None
+            } else {
+                self.log_index.count() - 1
+            }
+        };
 
         self.log_index.get(last_idx).map(|item| {
             item.message_offset()

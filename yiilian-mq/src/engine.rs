@@ -2,7 +2,7 @@ use std::{collections::HashMap, fs, path::PathBuf};
 
 use yiilian_core::common::error::Error;
 
-use crate::topic::Topic;
+use crate::{message::{in_message::InMessage, Message}, topic::Topic};
 
 pub struct Engine {
     path: PathBuf,
@@ -61,5 +61,14 @@ impl Engine {
         self.topics.insert(topic_name.to_owned(), topic);
 
         Ok(self.topics.get(topic_name).unwrap())
+    }
+
+    pub fn push_message(&mut self, topic_name: &str, message: InMessage) -> Result<(), Error> {
+
+        if let Some(topic) = self.topics.get_mut(topic_name) {
+            topic.push_message(message)
+        } else {
+            Err(Error::new_general("Not found topic"))
+        }
     }
 }

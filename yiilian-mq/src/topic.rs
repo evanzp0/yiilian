@@ -3,13 +3,14 @@ use std::{
     path::PathBuf,
 };
 
+use chrono::Utc;
 use yiilian_core::common::{
     error::Error,
     util::atoi,
 };
 
 use crate::{
-    consumer_offsets::ConsumerOffsets, message::Message, segment::active_segment::ActiveSegment,
+    consumer_offsets::ConsumerOffsets, message::{self, in_message::InMessage, Message, MESSAGE_PREFIX_LEN}, segment::active_segment::ActiveSegment,
 };
 
 pub struct Topic {
@@ -39,6 +40,8 @@ impl Topic {
                     if let Some(file_name) = file_name.to_str() {
                         if file_name.ends_with(".log") {
                             let offset_len = file_name.len() - 4;
+                            println!("{}", file_name);
+                            
                             let offset: u64 = atoi(file_name[0..offset_len].as_bytes())?;
 
                             match segment_offsets.binary_search(&offset) {
@@ -82,8 +85,9 @@ impl Topic {
         })
     }
 
-    pub fn push_message(&mut self, message: Message) -> Result<(), Error> {
-        let enough_space = self.active_segment.enough_space(&message);
+    pub fn push_message(&mut self, message: InMessage) -> Result<(), Error> {
+        let message_size = 20 + message.0.len() + MESSAGE_PREFIX_LEN;
+        let enough_space = self.active_segment.enough_space(message_size);
 
         if !enough_space {
             let new_offset = self.active_segment.get_last_message_offset().unwrap_or(0);
@@ -94,6 +98,9 @@ impl Topic {
 
             self.active_segment = active_segment;
         }
+
+        let new_offset = self.active_segment.get_last_message_offset().unwrap_or(0);
+        let message = Message::new(new_offset, Utc::now().timestamp_millis(), message.0);
 
         self.active_segment.push_message(message)
     }

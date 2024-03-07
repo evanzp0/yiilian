@@ -67,8 +67,8 @@ impl LogData {
         self.length = 0;
     }
 
-    pub fn enough_space(&self, message: &Message) -> bool {
-        self.free_space() >= message.total_size()
+    pub fn enough_space(&self, message_size: usize) -> bool {
+        self.free_space() >= message_size
     }
 
     /// 返回 LogData 末尾的 pos, 不包含 LOGDATA_PREFIX_LEN
@@ -76,7 +76,7 @@ impl LogData {
         let start_pos = LOGDATA_PREFIX_LEN + self.len();
         let msg_total_size = message.total_size();
 
-        if !self.enough_space(&message) {
+        if !self.enough_space(message.total_size()) {
             Err(Error::new_over_capacity("Push message for LogData over capacity limited"))?
         }
 

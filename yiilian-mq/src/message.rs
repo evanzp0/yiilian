@@ -1,3 +1,5 @@
+pub mod in_message;
+
 use bytes::{BufMut, Bytes, BytesMut};
 use yiilian_core::common::error::Error;
 
