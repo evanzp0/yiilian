@@ -192,5 +192,7 @@ mod tests {
 
         let message = log_data_file.get_message(4, 26);
         assert_eq!(true, message.is_none());
+
+        std::fs::remove_file(path).unwrap();
     }
 }
