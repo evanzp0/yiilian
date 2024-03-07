@@ -1,7 +1,6 @@
 use std::{
     fs::{self, OpenOptions},
     path::PathBuf,
-    sync::Mutex,
 };
 
 use yiilian_core::common::{
@@ -16,13 +15,13 @@ use crate::{
 pub struct Topic {
     name: String,
     path: PathBuf,
-    active_segment: Mutex<ActiveSegment>,
+    active_segment: ActiveSegment,
     consumer_offsets: ConsumerOffsets,
     segment_offsets: Vec<u64>,
 }
 
 impl Topic {
-    pub fn new(name: String, path: PathBuf) -> Result<Self, Error> {
+    pub fn new(name: &str, path: PathBuf) -> Result<Self, Error> {
         let entries = fs::read_dir(path.clone())
             .map_err(|error| Error::new_file(Some(error.into()), None))?;
 
@@ -60,7 +59,6 @@ impl Topic {
             .get(segment_offsets.len() - 1)
             .expect("segment_offsets should exist");
         let active_segment = ActiveSegment::new(*last_segment_offset, path.clone())?;
-        let active_segment = Mutex::new(active_segment);
 
         let consumer_offsets_path: PathBuf = {
             let mut p = path.clone();
@@ -76,7 +74,7 @@ impl Topic {
         let consumer_offsets = ConsumerOffsets::new_from_file(consumer_offsets_file)?;
 
         Ok(Topic {
-            name,
+            name: name.to_owned(),
             path,
             active_segment,
             consumer_offsets,
@@ -85,33 +83,18 @@ impl Topic {
     }
 
     pub fn push_message(&mut self, message: Message) -> Result<(), Error> {
-        let enough_space = self
-            .active_segment
-            .lock()
-            .expect("lock active_segment")
-            .enough_space(&message);
+        let enough_space = self.active_segment.enough_space(&message);
 
         if !enough_space {
-            let new_offset = self
-                .active_segment
-                .lock()
-                .expect("lock active_segment")
-                .get_last_message_offset()
-                .unwrap_or(0);
+            let new_offset = self.active_segment.get_last_message_offset().unwrap_or(0);
 
-            let active_segment = {
-                let a_segment = ActiveSegment::new(new_offset, self.path.clone())?;
-                Mutex::new(a_segment)
-            };
+            let active_segment = ActiveSegment::new(new_offset, self.path.clone())?;
 
             self.segment_offsets.push(new_offset);
 
             self.active_segment = active_segment;
         }
 
-        self.active_segment
-            .lock()
-            .expect("lock active_segment")
-            .push_message(message)
+        self.active_segment.push_message(message)
     }
 }
