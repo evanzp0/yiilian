@@ -103,6 +103,8 @@ impl ActiveSegment {
             //     self.offset()
             // }
 
+            println!("{:?}", self.log_index);
+
             index.message_offset() + 1
             
         }

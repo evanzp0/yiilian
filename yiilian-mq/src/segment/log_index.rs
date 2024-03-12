@@ -1,6 +1,6 @@
 pub mod log_index_file;
 
-use std::io::Write;
+use std::{fmt, io::Write};
 
 use bytes::{BufMut, Bytes, BytesMut};
 use memmap::MmapMut;
@@ -10,7 +10,6 @@ pub const LOGINDEX_PREFIX_LEN: usize = 8;
 pub const LOGINDEX_ITEM_LEN: usize = 16;
 
 /// LogIndex = len(8) + [ message_offset(8) + message_pos(8) .. ]
-#[derive(Debug)]
 pub struct LogIndex {
     length: usize,
     offset: u64,
@@ -132,6 +131,29 @@ impl LogIndex {
         Ok(self.len())
     }
 
+}
+
+impl fmt::Debug for LogIndex {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut f = f.debug_struct("LogIndex");
+        f.field("length", &self.length);
+        f.field("offset", &self.offset);
+
+        let item = {
+            let mut rst = vec![];
+            for i in 0..self.count() {
+                if let Some(item) = self.get(i) {
+                    rst.push(item);
+                }
+            }
+
+            rst
+        };
+
+        f.field("cache", &item);
+
+        f.finish()
+    }
 }
 
 #[derive(Debug)]
