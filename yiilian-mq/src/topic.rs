@@ -40,7 +40,6 @@ impl Topic {
                     if let Some(file_name) = file_name.to_str() {
                         if file_name.ends_with(".log") {
                             let offset_len = file_name.len() - 4;
-                            println!("{}", file_name);
                             
                             let offset: u64 = atoi(file_name[0..offset_len].as_bytes())?;
 
@@ -96,8 +95,6 @@ impl Topic {
             self.segment_offsets.push(new_offset);
             self.active_segment = active_segment;
         }
-
-        println!("active_segment: {}", self.active_segment.offset());
 
         let new_offset = self.active_segment.get_next_offset();
         let message = Message::new(new_offset, Utc::now().timestamp_millis(), message.0);

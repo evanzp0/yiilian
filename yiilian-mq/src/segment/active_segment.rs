@@ -92,8 +92,6 @@ impl ActiveSegment {
 
     pub fn get_next_offset(&self) -> u64 {
 
-        println!("log_index count: {}", self.log_index.count());
-
         if self.log_index.count() == 0 {
             self.offset()
         } else {
