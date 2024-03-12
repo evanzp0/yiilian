@@ -97,11 +97,13 @@ impl ActiveSegment {
         } else {
             let index = self.log_index.get(self.log_index.count() - 1).expect("last log index");
 
-            if let Some(message) = self.log_data().get_message(index.message_offset(), index.message_pos()) {
-                message.offset() + message.len() as u64
-            } else {
-                self.offset()
-            }
+            // if let Some(message) = self.log_data().get_message(index.message_offset(), index.message_pos()) {
+            //     message.offset() + message.len() as u64
+            // } else {
+            //     self.offset()
+            // }
+
+            index.message_offset() + 1
             
         }
     }
