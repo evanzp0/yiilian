@@ -41,9 +41,9 @@ impl Engine {
         Ok(Engine { path, topics })
     }
 
-    pub fn open_topic(&mut self, topic_name: &str) -> Result<&Topic, Error> {
+    pub fn open_topic(&mut self, topic_name: &str) -> Result<&mut Topic, Error> {
         if self.topics.contains_key(topic_name) {
-            let topic = self.topics.get(topic_name).unwrap();
+            let topic = self.topics.get_mut(topic_name).unwrap();
             return Ok(topic);
         }
 
@@ -60,7 +60,7 @@ impl Engine {
 
         self.topics.insert(topic_name.to_owned(), topic);
 
-        Ok(self.topics.get(topic_name).unwrap())
+        Ok(self.topics.get_mut(topic_name).unwrap())
     }
 
     pub fn push_message(&mut self, topic_name: &str, message: InMessage) -> Result<(), Error> {

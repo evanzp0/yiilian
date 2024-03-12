@@ -7,7 +7,7 @@ use crate::{message::Message, segment::{
     calc_log_index_size, LOG_DATA_FILE_EXTENSION, LOG_DATA_SIZE, LOG_INDEX_FILE_EXTENSION,
 }};
 
-use super::{log_data::LogData, log_index::{LogIndex, LogIndexItem}};
+use super::{gen_mq_file_name, log_data::LogData, log_index::{LogIndex, LogIndexItem}};
 
 pub struct ActiveSegment {
     offset: u64,
@@ -24,7 +24,7 @@ impl ActiveSegment {
     pub fn new(offset: u64, base_path: PathBuf) -> Result<Self, Error> {
         let log_data_file = {
             let mut path = base_path.clone();
-            path.push(format!("{:0>20}.{}", offset, LOG_DATA_FILE_EXTENSION));
+            path.push(gen_mq_file_name(offset, LOG_DATA_FILE_EXTENSION));
             let file = OpenOptions::new()
                 .read(true)
                 .write(true)
@@ -38,7 +38,7 @@ impl ActiveSegment {
 
         let log_index_file = {
             let mut path = base_path.clone();
-            path.push(format!("{:0>20}.{}", offset, LOG_INDEX_FILE_EXTENSION));
+            path.push(gen_mq_file_name(offset, LOG_INDEX_FILE_EXTENSION));
             let file = OpenOptions::new()
                 .read(true)
                 .write(true)

@@ -4,13 +4,12 @@ use std::{
 };
 
 use chrono::Utc;
-use yiilian_core::common::{
-    error::Error,
-    util::atoi,
-};
+use yiilian_core::common::{error::Error, util::atoi};
 
 use crate::{
-    consumer_offsets::ConsumerOffsets, message::{in_message::InMessage, Message, MESSAGE_PREFIX_LEN}, segment::active_segment::ActiveSegment,
+    consumer_offsets::ConsumerOffsets,
+    message::{in_message::InMessage, Message, MESSAGE_PREFIX_LEN},
+    segment::{active_segment::ActiveSegment, poll_message},
 };
 
 pub struct Topic {
@@ -40,7 +39,7 @@ impl Topic {
                     if let Some(file_name) = file_name.to_str() {
                         if file_name.ends_with(".log") {
                             let offset_len = file_name.len() - 4;
-                            
+
                             let offset: u64 = atoi(file_name[0..offset_len].as_bytes())?;
 
                             match segment_offsets.binary_search(&offset) {
@@ -84,6 +83,10 @@ impl Topic {
         })
     }
 
+    pub fn segment_offsets(&self) -> &Vec<u64>{
+        &self.segment_offsets
+    }
+
     pub fn push_message(&mut self, message: InMessage) -> Result<(), Error> {
         let message_size = 20 + message.0.len() + MESSAGE_PREFIX_LEN;
 
@@ -100,5 +103,72 @@ impl Topic {
         let message = Message::new(new_offset, Utc::now().timestamp_millis(), message.0);
 
         self.active_segment.push_message(message)
+    }
+
+    pub fn poll_message(&mut self, customer_name: &str) -> Option<Message> {
+        let (segment_offset, target_offset) =
+            if let Some(mut target_offset) = self.consumer_offsets.get(customer_name) {
+                target_offset += 1;
+
+                println!("{:?}", (self.get_segment_offset(target_offset), target_offset));
+
+                (self.get_segment_offset(target_offset), target_offset)
+            } else {
+                if let Some(segment_offset) = self.segment_offsets.get(0) {
+                    (*segment_offset, *segment_offset)
+                } else {
+                    return None
+                }
+            };
+
+        if let Ok(message) = poll_message(&self.path, segment_offset, target_offset) {
+            self.consumer_offsets.insert(customer_name, target_offset).ok();
+
+            message
+        } else {
+            None
+        }
+    }
+
+    pub fn get_segment_offset(&self, target_offset: u64) -> u64 {
+        get_nearest_offset(target_offset, &self.segment_offsets)
+    }
+}
+
+fn get_nearest_offset(target_offset: u64, array: &Vec<u64>) -> u64 {
+    if array.len() == 0 {
+        return 0;
+    }
+
+    let mut left = 0;
+    let mut right = array.len() - 1;
+
+    while left <= right {
+        let mid = left + (right - left) / 2;
+        let mid_offset = *array.get(mid).expect("Not found mid item in LogIndex");
+
+        if mid_offset == target_offset {
+            return mid_offset;
+        } else if mid_offset < target_offset {
+            left = mid + 1;
+        } else if mid_offset > target_offset {
+            right = mid - 1;
+        }
+    }
+
+    left as u64
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_nearest_offset() {
+        let a = vec![1, 2, 3, 7, 8, 10];
+
+        let rst = get_nearest_offset(6, &a);
+
+        assert_eq!(3, rst);
     }
 }

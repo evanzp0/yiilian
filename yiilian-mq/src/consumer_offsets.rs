@@ -16,6 +16,10 @@ impl ConsumerOffsets {
         }
     }
 
+    pub fn get(&self, customer_name: &str) -> Option<u64> {
+        self.inner.get(customer_name).map(|v| *v)
+    }
+
     pub fn insert(&mut self, k: &str, v: u64) -> Result<(), Error> {
         self.inner.insert(k.to_owned(), v);
 

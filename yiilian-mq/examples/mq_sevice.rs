@@ -7,11 +7,15 @@ fn main() {
         .join(".yiilian/mq/");
 
     let mut engine = Engine::new(mq_path).unwrap();
-    engine.open_topic("info_hash").unwrap();
+    let topic = engine.open_topic("info_hash").unwrap();
 
     for i in 0..5 {
         let value = format!("value_{}", i);
         let message = InMessage(value.into());
         engine.push_message("info_hash", message).unwrap();
     }
+
+    // let message = topic.poll_message("client_1");
+    // println!("{:?}", topic.segment_offsets());
+    // println!("{:?}", message);
 }
