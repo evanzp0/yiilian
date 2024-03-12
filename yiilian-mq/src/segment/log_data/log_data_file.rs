@@ -55,7 +55,7 @@ impl LogDataFile {
     }
 
     /// start_pos 不包含 LOGDATA_PREFIX_LEN
-    // 返回找到的消息，以及下一次起始位置
+    /// 返回找到的消息，以及下一次起始位置
     pub fn next(&mut self, pos: usize) -> Option<(Message, usize)> {
 
         if pos + MESSAGE_PREFIX_LEN > self.len() {

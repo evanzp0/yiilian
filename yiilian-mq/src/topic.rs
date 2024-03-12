@@ -10,7 +10,7 @@ use yiilian_core::common::{
 };
 
 use crate::{
-    consumer_offsets::ConsumerOffsets, message::{self, in_message::InMessage, Message, MESSAGE_PREFIX_LEN}, segment::active_segment::ActiveSegment,
+    consumer_offsets::ConsumerOffsets, message::{in_message::InMessage, Message, MESSAGE_PREFIX_LEN}, segment::active_segment::ActiveSegment,
 };
 
 pub struct Topic {
@@ -87,19 +87,19 @@ impl Topic {
 
     pub fn push_message(&mut self, message: InMessage) -> Result<(), Error> {
         let message_size = 20 + message.0.len() + MESSAGE_PREFIX_LEN;
+
         let enough_space = self.active_segment.enough_space(message_size);
 
         if !enough_space {
-            let new_offset = self.active_segment.get_last_message_offset().unwrap_or(0);
-
+            let new_offset = self.active_segment.get_next_offset();
             let active_segment = ActiveSegment::new(new_offset, self.path.clone())?;
-
             self.segment_offsets.push(new_offset);
-
             self.active_segment = active_segment;
         }
 
-        let new_offset = self.active_segment.get_last_message_offset().unwrap_or(0);
+        println!("active_segment: {}", self.active_segment.offset());
+
+        let new_offset = self.active_segment.get_next_offset();
         let message = Message::new(new_offset, Utc::now().timestamp_millis(), message.0);
 
         self.active_segment.push_message(message)

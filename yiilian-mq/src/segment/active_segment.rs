@@ -25,7 +25,7 @@ impl ActiveSegment {
         let log_data_file = {
             let mut path = base_path.clone();
             path.push(format!("{:0>20}.{}", offset, LOG_DATA_FILE_EXTENSION));
-            let mut file = OpenOptions::new()
+            let file = OpenOptions::new()
                 .read(true)
                 .write(true)
                 .create(true)
@@ -39,7 +39,7 @@ impl ActiveSegment {
         let log_index_file = {
             let mut path = base_path.clone();
             path.push(format!("{:0>20}.{}", offset, LOG_INDEX_FILE_EXTENSION));
-            let mut file = OpenOptions::new()
+            let file = OpenOptions::new()
                 .read(true)
                 .write(true)
                 .create(true)
@@ -82,18 +82,29 @@ impl ActiveSegment {
         self.log_data.enough_space(message_size)
     }
 
-    pub fn get_last_message_offset(&self) -> Option<u64> {
+    pub fn log_data(&self) -> &LogData {
+        &self.log_data
+    }
 
-        let last_idx = {
-            if self.log_index.count() == 0 {
-                return None
+    pub fn log_index(&self) -> &LogIndex {
+        &self.log_index
+    }
+
+    pub fn get_next_offset(&self) -> u64 {
+
+        println!("log_index count: {}", self.log_index.count());
+
+        if self.log_index.count() == 0 {
+            self.offset()
+        } else {
+            let index = self.log_index.get(self.log_index.count() - 1).expect("last log index");
+
+            if let Some(message) = self.log_data().get_message(index.message_offset(), index.message_pos()) {
+                message.offset() + message.len() as u64
             } else {
-                self.log_index.count() - 1
+                self.offset()
             }
-        };
-
-        self.log_index.get(last_idx).map(|item| {
-            item.message_offset()
-        })
+            
+        }
     }
 }

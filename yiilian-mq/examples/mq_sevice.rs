@@ -8,8 +8,9 @@ fn main() {
     let mut engine = Engine::new(mq_path).unwrap();
     engine.open_topic("info_hash").unwrap();
 
-    for i in 0..100 {
-        let message = InMessage(b"value"[..].into());
+    for i in 0..2 {
+        let value = format!("value_{}", i);
+        let message = InMessage(value.into());
         engine.push_message("info_hash", message).unwrap();
     }
 }

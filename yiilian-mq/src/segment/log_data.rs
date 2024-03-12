@@ -68,6 +68,8 @@ impl LogData {
     }
 
     pub fn enough_space(&self, message_size: usize) -> bool {
+        println!("free: {}, message_size: {}", self.free_space(), message_size);
+
         self.free_space() >= message_size
     }
 
