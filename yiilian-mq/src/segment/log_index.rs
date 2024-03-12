@@ -10,6 +10,7 @@ pub const LOGINDEX_PREFIX_LEN: usize = 8;
 pub const LOGINDEX_ITEM_LEN: usize = 16;
 
 /// LogIndex = len(8) + [ message_offset(8) + message_pos(8) .. ]
+#[derive(Debug)]
 pub struct LogIndex {
     length: usize,
     offset: u64,
