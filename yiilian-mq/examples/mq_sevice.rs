@@ -15,7 +15,7 @@ fn main() {
     //     engine.push_message("info_hash", message).unwrap();
     // }
 
-    let message = topic.poll_message("client_3");
+    let message = topic.poll_message("client_4");
     println!("segment_offsets: {:?}", topic.segment_offsets());
     println!("message: {:?}", message);
 }

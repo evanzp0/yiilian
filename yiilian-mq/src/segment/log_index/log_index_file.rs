@@ -100,7 +100,7 @@ impl LogIndexFile {
 
 #[cfg(test)]
 mod tests {
-    use std::{fs::{self, OpenOptions}, io::Write, path::PathBuf};
+    use std::{fs::{self, OpenOptions}, io::Write, path::PathBuf, time::{Duration, SystemTime}};
 
     use bytes::{BufMut, Bytes, BytesMut};
 
@@ -119,6 +119,15 @@ mod tests {
             .open(&path)
             .unwrap();
         file.set_len(56).unwrap();
+
+        // let mod_time = file.metadata().unwrap().modified().unwrap();
+        // let sys_time = SystemTime::now();
+
+        // let a = sys_time - Duration::from_secs(1);
+        // match sys_time.duration_since(mod_time) {
+        //     Ok(d) => println!("{:?}", d),
+        //     Err(e) => println!("{:?}", e),
+        // }
 
         let mut buf = BytesMut::new();
         buf.put_u64(56);
