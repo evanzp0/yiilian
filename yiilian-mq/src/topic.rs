@@ -1,7 +1,7 @@
 use std::{
     fs::{self, OpenOptions},
     path::PathBuf,
-    time::SystemTime,
+    time::{Duration, SystemTime},
 };
 
 use chrono::Utc;
@@ -48,10 +48,7 @@ impl Topic {
 
                             let segment_info = SegmentInfo::new(offset, mod_time);
 
-                            match segment_offsets.binary_search(&segment_info) {
-                                Ok(_pos) => {}
-                                Err(pos) => segment_offsets.insert(pos, segment_info),
-                            }
+                            binary_insert(&mut segment_offsets, segment_info);
                         }
                     }
                 }
@@ -147,6 +144,12 @@ impl Topic {
     }
 
     pub fn purge_segment(&mut self) {
+        let outdate_segments =
+            find_outdate_segment(&self.segment_offsets, self.active_segment.offset());
+
+        self.segment_offsets
+            .retain(|item| !outdate_segments.contains(&item.offset));
+
         todo!()
     }
 }
@@ -186,6 +189,28 @@ fn get_nearest_offset(target_offset: u64, array: &Vec<SegmentInfo>) -> u64 {
     mid_offset
 }
 
+fn find_outdate_segment(segment_infos: &Vec<SegmentInfo>, active_segment_offset: u64) -> Vec<u64> {
+    let now = SystemTime::now();
+    let retain_time = now - Duration::from_secs(KEEP_SEGMENT_SECS);
+
+    let mut outdate_offsets = vec![];
+
+    for item in segment_infos {
+        if item.mod_time <= retain_time && item.offset != active_segment_offset {
+            outdate_offsets.push(item.offset)
+        }
+    }
+
+    outdate_offsets
+}
+
+fn binary_insert<T: Ord>(containers: &mut Vec<T>, item: T) {
+    match containers.binary_search(&item) {
+        Ok(_pos) => {}
+        Err(pos) => containers.insert(pos, item),
+    }
+}
+
 #[derive(Debug, Eq)]
 pub struct SegmentInfo {
     pub offset: u64,
@@ -212,7 +237,7 @@ impl PartialOrd for SegmentInfo {
 
 impl Ord for SegmentInfo {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.offset.cmp(&other.offset) 
+        self.offset.cmp(&other.offset)
     }
 }
 
@@ -224,7 +249,11 @@ mod tests {
     fn test_get_nearest_offset() {
         let mod_time = SystemTime::now();
 
-        let a = vec![SegmentInfo::new(0, mod_time), SegmentInfo::new(2, mod_time), SegmentInfo::new(4, mod_time)];
+        let a = vec![
+            SegmentInfo::new(0, mod_time),
+            SegmentInfo::new(2, mod_time),
+            SegmentInfo::new(4, mod_time),
+        ];
 
         let rst = get_nearest_offset(3, &a);
         assert_eq!(2, rst);
@@ -238,9 +267,48 @@ mod tests {
         let rst = get_nearest_offset(9, &a);
         assert_eq!(4, rst);
 
-        let a = vec![SegmentInfo::new(2, mod_time), SegmentInfo::new(4, mod_time), SegmentInfo::new(6, mod_time)];
+        let a = vec![
+            SegmentInfo::new(2, mod_time),
+            SegmentInfo::new(4, mod_time),
+            SegmentInfo::new(6, mod_time),
+        ];
 
         let rst = get_nearest_offset(1, &a);
         assert_eq!(2, rst);
+    }
+
+    #[test]
+    fn test_find_outdate_segment() {
+        let mod_time = SystemTime::now();
+
+        let segment_infos = vec![
+            SegmentInfo::new(0, mod_time - Duration::from_secs(10 * KEEP_SEGMENT_SECS)),
+            SegmentInfo::new(2, mod_time - Duration::from_secs(20* KEEP_SEGMENT_SECS)),
+            SegmentInfo::new(4, mod_time - Duration::from_secs(5 * KEEP_SEGMENT_SECS)),
+            SegmentInfo::new(5, mod_time),
+        ];
+
+        let rst = find_outdate_segment(&segment_infos, 4);
+
+        assert_eq!(2, rst.len())
+    }
+
+    #[test]
+    fn test_binary_insert() {
+        let mod_time = SystemTime::now();
+        let mut segment_infos = vec![];
+
+        let segment_info = SegmentInfo::new(2, mod_time - Duration::from_secs(20));
+        binary_insert(&mut segment_infos, segment_info);
+
+        let segment_info = SegmentInfo::new(0, mod_time - Duration::from_secs(30));
+        binary_insert(&mut segment_infos, segment_info);
+
+        let segment_info = SegmentInfo::new(5, mod_time - Duration::from_secs(1));
+        binary_insert(&mut segment_infos, segment_info);
+
+        assert_eq!(0, segment_infos.get(0).unwrap().offset);
+        assert_eq!(2, segment_infos.get(1).unwrap().offset);
+        assert_eq!(5, segment_infos.get(2).unwrap().offset);
     }
 }
