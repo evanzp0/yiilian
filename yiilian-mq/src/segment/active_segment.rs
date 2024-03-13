@@ -105,8 +105,11 @@ impl ActiveSegment {
 
             // println!("{:?}", self.log_index);
 
-            index.message_offset() + 1
-            
+            if index.message_offset() == u64::MAX {
+                0
+            } else {
+                index.message_offset() + 1
+            }
         }
     }
 }
