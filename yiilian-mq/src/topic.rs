@@ -12,6 +12,8 @@ use crate::{
     segment::{active_segment::ActiveSegment, poll_message},
 };
 
+const KEEP_SEGMENT_NUMS: usize = 2;
+
 pub struct Topic {
     name: String,
     path: PathBuf,
@@ -135,6 +137,19 @@ impl Topic {
     pub fn get_segment_offset(&self, target_offset: u64) -> u64 {
         get_nearest_offset(target_offset, &self.segment_offsets)
     }
+
+    pub fn pruge_segment(&mut self) {
+        if self.segment_offsets.len() > KEEP_SEGMENT_NUMS {
+            let remove_num = self.segment_offsets.len() - KEEP_SEGMENT_NUMS;
+
+            for i in 0.. remove_num {
+                let offset_begin = self.segment_offsets.remove(i);
+                let offset_end = self.segment_offsets.remove(i);
+                // self.consumer_offsets.remove_by_offset(offset)
+
+            }
+        }
+    }
 }
 
 fn get_nearest_offset(target_offset: u64, array: &Vec<u64>) -> u64 {
@@ -142,13 +157,13 @@ fn get_nearest_offset(target_offset: u64, array: &Vec<u64>) -> u64 {
         return 0;
     }
 
-    let mut left = 0;
-    let mut right = array.len() - 1;
+    let mut left: i32 = 0;
+    let mut right: i32 = (array.len() - 1) as i32;
     let mut mid_offset;
 
     while left <= right {
         let mid = left + (right - left) / 2;
-        mid_offset = *array.get(mid).expect("Not found mid item in LogIndex");
+        mid_offset = *array.get(mid as usize).expect("Not found mid item in LogIndex");
 
         if mid_offset == target_offset {
             return mid_offset;
@@ -159,7 +174,13 @@ fn get_nearest_offset(target_offset: u64, array: &Vec<u64>) -> u64 {
         }
     }
 
-    mid_offset = *array.get(left - 1).expect("Not found mid item in LogIndex");
+    let left = if left <= 0 {
+        0
+    } else {
+        left -1
+    };
+
+    mid_offset = *array.get(left as usize).expect("Not found mid item in LogIndex");
 
     mid_offset
 }
@@ -183,5 +204,10 @@ mod tests {
 
         let rst = get_nearest_offset(9, &a);
         assert_eq!(4, rst);
+
+        let a = vec![2, 4, 6];
+
+        let rst = get_nearest_offset(1, &a);
+        assert_eq!(2, rst);
     }
 }
