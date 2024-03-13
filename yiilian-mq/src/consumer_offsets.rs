@@ -26,6 +26,23 @@ impl ConsumerOffsets {
         self.flush()
     }
 
+    pub fn remove_by_offset(&mut self, offset: u64) {
+        let mut tmp = vec![];
+        for (key, value) in self.inner.iter() {
+            if *value == offset {
+                tmp.push(key.to_owned());
+            }
+        }
+
+        for key in tmp {
+            self.inner.remove(&key);
+        }
+    }
+
+    pub fn remove(&mut self, key: &str) {
+        self.inner.remove(key);
+    }
+
     fn flush(&mut self) -> Result<(), Error> {
         let data = serde_yaml::to_string(&self.inner).expect("serde_yaml::to_string() failed");
         self.file.write_all(data.as_bytes())
