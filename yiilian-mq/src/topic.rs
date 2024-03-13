@@ -110,7 +110,7 @@ impl Topic {
             if let Some(mut target_offset) = self.consumer_offsets.get(customer_name) {
                 target_offset += 1;
 
-                println!("{:?}", (self.get_segment_offset(target_offset), target_offset));
+                // println!("{:?}", (self.get_segment_offset(target_offset), target_offset));
 
                 (self.get_segment_offset(target_offset), target_offset)
             } else {
@@ -122,7 +122,9 @@ impl Topic {
             };
 
         if let Ok(message) = poll_message(&self.path, segment_offset, target_offset) {
-            self.consumer_offsets.insert(customer_name, target_offset).ok();
+            if message.is_some() {
+                self.consumer_offsets.insert(customer_name, target_offset).ok();
+            }
 
             message
         } else {
@@ -142,10 +144,11 @@ fn get_nearest_offset(target_offset: u64, array: &Vec<u64>) -> u64 {
 
     let mut left = 0;
     let mut right = array.len() - 1;
+    let mut mid_offset = 0;
 
     while left <= right {
         let mid = left + (right - left) / 2;
-        let mid_offset = *array.get(mid).expect("Not found mid item in LogIndex");
+        mid_offset = *array.get(mid).expect("Not found mid item in LogIndex");
 
         if mid_offset == target_offset {
             return mid_offset;
@@ -156,7 +159,9 @@ fn get_nearest_offset(target_offset: u64, array: &Vec<u64>) -> u64 {
         }
     }
 
-    left as u64
+    mid_offset = *array.get(left - 1).expect("Not found mid item in LogIndex");
+
+    mid_offset
 }
 
 #[cfg(test)]
@@ -165,10 +170,18 @@ mod tests {
 
     #[test]
     fn test_get_nearest_offset() {
-        let a = vec![1, 2, 3, 7, 8, 10];
+        let a = vec![0, 2, 4];
 
-        let rst = get_nearest_offset(6, &a);
+        let rst = get_nearest_offset(3, &a);
+        assert_eq!(2, rst);
 
-        assert_eq!(3, rst);
+        let rst = get_nearest_offset(1, &a);
+        assert_eq!(0, rst);
+
+        let rst = get_nearest_offset(5, &a);
+        assert_eq!(4, rst);
+
+        let rst = get_nearest_offset(9, &a);
+        assert_eq!(4, rst);
     }
 }
