@@ -12,7 +12,7 @@ use crate::{
     segment::{active_segment::ActiveSegment, poll_message},
 };
 
-const KEEP_SEGMENT_NUMS: usize = 2;
+const KEEP_SEGMENT_SECS: u64 = 60;
 
 pub struct Topic {
     name: String,
@@ -139,16 +139,7 @@ impl Topic {
     }
 
     pub fn pruge_segment(&mut self) {
-        if self.segment_offsets.len() > KEEP_SEGMENT_NUMS {
-            let remove_num = self.segment_offsets.len() - KEEP_SEGMENT_NUMS;
-
-            for i in 0.. remove_num {
-                let offset_begin = self.segment_offsets.remove(i);
-                let offset_end = self.segment_offsets.remove(i);
-                // self.consumer_offsets.remove_by_offset(offset)
-
-            }
-        }
+        todo!()
     }
 }
 
