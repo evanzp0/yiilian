@@ -2,7 +2,7 @@ use std::{collections::HashMap, fs, path::PathBuf};
 
 use yiilian_core::common::error::Error;
 
-use crate::{message::{in_message::InMessage, Message}, topic::Topic};
+use crate::{message::in_message::InMessage, topic::Topic};
 
 pub struct Engine {
     path: PathBuf,

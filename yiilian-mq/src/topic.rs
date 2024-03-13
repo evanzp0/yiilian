@@ -144,7 +144,7 @@ fn get_nearest_offset(target_offset: u64, array: &Vec<u64>) -> u64 {
 
     let mut left = 0;
     let mut right = array.len() - 1;
-    let mut mid_offset = 0;
+    let mut mid_offset;
 
     while left <= right {
         let mid = left + (right - left) / 2;
