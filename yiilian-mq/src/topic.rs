@@ -1,7 +1,5 @@
 use std::{
-    fs::{self, OpenOptions},
-    path::PathBuf,
-    time::{Duration, SystemTime},
+    fs, path::PathBuf, time::{Duration, SystemTime}
 };
 
 use chrono::Utc;
@@ -13,10 +11,12 @@ use crate::{
     segment::{active_segment::ActiveSegment, gen_mq_file_name, poll_message, LOG_DATA_FILE_EXTENSION, LOG_INDEX_FILE_EXTENSION},
 };
 
-const KEEP_SEGMENT_SECS: u64 = 60;
+const KEEP_SEGMENT_SECS: u64 = 24 * 60 * 60 * 3;
 
 pub struct Topic {
+    #[allow(unused)]
     name: String,
+    
     path: PathBuf,
     active_segment: ActiveSegment,
     consumers: ConsumerOffsets,

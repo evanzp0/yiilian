@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs::{File, OpenOptions}, io::{Read, Write}, path::PathBuf};
+use std::{collections::HashMap, fs::OpenOptions, io::{Read, Write}, path::PathBuf};
 
 use yiilian_core::common::error::Error;
 
@@ -29,7 +29,7 @@ impl ConsumerOffsets {
     pub fn remove(&mut self, key: &str) {
         self.inner.remove(key);
 
-        let rst = self.flush();
+        self.flush().ok();
     }
 
     pub fn set(&mut self, consumer_name: &str, offset: u64) {

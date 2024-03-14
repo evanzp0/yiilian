@@ -11,7 +11,10 @@ use super::{gen_mq_file_name, log_data::LogData, log_index::{LogIndex, LogIndexI
 
 pub struct ActiveSegment {
     offset: u64,
+
+    #[allow(unused)]
     base_path: PathBuf,
+    
     log_data: LogData,
     log_index: LogIndex,
 }

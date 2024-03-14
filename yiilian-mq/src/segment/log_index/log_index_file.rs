@@ -105,7 +105,7 @@ impl LogIndexFile {
 
 #[cfg(test)]
 mod tests {
-    use std::{fs::{self, OpenOptions}, io::Write, path::PathBuf, time::{Duration, SystemTime}};
+    use std::{fs::{self, OpenOptions}, io::Write, path::PathBuf};
 
     use bytes::{BufMut, Bytes, BytesMut};
 

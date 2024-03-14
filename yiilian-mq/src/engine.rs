@@ -5,7 +5,9 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use yiilian_core::common::error::Error;
+use std::time::Duration;
+use tokio::time::sleep;
+use yiilian_core::common::{error::Error, shutdown::{spawn_with_shutdown, ShutdownReceiver}};
 
 use crate::{message::{in_message::InMessage, Message}, topic::Topic};
 
@@ -15,7 +17,7 @@ pub struct Engine {
 }
 
 impl Engine {
-    pub fn new(path: PathBuf) -> Result<Self, Error> {
+    pub fn new(path: PathBuf, shutdown_rx: ShutdownReceiver) -> Result<Self, Error> {
         fs::create_dir_all(path.clone())
             .map_err(|error| Error::new_file(Some(error.into()), None))?;
 
@@ -43,7 +45,26 @@ impl Engine {
             }
         }
 
+        let topic_list: Vec<Arc<Mutex<Topic>>>  = topics.values().map(|v| v.clone()).collect(); 
+
+        spawn_with_shutdown(shutdown_rx, 
+            async move {
+                Engine::purge_loop(topic_list).await
+            }, 
+            "mq engine purge loop", 
+            None);
+
         Ok(Engine { path, topics })
+    }
+
+    async fn purge_loop(topic_list: Vec<Arc<Mutex<Topic>>>) {
+        loop {
+            for topic in &topic_list {
+                topic.lock().expect("lock topic").purge_segment();
+            }
+
+            sleep(Duration::from_secs(60)).await;
+        }
     }
 
     pub fn open_topic(&mut self, topic_name: &str) -> Result<Arc<Mutex<Topic>>, Error> {
