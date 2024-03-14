@@ -11,4 +11,4 @@ dht:
     - router.utorrent.com:6881
   block_ips: ["127.0.0.1"]
   ports: 
-    - 16500
+    - 20001
