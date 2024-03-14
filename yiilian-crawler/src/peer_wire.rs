@@ -49,12 +49,12 @@ impl PeerWire {
 
     pub async fn fetch_info(
         &self,
-        peer_address: SocketAddr,
+        target_address: SocketAddr,
         info_hash: &[u8],
-        peer_id: &[u8],
+        local_peer_id: &[u8],
     ) -> Result<BTreeMap<Bytes, BencodeData>, Error> {
         let metadata = self
-            .fetch_metdata(peer_address, &info_hash, &peer_id)
+            .fetch_metdata(target_address, &info_hash, &local_peer_id)
             .await
             .unwrap();
         let mut info = BytesMut::new();
@@ -67,16 +67,16 @@ impl PeerWire {
 
     pub async fn fetch_metdata(
         &self,
-        peer_address: SocketAddr,
+        target_address: SocketAddr,
         info_hash: &[u8],
-        peer_id: &[u8],
+        local_peer_id: &[u8],
     ) -> Result<Bytes, Error> {
-        let mut stream = TcpStream::connect(peer_address)
+        let mut stream = TcpStream::connect(target_address)
             .await
-            .map_err(|err| Error::new_net(Some(err.into()), None, Some(peer_address)))?;
+            .map_err(|err| Error::new_net(Some(err.into()), None, Some(target_address)))?;
 
         // 发送握手消息给对方
-        send_handshake(&mut stream, &info_hash, &peer_id).await?;
+        send_handshake(&mut stream, &info_hash, &local_peer_id).await?;
 
         // 接收对方回复的握手消息
         let rst = read_handshake(&mut stream).await.unwrap();

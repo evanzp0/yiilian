@@ -8,19 +8,19 @@ use yiilian_dht::common::Id;
 
 #[tokio::main]
 async fn main() {
-    let peer_address: SocketAddr = "192.168.31.6:15000".parse().unwrap();
+    let target_address: SocketAddr = "192.168.31.6:15000".parse().unwrap();
     let info_hash_str = "FA84A39C18D5960B0272D3E1D2A7900FB09F5EB3";
     let info_hash = hex::decode(info_hash_str)
         .map_err(|hex_err| Error::new_id(Some(hex_err.into()), None))
         .unwrap();
 
-    let peer_id = Id::from_random(&mut thread_rng()).get_bytes();
+    let local_peer_id = Id::from_random(&mut thread_rng()).get_bytes();
 
     println!("connected");
 
     let peer_wire = PeerWire::new();
     let info = peer_wire
-        .fetch_info(peer_address, &info_hash, &peer_id)
+        .fetch_info(target_address, &info_hash, &local_peer_id)
         .await
         .unwrap();
 
