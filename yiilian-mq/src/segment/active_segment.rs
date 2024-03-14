@@ -9,6 +9,7 @@ use crate::{message::Message, segment::{
 
 use super::{gen_mq_file_name, log_data::LogData, log_index::{LogIndex, LogIndexItem}};
 
+#[derive(Debug)]
 pub struct ActiveSegment {
     offset: u64,
 

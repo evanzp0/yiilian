@@ -5,11 +5,9 @@ use yiilian_mq::engine::Engine;
 
 #[tokio::main]
 async fn main() {
-    let mq_path = home::home_dir().unwrap().join(".yiilian/mq/");
-
     let (mut shutdown_tx, shutdown_rx) = create_shutdown();
 
-    let mut engine = Engine::new(mq_path, shutdown_rx).unwrap();
+    let mut engine = Engine::new(shutdown_rx).unwrap();
     let topic = engine.open_topic("info_hash").unwrap();
     // for i in 0..5 {
     //     let value = format!("value_{}", i);

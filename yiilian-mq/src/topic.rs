@@ -13,6 +13,7 @@ use crate::{
 
 const KEEP_SEGMENT_SECS: u64 = 24 * 60 * 60 * 3;
 
+#[derive(Debug)]
 pub struct Topic {
     #[allow(unused)]
     name: String,

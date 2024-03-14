@@ -1,9 +1,11 @@
-
 use std::{net::SocketAddr, path::Path, sync::Arc, time::Duration};
 
 use futures::future::join_all;
 
-use tokio::{sync::broadcast::{self, Sender}, time::sleep};
+use tokio::{
+    sync::broadcast::{self, Sender},
+    time::sleep,
+};
 use yiilian_core::{
     common::{
         error::Error,
@@ -15,8 +17,12 @@ use yiilian_core::{
 use yiilian_crawler::common::{Config, DEFAULT_CONFIG_FILE};
 use yiilian_crawler::event::RecvAnnounceListener;
 use yiilian_dht::{
-    common::SettingsBuilder, data::body::KrpcBody, dht::{Dht, DhtBuilder}, service::KrpcService
+    common::SettingsBuilder,
+    data::body::KrpcBody,
+    dht::{Dht, DhtBuilder},
+    service::KrpcService,
 };
+use yiilian_mq::engine::Engine;
 
 #[tokio::main]
 async fn main() {
@@ -25,7 +31,17 @@ async fn main() {
     let (mut shutdown_tx, shutdown_rx) = create_shutdown();
     let (tx, rx) = broadcast::channel(1024);
     let dht_list = create_dht_list(&config, shutdown_rx.clone(), tx).unwrap();
-    let mut announce_listener = RecvAnnounceListener::new(rx, shutdown_rx.clone());
+
+    let mq_engine = {
+        let mut engine = Engine::new(shutdown_rx.clone()).expect("create mq engine");
+        engine
+            .open_topic("info_hash")
+            .expect("open info_hash topic");
+
+        Arc::new(engine)
+    };
+
+    let mut announce_listener = RecvAnnounceListener::new(rx, mq_engine, shutdown_rx.clone());
 
     drop(shutdown_rx);
 
@@ -37,7 +53,7 @@ async fn main() {
                     println!("Listening at: {:?}", dht.local_addr);
                     futs.push(dht.run_loop());
                 }
-            
+
                 join_all(futs).await;
                 sleep(Duration::from_secs(10 * 60)).await;
                 log::info!("restart dht");
@@ -102,7 +118,12 @@ fn create_dht_list(
             let dht = DhtBuilder::new(local_addr, shutdown_rx.clone(), workers)
                 .block_list(block_ips.clone())
                 .settings(settings.clone())
-                .layer(FirewallLayer::new(firewall_max_trace, 20, firewall_max_block, shutdown_rx.clone()))
+                .layer(FirewallLayer::new(
+                    firewall_max_trace,
+                    20,
+                    firewall_max_block,
+                    shutdown_rx.clone(),
+                ))
                 .layer(EventLayer::new(tx.clone()))
                 .build()
                 .unwrap();
@@ -116,7 +137,12 @@ fn create_dht_list(
             let dht = DhtBuilder::new(local_addr, shutdown_rx.clone(), workers)
                 .block_list(block_ips.clone())
                 .settings(settings.clone())
-                .layer(FirewallLayer::new(10, 20, firewall_max_block, shutdown_rx.clone()))
+                .layer(FirewallLayer::new(
+                    10,
+                    20,
+                    firewall_max_block,
+                    shutdown_rx.clone(),
+                ))
                 .layer(EventLayer::new(tx.clone()))
                 .build()
                 .unwrap();

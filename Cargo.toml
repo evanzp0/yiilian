@@ -11,6 +11,7 @@ resolver = "2"
 [patch.crates-io]
 yiilian-core = { path = "./yiilian-core" }
 yiilian-dht = { path = "./yiilian-dht" }
+yiilian-mq = { path = "./yiilian-mq" }
 
 [profile.bench]
 lto = "fat"

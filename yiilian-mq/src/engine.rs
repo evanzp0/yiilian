@@ -11,13 +11,16 @@ use yiilian_core::common::{error::Error, shutdown::{spawn_with_shutdown, Shutdow
 
 use crate::{message::{in_message::InMessage, Message}, topic::Topic};
 
+#[derive(Debug)]
 pub struct Engine {
     path: PathBuf,
     topics: HashMap<String, Arc<Mutex<Topic>>>,
 }
 
 impl Engine {
-    pub fn new(path: PathBuf, shutdown_rx: ShutdownReceiver) -> Result<Self, Error> {
+    pub fn new(shutdown_rx: ShutdownReceiver) -> Result<Self, Error> {
+        let path: PathBuf = home::home_dir().unwrap().join(".yiilian/mq/");
+
         fs::create_dir_all(path.clone())
             .map_err(|error| Error::new_file(Some(error.into()), None))?;
 
@@ -89,15 +92,15 @@ impl Engine {
         Ok(self.topics.get(topic_name).unwrap().clone())
     }
 
-    pub fn push_message(&mut self, topic_name: &str, message: InMessage) -> Result<(), Error> {
-        if let Some(topic) = self.topics.get_mut(topic_name) {
+    pub fn push_message(&self, topic_name: &str, message: InMessage) -> Result<(), Error> {
+        if let Some(topic) = self.topics.get(topic_name) {
             topic.lock().expect("lock topic").push_message(message)
         } else {
             Err(Error::new_general("Not found topic"))
         }
     }
 
-    pub fn poll_message(&mut self, topic_name: &str, consumer_name: &str) -> Option<Message> {
+    pub fn poll_message(&self, topic_name: &str, consumer_name: &str) -> Option<Message> {
         if let Some(topic) = self.topics.get(topic_name) {
             let message = topic.lock().expect("lock topic").poll_message(consumer_name);
             

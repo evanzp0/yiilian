@@ -11,6 +11,7 @@ use yiilian_core::{
     data::Request,
 };
 use yiilian_dht::data::body::{BodyKind, KrpcBody, Query};
+use yiilian_mq::{engine::{self, Engine}, message::in_message::InMessage};
 
 const BLOOM_STATE_FILE: &str = "bloom_state.dat";
 
@@ -18,10 +19,11 @@ const BLOOM_STATE_FILE: &str = "bloom_state.dat";
 pub struct RecvAnnounceListener<T> {
     bloom: Arc<RwLock<Bloom<u64>>>,
     rx: Receiver<Arc<T>>,
+    mq_engine: Arc<Engine>,
 }
 
 impl RecvAnnounceListener<Request<KrpcBody>> {
-    pub fn new(rx: Receiver<Arc<Request<KrpcBody>>>, shutdown: ShutdownReceiver) -> Self {
+    pub fn new(rx: Receiver<Arc<Request<KrpcBody>>>, mq_engine: Arc<Engine>, shutdown: ShutdownReceiver) -> Self {
         let bloom = {
             match load_bloom() {
                 Ok(bloom) => bloom,
@@ -39,7 +41,7 @@ impl RecvAnnounceListener<Request<KrpcBody>> {
             }
         });
 
-        RecvAnnounceListener { rx, bloom }
+        RecvAnnounceListener { rx, bloom, mq_engine }
     }
 
     pub async fn listen(&mut self) {
@@ -64,18 +66,20 @@ impl RecvAnnounceListener<Request<KrpcBody>> {
                                     .expect_error("bloom.write() error")
                                     .set(&bloom_val);
 
-                                let port = match val.implied_port {
-                                    Some(p) if p == 0 => val.port,
-                                    _ => req.remote_addr.port(),
-                                };
+                                // let port = match val.implied_port {
+                                //     Some(p) if p == 0 => val.port,
+                                //     _ => req.remote_addr.port(),
+                                // };
 
-                                log::info!(
-                                    target: "yiilian_crawler::event::announce_listener",
-                                    "recv announce: {} {}:{}",
-                                    val.info_hash,
-                                    req.remote_addr.ip(),
-                                    port,
-                                );
+                                // log::info!(
+                                //     target: "yiilian_crawler::event::announce_listener",
+                                //     "recv announce: {} {}:{}",
+                                //     val.info_hash,
+                                //     req.remote_addr.ip(),
+                                //     port,
+                                // );
+
+                                self.mq_engine.push_message("info_hash", InMessage(val.info_hash.get_bytes())).ok();
                             }
                         }
                         _ => (),
