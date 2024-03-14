@@ -10,7 +10,7 @@ use yiilian_core::common::{error::Error, util::{atoi, binary_insert}};
 use crate::{
     consumer_offsets::ConsumerOffsets,
     message::{in_message::InMessage, Message, MESSAGE_PREFIX_LEN},
-    segment::{active_segment::ActiveSegment, poll_message},
+    segment::{active_segment::ActiveSegment, gen_mq_file_name, poll_message, LOG_DATA_FILE_EXTENSION, LOG_INDEX_FILE_EXTENSION},
 };
 
 const KEEP_SEGMENT_SECS: u64 = 60;
@@ -19,7 +19,7 @@ pub struct Topic {
     name: String,
     path: PathBuf,
     active_segment: ActiveSegment,
-    consumer_offsets: ConsumerOffsets,
+    consumers: ConsumerOffsets,
     segment_offsets: Vec<SegmentInfo>,
 }
 
@@ -70,21 +70,24 @@ impl Topic {
             p.push("_consumer_offsets");
             p
         };
-        let consumer_offsets_file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .open(&consumer_offsets_path)
-            .unwrap();
-        let consumer_offsets = ConsumerOffsets::new_from_file(consumer_offsets_file)?;
+
+        let consumer_offsets = ConsumerOffsets::new_from_file(consumer_offsets_path)?;
 
         Ok(Topic {
             name: name.to_owned(),
             path,
             active_segment,
-            consumer_offsets,
+            consumers: consumer_offsets,
             segment_offsets,
         })
+    }
+
+    pub fn consumer_offsets(&mut self) -> &mut ConsumerOffsets {
+        return &mut self.consumers
+    }
+
+    pub fn remove_consumer(&mut self, consumer_name: &str) {
+        self.consumers.remove(consumer_name)
     }
 
     pub fn segment_offsets(&self) -> &Vec<SegmentInfo> {
@@ -112,15 +115,23 @@ impl Topic {
 
     pub fn poll_message(&mut self, customer_name: &str) -> Option<Message> {
         let (segment_offset, target_offset) =
-            if let Some(mut target_offset) = self.consumer_offsets.get(customer_name) {
+            if let Some(mut target_offset) = self.consumers.get(customer_name) {
                 target_offset += 1;
 
                 // println!("{:?}", (self.get_segment_offset(target_offset), target_offset));
 
-                (self.get_segment_offset(target_offset), target_offset)
+                if let Some(segment_offset) = self.get_segment_offset(target_offset) {
+                    (segment_offset, target_offset)
+                } else {
+                    if let Some(segment_offset) = get_oldest_offset(&self.segment_offsets) {
+                        (segment_offset, segment_offset)
+                    } else {
+                        return None;
+                    }
+                }
             } else {
-                if let Some(segment_info) = self.segment_offsets.get(0) {
-                    (segment_info.offset, segment_info.offset)
+                if let Some(segment_offset) = get_oldest_offset(&self.segment_offsets) {
+                    (segment_offset, segment_offset)
                 } else {
                     return None;
                 }
@@ -128,7 +139,7 @@ impl Topic {
 
         if let Ok(message) = poll_message(&self.path, segment_offset, target_offset) {
             if message.is_some() {
-                self.consumer_offsets
+                self.consumers
                     .insert(customer_name, target_offset)
                     .ok();
             }
@@ -139,10 +150,11 @@ impl Topic {
         }
     }
 
-    pub fn get_segment_offset(&self, target_offset: u64) -> u64 {
-        get_nearest_offset(target_offset, &self.segment_offsets)
+    pub fn get_segment_offset(&self, target_offset: u64) -> Option<u64> {
+        get_floor_offset(target_offset, &self.segment_offsets)
     }
 
+    /// 删除过期文件
     pub fn purge_segment(&mut self) {
         let outdate_segments =
             find_outdate_segment(&self.segment_offsets, self.active_segment.offset());
@@ -150,13 +162,46 @@ impl Topic {
         self.segment_offsets
             .retain(|item| !outdate_segments.contains(&item.offset));
 
-        todo!()
+        for offset in outdate_segments {
+            let data_file_path = {
+                let file_name = gen_mq_file_name(offset, LOG_DATA_FILE_EXTENSION);
+                let mut base_path = self.path.clone();
+                base_path.push(file_name);
+                base_path
+            };
+
+            let index_file_path = {
+                let file_name = gen_mq_file_name(offset, LOG_INDEX_FILE_EXTENSION);
+                let mut base_path = self.path.clone();
+                base_path.push(file_name);
+                base_path
+            };
+
+            fs::remove_file(data_file_path).ok();
+            fs::remove_file(index_file_path).ok();
+        }
     }
 }
 
-fn get_nearest_offset(target_offset: u64, array: &Vec<SegmentInfo>) -> u64 {
+fn get_oldest_offset(array: &Vec<SegmentInfo>) -> Option<u64> {
     if array.len() == 0 {
-        return 0;
+        return None;
+    }
+
+    let mut oldest =array.first().expect("get oldest");
+
+    for item in array {
+        if item.mod_time < oldest.mod_time {
+            oldest = item;
+        }
+    }
+
+    Some(oldest.offset)
+}
+
+fn get_floor_offset(target_offset: u64, array: &Vec<SegmentInfo>) -> Option<u64> {
+    if array.len() == 0 {
+        return None;
     }
 
     let mut left: i32 = 0;
@@ -171,7 +216,7 @@ fn get_nearest_offset(target_offset: u64, array: &Vec<SegmentInfo>) -> u64 {
             .offset;
 
         if mid_offset == target_offset {
-            return mid_offset;
+            return Some(mid_offset);
         } else if mid_offset < target_offset {
             left = mid + 1;
         } else if mid_offset > target_offset {
@@ -179,14 +224,18 @@ fn get_nearest_offset(target_offset: u64, array: &Vec<SegmentInfo>) -> u64 {
         }
     }
 
-    let left = if left <= 0 { 0 } else { left - 1 };
+    let left = if left > 0 { 
+        left -1
+     } else { 
+        return None
+    };
 
     mid_offset = array
         .get(left as usize)
         .expect("Not found mid item in LogIndex")
         .offset;
 
-    mid_offset
+    Some(mid_offset)
 }
 
 fn find_outdate_segment(segment_infos: &Vec<SegmentInfo>, active_segment_offset: u64) -> Vec<u64> {
@@ -243,31 +292,24 @@ mod tests {
         let mod_time = SystemTime::now();
 
         let a = vec![
-            SegmentInfo::new(0, mod_time),
-            SegmentInfo::new(2, mod_time),
-            SegmentInfo::new(4, mod_time),
-        ];
-
-        let rst = get_nearest_offset(3, &a);
-        assert_eq!(2, rst);
-
-        let rst = get_nearest_offset(1, &a);
-        assert_eq!(0, rst);
-
-        let rst = get_nearest_offset(5, &a);
-        assert_eq!(4, rst);
-
-        let rst = get_nearest_offset(9, &a);
-        assert_eq!(4, rst);
-
-        let a = vec![
             SegmentInfo::new(2, mod_time),
             SegmentInfo::new(4, mod_time),
             SegmentInfo::new(6, mod_time),
+            SegmentInfo::new(8, mod_time),
+            SegmentInfo::new(10, mod_time),
         ];
 
-        let rst = get_nearest_offset(1, &a);
-        assert_eq!(2, rst);
+        let rst = get_floor_offset(3, &a);
+        assert_eq!(2, rst.unwrap());
+
+        let rst = get_floor_offset(1, &a);
+        assert_eq!(None, rst);
+
+        let rst = get_floor_offset(5, &a);
+        assert_eq!(4, rst.unwrap());
+
+        let rst = get_floor_offset(17, &a);
+        assert_eq!(10, rst.unwrap());
     }
 
     #[test]
@@ -284,5 +326,21 @@ mod tests {
         let rst = find_outdate_segment(&segment_infos, 4);
 
         assert_eq!(2, rst.len())
+    }
+
+    #[test]
+    fn test_get_oldest_offset() {
+        let mod_time = SystemTime::now();
+
+        let segment_infos = vec![
+            SegmentInfo::new(0, mod_time - Duration::from_secs(10 * KEEP_SEGMENT_SECS)),
+            SegmentInfo::new(2, mod_time - Duration::from_secs(20* KEEP_SEGMENT_SECS)),
+            SegmentInfo::new(4, mod_time - Duration::from_secs(5 * KEEP_SEGMENT_SECS)),
+            SegmentInfo::new(5, mod_time),
+        ];
+
+        let rst = get_oldest_offset(&segment_infos);
+
+        assert_eq!(2, rst.unwrap());
     }
 }

@@ -1,12 +1,17 @@
-use std::{collections::HashMap, fs, path::PathBuf};
+use std::{
+    collections::HashMap,
+    fs,
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
 
 use yiilian_core::common::error::Error;
 
-use crate::{message::in_message::InMessage, topic::Topic};
+use crate::{message::{in_message::InMessage, Message}, topic::Topic};
 
 pub struct Engine {
     path: PathBuf,
-    topics: HashMap<String, Topic>,
+    topics: HashMap<String, Arc<Mutex<Topic>>>,
 }
 
 impl Engine {
@@ -33,7 +38,7 @@ impl Engine {
 
                     let topic = Topic::new(topic_name, topic_path)?;
 
-                    topics.insert(topic_name.to_owned(), topic);
+                    topics.insert(topic_name.to_owned(), Arc::new(Mutex::new(topic)));
                 }
             }
         }
@@ -41,9 +46,9 @@ impl Engine {
         Ok(Engine { path, topics })
     }
 
-    pub fn open_topic(&mut self, topic_name: &str) -> Result<&mut Topic, Error> {
+    pub fn open_topic(&mut self, topic_name: &str) -> Result<Arc<Mutex<Topic>>, Error> {
         if self.topics.contains_key(topic_name) {
-            let topic = self.topics.get_mut(topic_name).unwrap();
+            let topic = self.topics.get(topic_name).expect("get topic").clone();
             return Ok(topic);
         }
 
@@ -58,17 +63,26 @@ impl Engine {
 
         let topic = Topic::new(topic_name, topic_path)?;
 
-        self.topics.insert(topic_name.to_owned(), topic);
+        self.topics.insert(topic_name.to_owned(), Arc::new(Mutex::new(topic)));
 
-        Ok(self.topics.get_mut(topic_name).unwrap())
+        Ok(self.topics.get(topic_name).unwrap().clone())
     }
 
     pub fn push_message(&mut self, topic_name: &str, message: InMessage) -> Result<(), Error> {
-
         if let Some(topic) = self.topics.get_mut(topic_name) {
-            topic.push_message(message)
+            topic.lock().expect("lock topic").push_message(message)
         } else {
             Err(Error::new_general("Not found topic"))
+        }
+    }
+
+    pub fn poll_message(&mut self, topic_name: &str, consumer_name: &str) -> Option<Message> {
+        if let Some(topic) = self.topics.get(topic_name) {
+            let message = topic.lock().expect("lock topic").poll_message(consumer_name);
+            
+            message
+        } else {
+            None
         }
     }
 }

@@ -73,7 +73,7 @@ pub fn poll_message(
     let mut log_data_file = LogDataFile::new(segment_offset, data_file)?;
 
     if let Some(index_item) = index_item {
-        let message = log_data_file.get_message(target_offset, index_item.message_pos());
+        let message = log_data_file.get_message(index_item.message_offset(), index_item.message_pos());
 
         Ok(message)
     } else {

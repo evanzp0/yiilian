@@ -77,12 +77,17 @@ impl LogIndexFile {
     }
 
     pub fn get_by_offset(&mut self, target_offset: u64) -> Option<LogIndexItem> {
-        let mut left = 0;
-        let mut right = self.count() - 1;
+
+        if self.len() == 0 {
+            return None;
+        }
+
+        let mut left: i32 = 0;
+        let mut right: i32 = (self.count() - 1) as i32;
 
         while left <= right {
             let mid = left + (right - left) / 2;
-            let mid_item = self.get(mid).expect("Not found mid item in LogIndex");
+            let mid_item = self.get(mid as usize).expect("Not found mid item in LogIndex");
 
             if mid_item.message_offset() == target_offset {
                 return Some(mid_item)
