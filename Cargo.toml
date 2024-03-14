@@ -5,6 +5,7 @@ members = [
     "yiilian-dht", 
     "yiilian-crawler", 
     "yiilian-mq", 
+    "yiilian-bt", 
 ]
 resolver = "2"
 
@@ -12,6 +13,7 @@ resolver = "2"
 yiilian-core = { path = "./yiilian-core" }
 yiilian-dht = { path = "./yiilian-dht" }
 yiilian-mq = { path = "./yiilian-mq" }
+yiilian-bt = { path = "./yiilian-bt" }
 
 [profile.bench]
 lto = "fat"

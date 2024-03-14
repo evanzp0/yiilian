@@ -1,0 +1,25 @@
+appenders:
+  stdout:
+    kind: console
+    encoder:
+      pattern: "[{d(%Y-%m-%d %H:%M:%S)} {h({l})} {t}] {m}{n}"
+  log_file:
+    kind: rolling_file
+    path: "log/bt.log"
+    policy:
+      kind: compound
+      trigger:
+        kind: size
+        limit: 10 mb
+      roller:
+        kind: delete
+root:
+  level: trace
+  appenders:
+    - stdout
+loggers:
+  yiilian_core::service::firewall_service:
+    level: info
+    appenders:
+      - stdout
+    additive: false
