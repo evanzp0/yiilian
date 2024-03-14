@@ -243,6 +243,17 @@ pub fn hash_it<T: Hash>(name: T) -> u64 {
     hasher.finish()
 }
 
+pub fn binary_insert<T: Ord>(containers: &mut Vec<T>, item: T, dup: bool) {
+    match containers.binary_search(&item) {
+        Ok(pos) => {
+            if dup {
+                containers.insert(pos, item)
+            }
+        }
+        Err(pos) => containers.insert(pos, item),
+    }
+}
+
 #[cfg(test)]
 mod test {
     use std::collections::BTreeMap;
@@ -284,5 +295,22 @@ mod test {
     fn test_atoi() {
         let num: u64 = atoi(b"000012").unwrap();
         assert_eq!(12, num);
+    }
+
+    #[test]
+    fn test_binary_insert() {
+        let mut array = vec![];
+
+        binary_insert(&mut array, 2, false);
+        binary_insert(&mut array, 2, false);
+        binary_insert(&mut array, 0, false);
+        binary_insert(&mut array, 5, false);
+
+        assert_eq!(0, *array.get(0).unwrap());
+        assert_eq!(2, *array.get(1).unwrap());
+        assert_eq!(5, *array.get(2).unwrap());
+
+        binary_insert(&mut array, 2, true);
+        assert_eq!(2, *array.get(2).unwrap());
     }
 }
