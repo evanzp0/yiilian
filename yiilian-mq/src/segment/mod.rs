@@ -13,8 +13,8 @@ pub const LOG_DATA_FILE_EXTENSION: &str = "log";
 pub const LOG_INDEX_FILE_EXTENSION: &str = "index";
 pub const TIME_INDEX_FILE_EXTENSION: &str = "timeindex";
 
-// const  LOG_DATA_SIZE: usize = 10 * 1024 * 1024;
-const LOG_DATA_SIZE: usize = 100;
+const  LOG_DATA_SIZE: usize = 10 * 1024 * 1024;
+// const LOG_DATA_SIZE: usize = 100;
 
 pub struct Segment {
     // length: usize,
