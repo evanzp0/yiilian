@@ -5,7 +5,7 @@ use std::{net::IpAddr, fs, collections::HashSet};
 use serde::{Deserialize, Serialize};
 use yiilian_core::{net::block_list::BlockAddr, common::util::atoi};
 
-pub const DEFAULT_CONFIG_FILE: &str = "yiilian-crawler.yml";
+pub const DEFAULT_CONFIG_FILE: &str = "yiilian-bt.yml";
 
 #[derive(Deserialize, Default, Debug)]
 pub struct Config {
