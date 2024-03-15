@@ -10,7 +10,7 @@ use yiilian_core::{
 };
 use yiilian_dht::common::Id;
 
-use crate::{
+use crate::bt::{
     data::frame::{
         extension::{
             ExtensionHeader, UtMetadata, METADATA_PIECE_BLOCK, UT_METADATA_ID, UT_METADATA_NAME,

@@ -5,8 +5,8 @@ use bytes::Bytes;
 use rand::thread_rng;
 use utp::UtpStream;
 use yiilian_core::common::error::Error;
-use yiilian_dl::data::frame::{Handshake, MESSAGE_EXTENSION_ENABLE};
-use yiilian_dl::net::utp::read_all;
+use yiilian_dl::bt::data::frame::{Handshake, MESSAGE_EXTENSION_ENABLE};
+use yiilian_dl::bt::net::utp::read_all;
 use yiilian_dht::common::Id;
 
 #[tokio::main]

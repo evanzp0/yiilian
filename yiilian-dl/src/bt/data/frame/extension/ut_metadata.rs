@@ -6,7 +6,7 @@ use yiilian_core::{
     data::{decode_dict, BencodeData, Encode},
 };
 
-use crate::data::frame::PeerMessage;
+use crate::bt::data::frame::PeerMessage;
 
 pub const UT_METADATA_NAME: &str = "ut_metadata";
 pub const UT_METADATA_ID: u8 = 1;

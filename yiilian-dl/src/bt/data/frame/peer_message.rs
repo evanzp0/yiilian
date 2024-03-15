@@ -308,7 +308,7 @@ impl From<PeerMessage> for Bytes {
 mod tests {
     use bytes::Bytes;
 
-    use crate::data::frame::PeerMessage;
+    use crate::bt::data::frame::PeerMessage;
 
     #[test]
     fn test_verify() {

@@ -8,13 +8,13 @@ use yiilian_core::{net::block_list::BlockAddr, common::util::atoi};
 pub const DEFAULT_CONFIG_FILE: &str = "yiilian-bt.yml";
 
 #[derive(Deserialize, Default, Debug)]
-pub struct Config {
+pub struct BtConfig {
     pub dht: DhtConfig,
 }
 
-impl Config {
+impl BtConfig {
     pub fn new() -> Self {
-        Config::default()
+        BtConfig::default()
     }
 
     pub fn from_file(cfg_file: &str) -> Self {
@@ -61,11 +61,11 @@ pub struct FirewallConfig {
 
 #[cfg(test)]
 mod tests {
-    use super::{Config, DEFAULT_CONFIG_FILE};
+    use super::{BtConfig, DEFAULT_CONFIG_FILE};
 
     #[test]
     fn test() {
-        let config = Config::from_file(DEFAULT_CONFIG_FILE);
+        let config = BtConfig::from_file(DEFAULT_CONFIG_FILE);
 
         println!("{:?}", config)
     }

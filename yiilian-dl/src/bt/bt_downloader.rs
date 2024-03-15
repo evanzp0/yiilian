@@ -7,9 +7,9 @@ use yiilian_dht::common::SettingsBuilder;
 use yiilian_dht::dht::DhtBuilder;
 use yiilian_dht::service::RouterService;
 use yiilian_dht::dht::Dht;
-use crate::common::Config;
+use crate::bt::common::BtConfig;
 
-use crate::common::DEFAULT_CONFIG_FILE;
+use crate::bt::common::DEFAULT_CONFIG_FILE;
 
 pub struct BtDownloader {
     dht: Dht<FirewallService<RouterService>>
@@ -18,7 +18,7 @@ pub struct BtDownloader {
 impl BtDownloader
 {
     pub fn new(shutdown_rx: ShutdownReceiver) -> Self {
-        let config = Config::from_file(DEFAULT_CONFIG_FILE);
+        let config = BtConfig::from_file(DEFAULT_CONFIG_FILE);
         let dht = create_dht(&config, shutdown_rx.clone()).unwrap();
 
         BtDownloader {
@@ -28,7 +28,7 @@ impl BtDownloader
 }
 
 fn create_dht(
-    config: &Config,
+    config: &BtConfig,
     shutdown_rx: ShutdownReceiver,
 ) -> Result<
     Dht<FirewallService<RouterService>>,
