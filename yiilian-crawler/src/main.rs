@@ -79,9 +79,7 @@ fn create_dht_list(
     shutdown_rx: ShutdownReceiver,
     tx: Sender<Arc<Request<KrpcBody>>>,
 ) -> Result<
-    Vec<
-        Dht<impl KrpcService<KrpcBody, ResBody = KrpcBody, Error = Error> + Clone + Send + 'static>,
-    >,
+    Vec<Dht<impl KrpcService<KrpcBody, ResBody = KrpcBody, Error = Error> + Clone + Send + 'static>>,
     Error,
 > {
     let mut dht_list = vec![];
