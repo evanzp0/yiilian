@@ -36,7 +36,7 @@ fn create_dht(
     Dht<FirewallService<RouterService>>,
     Error,
 > {
-    let ports = &config.dht.ports;
+    let port = &config.dht.port;
     let block_ips = config.get_dht_block_list();
     let workers = config.dht.workers;
 
@@ -59,24 +59,20 @@ fn create_dht(
         }
     };
     
-    if ports.len() >= 1 {
-        let port = ports[0];
-        let local_addr: SocketAddr = format!("0.0.0.0:{port}").parse().unwrap();
+    let local_addr: SocketAddr = format!("0.0.0.0:{port}").parse().unwrap();
 
-        let dht = DhtBuilder::new(local_addr, shutdown_rx.clone(), workers)
-            .block_list(block_ips.clone())
-            .settings(settings.clone())
-            .layer(FirewallLayer::new(
-                firewall_max_trace,
-                20,
-                firewall_max_block,
-                shutdown_rx.clone(),
-            ))
-            .build()
-            .unwrap();
+    let dht = DhtBuilder::new(local_addr, shutdown_rx.clone(), workers)
+        .block_list(block_ips.clone())
+        .settings(settings.clone())
+        .layer(FirewallLayer::new(
+            firewall_max_trace,
+            20,
+            firewall_max_block,
+            shutdown_rx.clone(),
+        ))
+        .build()
+        .unwrap();
 
-        Ok(dht)
-    } else {
-        Err(Error::new_general("Bt DHT port not config"))
-    }
+    Ok(dht)
+
 }

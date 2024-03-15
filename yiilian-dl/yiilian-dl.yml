@@ -1,14 +1,14 @@
-dht:
-  workers: 1000
-  firewall:
-    max_trace: 500
-    max_block: 1000
-  routers:
-    # - 127.0.0.1:6111
-    # - 87.98.162.88:6881
-    - dht.transmissionbt.com:6881
-    - router.bittorrent.com:6881
-    - router.utorrent.com:6881
-  block_ips: ["127.0.0.1"]
-  ports: 
-    - 20001
+bt:
+  dht:
+    workers: 1000
+    firewall:
+      max_trace: 500
+      max_block: 1000
+    routers:
+      # - 127.0.0.1:6111
+      # - 87.98.162.88:6881
+      - dht.transmissionbt.com:6881
+      - router.bittorrent.com:6881
+      - router.utorrent.com:6881
+    block_ips: ["127.0.0.1"]
+    port: 20001

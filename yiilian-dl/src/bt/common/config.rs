@@ -48,7 +48,7 @@ impl BtConfig {
 pub struct DhtConfig {
     pub routers: Option<Vec<String>>,
     pub block_ips: Option<Vec<String>>,
-    pub ports: Vec<u16>,
+    pub port: u16,
     pub workers: Option<usize>,
     pub firewall: Option<FirewallConfig>,
 }
