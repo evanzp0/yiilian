@@ -2,29 +2,28 @@ use std::net::SocketAddr;
 
 use yiilian_core::common::error::Error;
 use yiilian_core::common::shutdown::ShutdownReceiver;
-use yiilian_core::service::FirewallLayer;
+use yiilian_core::service::{FirewallLayer, FirewallService};
 use yiilian_dht::common::SettingsBuilder;
 use yiilian_dht::dht::DhtBuilder;
-use yiilian_dht::{
-    data::body::KrpcBody,
-    dht::Dht,
-    service::KrpcService,
-};
+use yiilian_dht::service::RouterService;
+use yiilian_dht::dht::Dht;
 use crate::common::Config;
 
 use crate::common::DEFAULT_CONFIG_FILE;
 
-
-pub struct BtDownloader<S> {
-    dht: Dht<S>
+pub struct BtDownloader {
+    dht: Dht<FirewallService<RouterService>>
 }
 
-impl<S> BtDownloader<S> {
+impl BtDownloader
+{
     pub fn new(shutdown_rx: ShutdownReceiver) -> Self {
         let config = Config::from_file(DEFAULT_CONFIG_FILE);
         let dht = create_dht(&config, shutdown_rx.clone()).unwrap();
 
-        todo!()
+        BtDownloader {
+            dht
+        }
     }
 }
 
@@ -32,7 +31,7 @@ fn create_dht(
     config: &Config,
     shutdown_rx: ShutdownReceiver,
 ) -> Result<
-    Dht<impl KrpcService<KrpcBody, ResBody = KrpcBody, Error = Error> + Clone + Send + 'static>,
+    Dht<FirewallService<RouterService>>,
     Error,
 > {
     let ports = &config.dht.ports;
