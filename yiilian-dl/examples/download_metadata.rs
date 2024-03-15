@@ -3,7 +3,7 @@ use std::{fs::File, io::Write, net::SocketAddr};
 use rand::thread_rng;
 use yiilian_core::{common::error::Error, data::Encode};
 
-use yiilian_bt::peer_wire::PeerWire;
+use yiilian_dl::peer_wire::PeerWire;
 use yiilian_dht::common::Id;
 
 #[tokio::main]

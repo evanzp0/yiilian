@@ -4,7 +4,7 @@ use bytes::Bytes;
 use rand::thread_rng;
 use utp_rs::conn::ConnectionConfig;
 use utp_rs::socket::UtpSocket;
-use yiilian_bt::data::frame::{Handshake, MESSAGE_EXTENSION_ENABLE};
+use yiilian_dl::data::frame::{Handshake, MESSAGE_EXTENSION_ENABLE};
 use yiilian_dht::common::Id;
 
 #[tokio::main]
