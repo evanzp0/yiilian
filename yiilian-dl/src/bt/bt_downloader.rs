@@ -1,5 +1,6 @@
 use std::net::SocketAddr;
 
+use tokio::sync::broadcast::Sender;
 use tokio::sync::oneshot::Receiver;
 use yiilian_core::common::error::Error;
 use yiilian_core::common::shutdown::ShutdownReceiver;
@@ -9,22 +10,24 @@ use yiilian_dht::dht::DhtBuilder;
 use yiilian_dht::service::RouterService;
 use yiilian_dht::dht::Dht;
 use crate::bt::common::BtConfig;
-
-use super::bt_command::BtCommand;
+use crate::command::Command;
+use crate::event::Event;
 
 pub struct BtDownloader {
     dht: Dht<FirewallService<RouterService>>,
-    cmd_rx: Receiver<BtCommand>,
+    cmd_rx: Receiver<Command>,
+    event_tx: Sender<Event>,
 }
 
 impl BtDownloader
 {
-    pub fn new(config: BtConfig, cmd_rx: Receiver<BtCommand>, shutdown_rx: ShutdownReceiver) -> Self {
+    pub fn new(config: BtConfig, cmd_rx: Receiver<Command>, event_tx: Sender<Event>, shutdown_rx: ShutdownReceiver) -> Self {
         let dht = create_dht(&config, shutdown_rx.clone()).unwrap();
 
         BtDownloader {
             dht,
-            cmd_rx
+            cmd_rx,
+            event_tx,
         }
     }
 }
