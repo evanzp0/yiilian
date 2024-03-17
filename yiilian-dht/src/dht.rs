@@ -540,6 +540,15 @@ where
             .expect_error("dht_ctx_state.read() failed")
             .token_secret = new_token_secret;
     }
+
+    pub async fn get_peers(
+        &self, 
+        info_hash: Id,
+    ) -> Result<GetPeersResult, Error> {
+        dht_ctx_trans_mgr(self.ctx_index)
+            .get_peers(info_hash, true)
+            .await
+    }
 }
 
 fn build_routing_table(

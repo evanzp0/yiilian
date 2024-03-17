@@ -33,8 +33,13 @@ impl BtDownloader {
         self.event_tx.subscribe()
     }
 
-    pub fn download_meta(&self, info_hash: Id) {
+    pub async fn download_meta(&self, info_hash: Id) -> Result<(), Error> {
+        let rst = self.dht.get_peers(info_hash).await?;
 
+        for peer in rst.peers() {
+            
+        }
+        
         todo!()
     }
 }
