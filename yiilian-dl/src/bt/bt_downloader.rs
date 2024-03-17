@@ -13,7 +13,6 @@ use yiilian_dht::service::RouterService;
 
 pub struct BtDownloader {
     dht: Dht<FirewallService<RouterService>>,
-    event_tx: Sender<Event>,
 }
 
 impl BtDownloader {
@@ -23,21 +22,14 @@ impl BtDownloader {
     ) -> Result<Self, Error> {
         let dht = create_dht(&config, shutdown_rx.clone())?;
 
-        let (event_tx, _) = broadcast::channel::<Event>(100);
-
-        Ok(BtDownloader { dht, event_tx })
-    }
-
-    /// 订阅事件通知
-    pub fn subscribe(&self) -> Receiver<Event> {
-        self.event_tx.subscribe()
+        Ok(BtDownloader { dht })
     }
 
     pub async fn download_meta(&self, info_hash: Id) -> Result<(), Error> {
         let rst = self.dht.get_peers(info_hash).await?;
 
         for peer in rst.peers() {
-            
+
         }
         
         todo!()
