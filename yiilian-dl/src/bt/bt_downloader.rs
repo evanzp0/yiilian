@@ -1,10 +1,15 @@
+use std::collections::BTreeMap;
 use std::net::SocketAddr;
 
 use crate::bt::common::BtConfig;
+use crate::bt::peer_wire::PeerWire;
 use crate::event::Event;
+use bytes::Bytes;
+use rand::thread_rng;
 use tokio::sync::broadcast::{self, Receiver, Sender};
 use yiilian_core::common::error::Error;
 use yiilian_core::common::shutdown::ShutdownReceiver;
+use yiilian_core::data::BencodeData;
 use yiilian_core::service::{FirewallLayer, FirewallService};
 use yiilian_dht::common::{Id, SettingsBuilder};
 use yiilian_dht::dht::Dht;
@@ -13,6 +18,7 @@ use yiilian_dht::service::RouterService;
 
 pub struct BtDownloader {
     dht: Dht<FirewallService<RouterService>>,
+    local_id: Bytes,
 }
 
 impl BtDownloader {
@@ -21,18 +27,24 @@ impl BtDownloader {
         shutdown_rx: ShutdownReceiver,
     ) -> Result<Self, Error> {
         let dht = create_dht(&config, shutdown_rx.clone())?;
+        let local_id = Id::from_random(&mut thread_rng()).get_bytes();
 
-        Ok(BtDownloader { dht })
+        Ok(BtDownloader { dht, local_id })
     }
 
-    pub async fn download_meta(&self, info_hash: Id) -> Result<(), Error> {
-        let rst = self.dht.get_peers(info_hash).await?;
+    pub async fn download_meta(&self, info_hash: &[u8],) -> Result<Option<BTreeMap<Bytes, BencodeData>>, Error> {
+        let rst = self.dht.get_peers(info_hash.try_into()?).await?;
 
         for peer in rst.peers() {
+            let peer_wire = PeerWire::new();
+            let info = peer_wire
+                .fetch_info(*peer, info_hash, &self.local_id)
+                .await?;
 
+            return Ok(Some(info))
         }
-        
-        todo!()
+
+        Ok(None)
     }
 }
 
