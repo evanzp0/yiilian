@@ -3,10 +3,8 @@ use std::net::SocketAddr;
 
 use crate::bt::common::BtConfig;
 use crate::bt::peer_wire::PeerWire;
-use crate::event::Event;
 use bytes::Bytes;
 use rand::thread_rng;
-use tokio::sync::broadcast::{self, Receiver, Sender};
 use yiilian_core::common::error::Error;
 use yiilian_core::common::shutdown::ShutdownReceiver;
 use yiilian_core::data::BencodeData;
