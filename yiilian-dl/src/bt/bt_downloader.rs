@@ -28,6 +28,7 @@ impl BtDownloader {
         Ok(BtDownloader { dht, event_tx })
     }
 
+    /// 订阅事件通知
     pub fn subscribe(&self) -> Receiver<Event> {
         self.event_tx.subscribe()
     }
