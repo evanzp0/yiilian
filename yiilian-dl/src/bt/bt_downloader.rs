@@ -1,44 +1,42 @@
 use std::net::SocketAddr;
 
-use tokio::sync::broadcast::Sender;
-use tokio::sync::oneshot::Receiver;
+use crate::bt::common::BtConfig;
+use crate::event::Event;
+use tokio::sync::broadcast::{self, Receiver, Sender};
 use yiilian_core::common::error::Error;
 use yiilian_core::common::shutdown::ShutdownReceiver;
 use yiilian_core::service::{FirewallLayer, FirewallService};
 use yiilian_dht::common::SettingsBuilder;
+use yiilian_dht::dht::Dht;
 use yiilian_dht::dht::DhtBuilder;
 use yiilian_dht::service::RouterService;
-use yiilian_dht::dht::Dht;
-use crate::bt::common::BtConfig;
-use crate::command::Command;
-use crate::event::Event;
 
 pub struct BtDownloader {
     dht: Dht<FirewallService<RouterService>>,
-    cmd_rx: Receiver<Command>,
     event_tx: Sender<Event>,
 }
 
-impl BtDownloader
-{
-    pub fn new(config: BtConfig, cmd_rx: Receiver<Command>, event_tx: Sender<Event>, shutdown_rx: ShutdownReceiver) -> Self {
-        let dht = create_dht(&config, shutdown_rx.clone()).unwrap();
+impl BtDownloader {
+    pub fn new(
+        config: BtConfig,
+        shutdown_rx: ShutdownReceiver,
+    ) -> Result<Self, Error> {
+        let dht = create_dht(&config, shutdown_rx.clone())?;
 
-        BtDownloader {
-            dht,
-            cmd_rx,
-            event_tx,
-        }
+        let (event_tx, _) = broadcast::channel::<Event>(100);
+
+        Ok(BtDownloader { dht, event_tx })
+    }
+
+    pub fn subscribe(&self) -> Receiver<Event> {
+        self.event_tx.subscribe()
     }
 }
 
 fn create_dht(
     config: &BtConfig,
     shutdown_rx: ShutdownReceiver,
-) -> Result<
-    Dht<FirewallService<RouterService>>,
-    Error,
-> {
+) -> Result<Dht<FirewallService<RouterService>>, Error> {
     let port = &config.dht.port;
     let block_ips = config.get_dht_block_list();
     let workers = config.dht.workers;
@@ -61,7 +59,7 @@ fn create_dht(
             (500, 1000)
         }
     };
-    
+
     let local_addr: SocketAddr = format!("0.0.0.0:{port}").parse().unwrap();
 
     let dht = DhtBuilder::new(local_addr, shutdown_rx.clone(), workers)
@@ -77,5 +75,4 @@ fn create_dht(
         .unwrap();
 
     Ok(dht)
-
 }
