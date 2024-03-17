@@ -6,7 +6,7 @@ use tokio::sync::broadcast::{self, Receiver, Sender};
 use yiilian_core::common::error::Error;
 use yiilian_core::common::shutdown::ShutdownReceiver;
 use yiilian_core::service::{FirewallLayer, FirewallService};
-use yiilian_dht::common::SettingsBuilder;
+use yiilian_dht::common::{Id, SettingsBuilder};
 use yiilian_dht::dht::Dht;
 use yiilian_dht::dht::DhtBuilder;
 use yiilian_dht::service::RouterService;
@@ -31,6 +31,11 @@ impl BtDownloader {
     /// 订阅事件通知
     pub fn subscribe(&self) -> Receiver<Event> {
         self.event_tx.subscribe()
+    }
+
+    pub fn download_meta(&self, info_hash: Id) {
+
+        todo!()
     }
 }
 
