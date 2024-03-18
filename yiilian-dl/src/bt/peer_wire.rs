@@ -44,7 +44,7 @@ impl PeerWire {
             .await
             .map_err(|error| Error::new_net(Some(error.into()), None, Some(peer_address)))?;
 
-        todo!()
+        Ok(())
     }
 
     pub async fn fetch_info(
@@ -55,8 +55,7 @@ impl PeerWire {
     ) -> Result<BTreeMap<Bytes, BencodeData>, Error> {
         let metadata = self
             .fetch_metdata(target_address, &info_hash, &local_peer_id)
-            .await
-            .unwrap();
+            .await?;
         let mut info = BytesMut::new();
         info.put(&b"d4:info"[..]);
         info.extend(metadata);
@@ -79,7 +78,7 @@ impl PeerWire {
         send_handshake(&mut stream, &info_hash, &local_peer_id).await?;
 
         // 接收对方回复的握手消息
-        let rst = read_handshake(&mut stream).await.unwrap();
+        let rst = read_handshake(&mut stream).await.map_err(|error| Error::new_net(Some(error.into()), None, Some(target_address)))?;
 
         // 校验对方握手消息
         if !Handshake::verify(&rst) {

@@ -1,15 +1,19 @@
 use std::collections::BTreeMap;
+use std::fs::File;
+use std::io::Write;
 use std::net::SocketAddr;
+use std::path::PathBuf;
 
 use crate::bt::common::BtConfig;
 use crate::bt::peer_wire::PeerWire;
 use bytes::Bytes;
+use hex::ToHex;
 use rand::thread_rng;
 use yiilian_core::common::error::Error;
 use yiilian_core::common::shutdown::ShutdownReceiver;
-use yiilian_core::data::BencodeData;
+use yiilian_core::data::{BencodeData, Encode};
 use yiilian_core::service::{FirewallLayer, FirewallService};
-use yiilian_dht::common::{Id, SettingsBuilder};
+use yiilian_dht::common::{Id, SettingsBuilder, ID_SIZE};
 use yiilian_dht::dht::Dht;
 use yiilian_dht::dht::DhtBuilder;
 use yiilian_dht::service::RouterService;
@@ -17,32 +21,111 @@ use yiilian_dht::service::RouterService;
 pub struct BtDownloader {
     dht: Dht<FirewallService<RouterService>>,
     local_id: Bytes,
+    download_dir: PathBuf,
 }
 
 impl BtDownloader {
     pub fn new(
-        config: BtConfig,
+        config: &BtConfig,
+        download_dir: PathBuf,
         shutdown_rx: ShutdownReceiver,
     ) -> Result<Self, Error> {
-        let dht = create_dht(&config, shutdown_rx.clone())?;
+        let dht = create_dht(&config, shutdown_rx)?;
         let local_id = Id::from_random(&mut thread_rng()).get_bytes();
 
-        Ok(BtDownloader { dht, local_id })
+        Ok(BtDownloader {
+            dht,
+            local_id,
+            download_dir,
+        })
     }
 
-    pub async fn download_meta(&self, info_hash: &[u8],) -> Result<Option<BTreeMap<Bytes, BencodeData>>, Error> {
-        let rst = self.dht.get_peers(info_hash.try_into()?).await?;
+    pub async fn run_loop(&self) {
+        self.dht.run_loop().await
+    }
+
+    pub async fn fetch_meta(
+        &self,
+        info_hash: &[u8; ID_SIZE],
+    ) -> Result<Option<BTreeMap<Bytes, BencodeData>>, Error> {
+        let rst = self.dht.get_peers(Id::new(*info_hash)).await?;
 
         for peer in rst.peers() {
             let peer_wire = PeerWire::new();
-            let info = peer_wire
-                .fetch_info(*peer, info_hash, &self.local_id)
-                .await?;
-
-            return Ok(Some(info))
+            match peer_wire.fetch_info(*peer, info_hash, &self.local_id).await {
+                Ok(info) => return Ok(Some(info)),
+                Err(error) => {
+                    println!("{:?}", error);
+                }
+            };
         }
 
         Ok(None)
+    }
+
+    pub async fn fetch_meta_from_target(
+        &self,
+        target_addr: SocketAddr,
+        info_hash: &[u8; ID_SIZE],
+    ) -> Result<Option<BTreeMap<Bytes, BencodeData>>, Error> {
+        let peer_wire = PeerWire::new();
+
+        match peer_wire
+            .fetch_info(target_addr, info_hash, &self.local_id)
+            .await
+        {
+            Ok(info) => return Ok(Some(info)),
+            Err(error) => {
+                println!("{:?}", error);
+            }
+        };
+
+        Ok(None)
+    }
+
+    pub async fn download_meta_from_target(
+        &self,
+        target_addr: SocketAddr,
+        info_hash: &[u8; ID_SIZE],
+    ) -> Result<Option<[u8; ID_SIZE]>, Error> {
+        if let Ok(Some(info)) = self.fetch_meta_from_target(target_addr, info_hash).await {
+            let torrent = info.encode();
+            let mut path = self.download_dir.clone();
+            let info_str: String = info_hash.encode_hex();
+            path.push(info_str + ".torrent");
+
+            let mut f =
+                File::create(path).map_err(|error| Error::new_file(Some(error.into()), None))?;
+
+            f.write_all(&torrent)
+                .map_err(|error| Error::new_file(Some(error.into()), None))?;
+
+            Ok(Some(*info_hash))
+        } else {
+            Ok(None)
+        }
+    }
+    
+    pub async fn download_meta(
+        &self,
+        info_hash: &[u8; ID_SIZE],
+    ) -> Result<Option<[u8; ID_SIZE]>, Error> {
+        if let Ok(Some(info)) = self.fetch_meta(info_hash).await {
+            let torrent = info.encode();
+            let mut path = self.download_dir.clone();
+            let info_str: String = info_hash.encode_hex();
+            path.push(info_str + ".torrent");
+
+            let mut f =
+                File::create(path).map_err(|error| Error::new_file(Some(error.into()), None))?;
+
+            f.write_all(&torrent)
+                .map_err(|error| Error::new_file(Some(error.into()), None))?;
+
+            Ok(Some(*info_hash))
+        } else {
+            Ok(None)
+        }
     }
 }
 
@@ -82,7 +165,7 @@ fn create_dht(
             firewall_max_trace,
             20,
             firewall_max_block,
-            shutdown_rx.clone(),
+            shutdown_rx,
         ))
         .build()
         .unwrap();

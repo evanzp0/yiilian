@@ -13,8 +13,10 @@ pub struct BtConfig {
 }
 
 impl BtConfig {
-    pub fn new() -> Self {
-        BtConfig::default()
+    pub fn new(dht: DhtConfig) -> Self {
+        BtConfig {
+            dht
+        }
     }
 
     pub fn from_file(cfg_file: &str) -> Self {

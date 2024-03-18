@@ -48,6 +48,12 @@ impl TryFrom<Bytes> for Id {
 }
 
 impl Id {
+    pub fn new(bytes: [u8; ID_SIZE]) -> Self {
+        Id {
+            bytes
+        }
+    }
+
     pub fn get_bytes(&self) -> Bytes {
         Bytes::copy_from_slice(&self.bytes)
     }
