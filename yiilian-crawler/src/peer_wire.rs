@@ -1,6 +1,7 @@
 use std::{collections::BTreeMap, net::SocketAddr};
 
 use bytes::{BufMut, Bytes, BytesMut};
+use hex::ToHex;
 use rand::thread_rng;
 use sha1::{Digest, Sha1};
 use tokio::{io::AsyncWriteExt, net::TcpStream};
@@ -202,8 +203,8 @@ impl PeerWire {
                                             ));
                                         }
 
-                                        // todo
-                                        println!("metadata is downloaded");
+                                        let info_str: String =  info_hash.encode_hex();
+                                        log::trace!("metadata({}) is downloaded", info_str);
 
                                         return Ok(metadata_info.into());
                                     }

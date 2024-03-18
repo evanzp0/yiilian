@@ -77,6 +77,8 @@ pub enum Kind {
     Memory,
 
     OverCapacity,
+
+    NotFound,
 }
 
 impl Error {
@@ -90,6 +92,10 @@ impl Error {
             }),
         }
     }
+
+    pub fn new_not_found(description: &str) ->Self {
+        Error::new(Kind::NotFound, Some(description.to_owned()), None, None)
+    } 
 
     pub fn new_over_capacity(description: &str) ->Self {
         Error::new(Kind::OverCapacity, Some(description.to_owned()), None, None)

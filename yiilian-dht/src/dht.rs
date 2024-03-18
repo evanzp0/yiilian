@@ -50,8 +50,6 @@ pub struct Dht<S> {
 
     /// 保存 dht routing_table 已验证节点的文件
     nodes_file: PathBuf,
-
-    shutdown_rx: ShutdownReceiver,
 }
 
 impl<S> Dht<S>
@@ -113,10 +111,10 @@ where
             Some(val) => {
                 let workers = Arc::new(Semaphore::new(val));
                 Some(workers)
-            },
+            }
             None => None,
         };
-        
+
         let server = Server::new(socket.clone(), service, workers);
 
         let nodes_file = home::home_dir()
@@ -134,25 +132,24 @@ where
             local_addr,
             server,
             nodes_file,
-            shutdown_rx,
         })
     }
 
     pub async fn run_loop(&self) {
         let ctx_index = self.ctx_index;
-        let shutdown_rx = self.shutdown_rx.clone();
-        let nodes_file = self.nodes_file.clone();
+        // let shutdown_rx = self.shutdown_rx.clone();
+        // let nodes_file = self.nodes_file.clone();
 
-        // graceful shutdown
-        tokio::spawn(async move {
-            log::trace!(target: "yiilian_dht::dht::run_loop", "Task '{}' starting up", "persist nodes on exit");
-            tokio::select! {
-                _ = shutdown_rx.watch() => {
-                    persist_nodes(ctx_index, nodes_file.clone()).await;
-                    dht_ctx_drop(ctx_index);
-                },
-            }
-        });
+        // // graceful shutdown
+        // tokio::spawn(async move {
+        //     log::trace!(target: "yiilian_dht::dht::run_loop", "Task '{}' starting up", "persist nodes on exit");
+        //     tokio::select! {
+        //         _ = shutdown_rx.watch() => {
+        //             persist_nodes(ctx_index, nodes_file.clone()).await;
+        //             dht_ctx_drop(ctx_index);
+        //         },
+        //     }
+        // });
 
         // 各种周期性的 future
         // tokio::try_join! 全部完成或有一个 Err 时退出
@@ -541,13 +538,22 @@ where
             .token_secret = new_token_secret;
     }
 
-    pub async fn get_peers(
-        &self, 
-        info_hash: Id,
-    ) -> Result<GetPeersResult, Error> {
+    pub async fn get_peers(&self, info_hash: Id) -> Result<GetPeersResult, Error> {
         dht_ctx_trans_mgr(self.ctx_index)
             .get_peers(info_hash, true)
             .await
+    }
+}
+
+impl<S> Drop for Dht<S> {
+    fn drop(&mut self) {
+        let ctx_index = self.ctx_index;
+        let nodes_file = self.nodes_file.clone();
+
+        // save nodes
+        log::trace!(target: "yiilian_dht::dht::run_loop", "Task '{}' starting up", "persist nodes on exit");
+        persist_nodes(ctx_index, nodes_file.clone());
+        dht_ctx_drop(ctx_index);
     }
 }
 
@@ -588,7 +594,7 @@ fn build_socket(socket_addr: SocketAddr) -> Result<UdpSocket, Error> {
 }
 
 /// save nodes to file
-async fn persist_nodes(ctx_index: u16, nodes_file: PathBuf) {
+fn persist_nodes(ctx_index: u16, nodes_file: PathBuf) {
     let mut nodes = dht_ctx_routing_tbl(ctx_index)
         .lock()
         .expect_error("dht_ctx_routing_tbl.lock() failed")

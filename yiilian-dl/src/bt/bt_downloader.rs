@@ -44,51 +44,54 @@ impl BtDownloader {
         self.dht.run_loop().await
     }
 
-    pub async fn fetch_meta(
-        &self,
-        info_hash: &[u8; ID_SIZE],
-    ) -> Result<Option<BTreeMap<Bytes, BencodeData>>, Error> {
-        let rst = self.dht.get_peers(Id::new(*info_hash)).await?;
-
-        for peer in rst.peers() {
-            let peer_wire = PeerWire::new();
-            match peer_wire.fetch_info(*peer, info_hash, &self.local_id).await {
-                Ok(info) => return Ok(Some(info)),
-                Err(error) => {
-                    println!("{:?}", error);
-                }
-            };
-        }
-
-        Ok(None)
-    }
-
     pub async fn fetch_meta_from_target(
         &self,
         target_addr: SocketAddr,
         info_hash: &[u8; ID_SIZE],
-    ) -> Result<Option<BTreeMap<Bytes, BencodeData>>, Error> {
+    ) -> Result<BTreeMap<Bytes, BencodeData>, Error> {
         let peer_wire = PeerWire::new();
 
         match peer_wire
             .fetch_info(target_addr, info_hash, &self.local_id)
             .await
         {
-            Ok(info) => return Ok(Some(info)),
+            Ok(info) => Ok(info),
             Err(error) => {
                 println!("{:?}", error);
+                Err(error)
             }
-        };
+        }
+    }
 
-        Ok(None)
+    pub async fn fetch_meta(
+        &self,
+        info_hash: &[u8; ID_SIZE],
+        blocked_addrs: &mut Vec<SocketAddr>,
+    ) -> Result<BTreeMap<Bytes, BencodeData>, Error> {
+        let rst = self.dht.get_peers(Id::new(*info_hash)).await?;
+
+        for peer in rst.peers() {
+            if blocked_addrs.contains(&peer) {
+                continue
+            }
+            match self.fetch_meta_from_target(*peer, info_hash).await {
+                Ok(rst) => return Ok(rst),
+                Err(_) => {
+                    blocked_addrs.push(*peer);
+                },
+            }
+        }
+
+        let info_str: String =  info_hash.encode_hex();
+        Err(Error::new_not_found(&format!("not found info_hash: {}", info_str)))
     }
 
     pub async fn download_meta_from_target(
         &self,
         target_addr: SocketAddr,
         info_hash: &[u8; ID_SIZE],
-    ) -> Result<Option<[u8; ID_SIZE]>, Error> {
-        if let Ok(Some(info)) = self.fetch_meta_from_target(target_addr, info_hash).await {
+    ) -> Result<[u8; ID_SIZE], Error> {
+        if let Ok(info) = self.fetch_meta_from_target(target_addr, info_hash).await {
             let torrent = info.encode();
             let mut path = self.download_dir.clone();
             let info_str: String = info_hash.encode_hex();
@@ -100,17 +103,19 @@ impl BtDownloader {
             f.write_all(&torrent)
                 .map_err(|error| Error::new_file(Some(error.into()), None))?;
 
-            Ok(Some(*info_hash))
+            Ok(*info_hash)
         } else {
-            Ok(None)
+            let info_str: String =  info_hash.encode_hex();
+            Err(Error::new_not_found(&format!("not found info_hash: {}", info_str)))
         }
     }
     
     pub async fn download_meta(
         &self,
         info_hash: &[u8; ID_SIZE],
-    ) -> Result<Option<[u8; ID_SIZE]>, Error> {
-        if let Ok(Some(info)) = self.fetch_meta(info_hash).await {
+        blocked_addrs: &mut Vec<SocketAddr>,
+    ) -> Result<[u8; ID_SIZE], Error> {
+        if let Ok(info) = self.fetch_meta(info_hash, blocked_addrs).await {
             let torrent = info.encode();
             let mut path = self.download_dir.clone();
             let info_str: String = info_hash.encode_hex();
@@ -122,9 +127,10 @@ impl BtDownloader {
             f.write_all(&torrent)
                 .map_err(|error| Error::new_file(Some(error.into()), None))?;
 
-            Ok(Some(*info_hash))
+            Ok(*info_hash)
         } else {
-            Ok(None)
+            let info_str: String =  info_hash.encode_hex();
+            Err(Error::new_not_found(&format!("not found info_hash: {}", info_str)))
         }
     }
 }

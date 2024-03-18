@@ -1,6 +1,8 @@
 use std::fs;
 use std::path::Path;
+use std::time::{Duration, Instant};
 
+use hex::ToHex;
 use yiilian_core::common::{error::Error, shutdown::create_shutdown};
 
 use yiilian_dl::bt::common::BtConfig;
@@ -11,12 +13,15 @@ use yiilian_dl::bt::common::DhtConfig;
 async fn main() {
     set_up_logging_from_file::<&str>(None);
 
-    // let info_hash_str = "FA84A471E92F9DE5B4F2404E5535FCBA639DA8A0";
-    let info_hash_str = "5D238FCCC41203BD121080A0CF9C7788C8237A5A";
+    let info_hash_str = "FA84A471E92F9DE5B4F2404E5535FCBA639DA8A0";
+    // let info_hash_str = "5D238FCCC41203BD121080A0CF9C7788C8237A5A";
 
-    let info_hash = hex::decode(info_hash_str)
+    let info_hash: [u8; 20] = {
+        let h = hex::decode(info_hash_str)
         .map_err(|hex_err| Error::new_id(Some(hex_err.into()), None))
         .unwrap();
+        h.try_into().unwrap()
+    };
 
     println!("connected");
 
@@ -56,7 +61,28 @@ async fn main() {
         },
         _ = async {
             // let target: SocketAddr = "192.168.31.8:15000".parse().unwrap();
-            bt_downloader.download_meta(&info_hash.try_into().unwrap()).await.unwrap();
+            let timeout_sec = Duration::from_secs(3 * 60);
+            let instant = Instant::now();
+            let info_str: String =  info_hash.encode_hex();
+            let mut blocked_addrs = vec![];
+
+            loop {
+                match bt_downloader.download_meta(&info_hash, &mut blocked_addrs).await {
+                    Ok(_) => {
+                        println!("{} is downloaded", info_str);
+                        break;
+                    },
+                    Err(_) => {
+                        if instant.elapsed() >= timeout_sec {
+                            println!("{} is not founded", info_str);
+                            break;
+                        } else {
+                            tokio::time::sleep(Duration::from_secs(1)).await
+                        }
+                    },
+                }
+            }
+
         } => (),
     }
 }
