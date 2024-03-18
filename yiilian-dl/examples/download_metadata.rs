@@ -13,8 +13,9 @@ use yiilian_dl::bt::common::DhtConfig;
 async fn main() {
     set_up_logging_from_file::<&str>(None);
 
-    let info_hash_str = "FA84A471E92F9DE5B4F2404E5535FCBA639DA8A0";
+    // let info_hash_str = "FA84A471E92F9DE5B4F2404E5535FCBA639DA8A0";
     // let info_hash_str = "5D238FCCC41203BD121080A0CF9C7788C8237A5A";
+    let info_hash_str = "73985E7043186CCEB1BA8DCF1AFCBE26673C4D3A";
 
     let info_hash: [u8; 20] = {
         let h = hex::decode(info_hash_str)
