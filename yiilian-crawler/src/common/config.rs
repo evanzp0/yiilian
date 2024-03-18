@@ -4,12 +4,14 @@ use std::{net::IpAddr, fs, collections::HashSet};
 
 use serde::{Deserialize, Serialize};
 use yiilian_core::{net::block_list::BlockAddr, common::util::atoi};
+use yiilian_dl::bt::common::BtConfig;
 
 pub const DEFAULT_CONFIG_FILE: &str = "yiilian-crawler.yml";
 
 #[derive(Deserialize, Default, Debug)]
 pub struct Config {
-    pub dht: DhtConfig,
+    pub dht_cluster: DhtClusterConfig,
+    pub bt: BtConfig,
 }
 
 impl Config {
@@ -23,7 +25,7 @@ impl Config {
     }
 
     pub fn get_dht_block_list(&self) -> Option<HashSet<BlockAddr>> {
-        if let Some(block_ips) = &self.dht.block_ips {
+        if let Some(block_ips) = &self.dht_cluster.block_ips {
             let rst = block_ips.iter().map(|item| {
                 let tmp: Vec<&str> = item.split(":").collect();
                 let ip: IpAddr = tmp.get(0).unwrap().parse().expect("black_list config parse error");
@@ -45,7 +47,7 @@ impl Config {
 }
 
 #[derive(Default, Deserialize, Serialize, Debug)]
-pub struct DhtConfig {
+pub struct DhtClusterConfig {
     pub routers: Option<Vec<String>>,
     pub block_ips: Option<Vec<String>>,
     pub ports: Vec<u16>,

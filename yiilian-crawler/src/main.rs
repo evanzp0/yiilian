@@ -1,7 +1,8 @@
-use std::{net::SocketAddr, path::Path, sync::Arc, time::Duration};
+use std::{fs, net::SocketAddr, path::{Path, PathBuf}, sync::Arc, time::{Duration, Instant}};
 
 use futures::future::join_all;
 
+use hex::ToHex;
 use tokio::{
     sync::broadcast::{self, Sender},
     time::sleep,
@@ -22,6 +23,7 @@ use yiilian_dht::{
     dht::{Dht, DhtBuilder},
     service::KrpcService,
 };
+use yiilian_dl::bt::{bt_downloader::BtDownloader, common::BtConfig};
 use yiilian_mq::engine::Engine;
 
 #[tokio::main]
@@ -41,28 +43,36 @@ async fn main() {
         Arc::new(engine)
     };
 
-    let mut announce_listener = RecvAnnounceListener::new(rx, mq_engine, shutdown_rx.clone());
+    let mut announce_listener = RecvAnnounceListener::new(rx, mq_engine.clone(), shutdown_rx.clone());
+
+    let download_dir = {
+        let mut d = home::home_dir().unwrap();
+        d.push(".yiilian/dl/");
+
+        fs::create_dir_all(d.clone())
+            .map_err(|error| Error::new_file(Some(error.into()), None)).unwrap();
+        d
+    };
+    let bt_downloader = BtDownloader::new(&config.bt, download_dir, shutdown_rx.clone()).unwrap();
 
     drop(shutdown_rx);
 
     tokio::select! {
         _  = async {
-            // loop {
-                let mut futs = vec![];
-                for dht in &dht_list {
-                    println!("Listening at: {:?}", dht.local_addr);
-                    futs.push(dht.run_loop());
-                }
+            let mut futs = vec![];
+            for dht in &dht_list {
+                println!("Listening at: {:?}", dht.local_addr);
+                futs.push(dht.run_loop());
+            }
 
-                join_all(futs).await;
-                sleep(Duration::from_secs(10 * 60)).await;
-                log::info!("restart dht");
-            // }
+            join_all(futs).await;
+            sleep(Duration::from_secs(10 * 60)).await;
         } => (),
         _ = async {
-            // tokio::spawn(async move {
-                announce_listener.listen().await
-            // })
+            announce_listener.listen().await
+        } => (),
+        _ = async {
+            download_meta(mq_engine, bt_downloader).await;
         } => (),
         _ = tokio::signal::ctrl_c() => {
             drop(dht_list);
@@ -72,6 +82,41 @@ async fn main() {
             println!("\nCtrl + c shutdown");
         },
     };
+}
+
+async fn download_meta(mq_engine: Arc<Engine>, bt_downloader: BtDownloader) {
+    let timeout_sec = Duration::from_secs(3 * 60);
+    let instant = Instant::now();
+    let mut blocked_addrs = vec![];
+
+    loop {
+        if let Some(msg) = mq_engine.poll_message("info_hash", "download_meta_client") {
+            let info_hash: [u8; 20] = {
+                let value = msg.value();
+                value.try_into().unwrap()
+            };
+            let info_str: String =  info_hash.encode_hex();
+            
+            match bt_downloader.download_meta(&info_hash, &mut blocked_addrs).await {
+                Ok(_) => {
+                    println!("{} is downloaded", info_str);
+                    break;
+                },
+                Err(_) => {
+                    if instant.elapsed() >= timeout_sec {
+                        println!("{} is not founded", info_str);
+                        break;
+                    } else {
+                        tokio::time::sleep(Duration::from_secs(1)).await
+                    }
+                },
+            }
+
+
+        } else {
+            tokio::time::sleep(Duration::from_secs(5)).await;
+        }
+    }
 }
 
 fn create_dht_list(
@@ -84,11 +129,11 @@ fn create_dht_list(
 > {
     let mut dht_list = vec![];
 
-    let ports = &config.dht.ports;
+    let ports = &config.dht_cluster.ports;
     let block_ips = config.get_dht_block_list();
-    let workers = config.dht.workers;
+    let workers = config.dht_cluster.workers;
 
-    let settings = if let Some(routers) = &config.dht.routers {
+    let settings = if let Some(routers) = &config.dht_cluster.routers {
         let mut st = SettingsBuilder::new().build();
         st.routers = routers.clone();
         Some(st)
@@ -97,7 +142,7 @@ fn create_dht_list(
     };
 
     let (firewall_max_trace, firewall_max_block) = {
-        if let Some(firewall_config) = &config.dht.firewall {
+        if let Some(firewall_config) = &config.dht_cluster.firewall {
             (
                 firewall_config.max_trace.unwrap_or(500),
                 firewall_config.max_block.unwrap_or(1000),
