@@ -11,7 +11,7 @@ use yiilian_core::{
     data::Request,
 };
 use yiilian_dht::data::body::{BodyKind, KrpcBody, Query};
-use yiilian_mq::{engine::{self, Engine}, message::in_message::InMessage};
+use yiilian_mq::{engine::Engine, message::in_message::InMessage};
 
 const BLOOM_STATE_FILE: &str = "bloom_state.dat";
 

@@ -120,6 +120,7 @@ impl PeerWire {
 
                         // 从扩展 handshake 消息的中，获得 metainfo (bencoded) 大小，并检查对方是否支持 ut_metadata 扩展
                         let ext_header: ExtensionHeader = payload.try_into()?;
+                        
                         if let Some(ut_metadata_id) = ext_header.get_extension_id(UT_METADATA_NAME)
                         {
                             if let Some(md_size) = ext_header.metadata_size {

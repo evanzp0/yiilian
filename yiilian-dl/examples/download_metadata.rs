@@ -1,3 +1,4 @@
+use std::fs;
 use std::path::Path;
 
 use yiilian_core::common::{error::Error, shutdown::create_shutdown};
@@ -10,7 +11,9 @@ use yiilian_dl::bt::common::DhtConfig;
 async fn main() {
     set_up_logging_from_file::<&str>(None);
 
-    let info_hash_str = "FA84A39C18D5960B0272D3E1D2A7900FB09F5EB3";
+    // let info_hash_str = "FA84A471E92F9DE5B4F2404E5535FCBA639DA8A0";
+    let info_hash_str = "5D238FCCC41203BD121080A0CF9C7788C8237A5A";
+
     let info_hash = hex::decode(info_hash_str)
         .map_err(|hex_err| Error::new_id(Some(hex_err.into()), None))
         .unwrap();
@@ -19,8 +22,8 @@ async fn main() {
 
     let dht_config = DhtConfig { 
         routers: Some(vec![
-            // "87.98.162.88:6881".to_owned(),
-            "192.168.31.8:15000".to_owned(),
+            "87.98.162.88:6881".to_owned(),
+            // "192.168.31.8:15000".to_owned(),
         ]),
         block_ips: None, 
         port: 20001, 
@@ -31,9 +34,14 @@ async fn main() {
     let bt_config = BtConfig::new(dht_config);
     let download_dir = {
         let mut d = home::home_dir().unwrap();
-        d.push(".yillian/dl/");
+        d.push(".yiilian/dl/");
+
+        fs::create_dir_all(d.clone())
+            .map_err(|error| Error::new_file(Some(error.into()), None)).unwrap();
         d
     };
+    println!("download_dir: {:?}", download_dir);
+
     let (mut shutdown_tx, shutdown_rx) = create_shutdown();
 
     let bt_downloader = BtDownloader::new(&bt_config, download_dir, shutdown_rx).unwrap();
