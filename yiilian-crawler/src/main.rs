@@ -1,11 +1,13 @@
 use std::{
-    fs,
+    fs::{self, File},
+    io::{Read, Write},
     net::SocketAddr,
     path::Path,
-    sync::Arc,
+    sync::{Arc, RwLock},
     time::Duration,
 };
 
+use bloomfilter::Bloom;
 use futures::future::join_all;
 
 use hex::ToHex;
@@ -14,7 +16,7 @@ use yiilian_core::{
     common::{
         error::Error,
         shutdown::{create_shutdown, ShutdownReceiver},
-        util::bytes_to_sockaddr,
+        util::{bytes_to_sockaddr, hash_it},
     },
     data::Request,
     service::{EventLayer, FirewallLayer},
@@ -31,6 +33,8 @@ use yiilian_mq::engine::Engine;
 
 use yiilian_crawler::common::{Config, DEFAULT_CONFIG_FILE};
 use yiilian_crawler::event::RecvAnnounceListener;
+
+const BLOOM_STATE_FILE: &str = "bloom_state.dat";
 
 #[tokio::main]
 async fn main() {
@@ -50,6 +54,13 @@ async fn main() {
     };
 
     let mut announce_listener = RecvAnnounceListener::new(rx, mq_engine.clone());
+
+    let bloom = {
+        match load_bloom() {
+            Ok(bloom) => bloom,
+            Err(_) => Arc::new(RwLock::new(Bloom::new_for_fp_rate(100_000_000, 0.001))),
+        }
+    };
 
     let download_dir = {
         let mut d = home::home_dir().unwrap();
@@ -76,8 +87,10 @@ async fn main() {
         } => (),
         _ = announce_listener.listen() => (),
         _ = bt_downloader.run_loop() => (),
-        _ = download_meta(mq_engine, &bt_downloader) => (),
+        _ = download_meta(mq_engine, &bt_downloader, bloom.clone()) => (),
         _ = tokio::signal::ctrl_c() => {
+            save_bloom(bloom).await;
+
             drop(dht_list);
             drop(bt_downloader);
 
@@ -88,11 +101,16 @@ async fn main() {
     };
 }
 
-async fn download_meta(mq_engine: Arc<Engine>, bt_downloader: &BtDownloader) {
-    // let timeout_sec = Duration::from_secs(3 * 60);
+async fn download_meta(
+    mq_engine: Arc<Engine>,
+    bt_downloader: &BtDownloader,
+    bloom: Arc<RwLock<Bloom<u64>>>,
+) {
     let mut blocked_addrs = vec![];
 
     loop {
+        let mut is_downloaded = false;
+
         if let Some(msg) = mq_engine.poll_message("info_hash", "download_meta_client") {
             let info_hash: [u8; 20] = {
                 let value = &msg.value()[0..20];
@@ -113,43 +131,42 @@ async fn download_meta(mq_engine: Arc<Engine>, bt_downloader: &BtDownloader) {
 
             log::debug!(target: "yiilian_crawler", "poll message infohash: {} , target: {} , offset : {}", info_str, target_addr, msg.offset());
 
-            // let instant = Instant::now();
-            loop {
-                match bt_downloader.download_meta_from_target(target_addr, &info_hash, &mut blocked_addrs).await {
-                    Ok(_) => {
-                        log::trace!(target: "yiilian_crawler", "{} is downloaded", info_str);
-                        break;
-                    }
-                    Err(_) => {
-                        match bt_downloader.download_meta(&info_hash, &mut blocked_addrs).await {
-                            Ok(_) => {
-                                log::trace!(target: "yiilian_crawler", "{} is downloaded", info_str);
-                                break;
-                            } 
-                            Err(_) => {
-                                log::trace!(target: "yiilian_crawler", "{} is not founded", info_str);
-                            }
+            match bt_downloader
+                .download_meta_from_target(target_addr, &info_hash, &mut blocked_addrs)
+                .await
+            {
+                Ok(_) => {
+                    is_downloaded = true;
+
+                    log::trace!(target: "yiilian_crawler", "{} is downloaded", info_str);
+                }
+                Err(_) => {
+                    match bt_downloader
+                        .download_meta(&info_hash, &mut blocked_addrs)
+                        .await
+                    {
+                        Ok(_) => {
+                            is_downloaded = true;
+
+                            log::trace!(target: "yiilian_crawler", "{} is downloaded", info_str);
+                        }
+                        Err(_) => {
+                            log::trace!(target: "yiilian_crawler", "{} is not founded", info_str);
                         }
                     }
                 }
+            }
 
-                // match bt_downloader
-                //     .download_meta(&info_hash, &mut blocked_addrs)
-                //     .await
-                // {
-                //     Ok(_) => {
-                //         log::trace!(target: "yiilian_crawler", "{} is downloaded", info_str);
-                //         break;
-                //     }
-                //     Err(_) => {
-                //         if instant.elapsed() >= timeout_sec {
-                //             log::trace!(target: "yiilian_crawler", "{} is not founded", info_str);
-                //             break;
-                //         } else {
-                //             tokio::time::sleep(Duration::from_secs(1)).await
-                //         }
-                //     }
-                // }
+            // 下载完毕则加入 bloom 过滤器
+            if is_downloaded {
+                let bloom_val = hex::encode(info_hash);
+                let bloom_val = hash_it(bloom_val);
+                let chk_rst = bloom.read().expect("bloom.read() error").check(&bloom_val);
+
+                if !chk_rst {
+                    // 如果没命中，则加入到布隆过滤其中，并输出到日志
+                    bloom.write().expect("bloom.write() error").set(&bloom_val);
+                }
             }
         } else {
             tokio::time::sleep(Duration::from_secs(1)).await;
@@ -242,5 +259,37 @@ fn set_up_logging_from_file<P: AsRef<Path>>(file_path: Option<&P>) {
         log4rs::init_file(file_path, Default::default()).unwrap();
     } else {
         log4rs::init_file("log4rs.yml", Default::default()).unwrap();
+    }
+}
+
+pub async fn save_bloom(bloom: Arc<RwLock<Bloom<u64>>>) {
+    let mut f = File::create(&BLOOM_STATE_FILE).expect("file create BLOOM_STATE_FILE failed");
+    let encoded: Vec<u8> =
+        bincode::serialize(&*bloom).expect("bincode::serialize BLOOM_STATE_FILE failed");
+
+    f.write_all(&encoded)
+        .expect("write_all BLOOM_STATE_FILE failed");
+}
+
+pub fn load_bloom() -> Result<Arc<RwLock<Bloom<u64>>>, Error> {
+    match File::open(&BLOOM_STATE_FILE) {
+        Ok(mut f) => {
+            let mut buf: Vec<u8> = Vec::new();
+            match f.read_to_end(&mut buf) {
+                Ok(_) => {
+                    let bloom: RwLock<Bloom<u64>> = bincode::deserialize(&buf[..])
+                        .expect("bincode::deserialize BLOOM_STATE_FILE failed");
+                    Ok(Arc::new(bloom))
+                }
+                Err(e) => Err(Error::new_file(
+                    Some(e.into()),
+                    Some("file read failed in load_bloom()".to_owned()),
+                ))?,
+            }
+        }
+        Err(e) => Err(Error::new_file(
+            Some(e.into()),
+            Some("open file failed in load_bloom() ".to_owned()),
+        ))?,
     }
 }
