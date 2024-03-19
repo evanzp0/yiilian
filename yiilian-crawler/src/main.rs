@@ -1,4 +1,4 @@
-use std::{fs, net::SocketAddr, path::{Path, PathBuf}, sync::Arc, time::{Duration, Instant}};
+use std::{fs, net::SocketAddr, path::Path, sync::Arc, time::{Duration, Instant}};
 
 use futures::future::join_all;
 
@@ -23,7 +23,7 @@ use yiilian_dht::{
     dht::{Dht, DhtBuilder},
     service::KrpcService,
 };
-use yiilian_dl::bt::{bt_downloader::BtDownloader, common::BtConfig};
+use yiilian_dl::bt::bt_downloader::BtDownloader;
 use yiilian_mq::engine::Engine;
 
 #[tokio::main]
@@ -58,6 +58,7 @@ async fn main() {
     drop(shutdown_rx);
 
     tokio::select! {
+        _ = bt_downloader.run_loop() => (),
         _  = async {
             let mut futs = vec![];
             for dht in &dht_list {
@@ -72,10 +73,11 @@ async fn main() {
             announce_listener.listen().await
         } => (),
         _ = async {
-            download_meta(mq_engine, bt_downloader).await;
+            download_meta(mq_engine, &bt_downloader).await;
         } => (),
         _ = tokio::signal::ctrl_c() => {
             drop(dht_list);
+            drop(bt_downloader);
 
             shutdown_tx.shutdown().await;
 
@@ -84,7 +86,7 @@ async fn main() {
     };
 }
 
-async fn download_meta(mq_engine: Arc<Engine>, bt_downloader: BtDownloader) {
+async fn download_meta(mq_engine: Arc<Engine>, bt_downloader: &BtDownloader) {
     let timeout_sec = Duration::from_secs(3 * 60);
     let instant = Instant::now();
     let mut blocked_addrs = vec![];
@@ -93,7 +95,10 @@ async fn download_meta(mq_engine: Arc<Engine>, bt_downloader: BtDownloader) {
         if let Some(msg) = mq_engine.poll_message("info_hash", "download_meta_client") {
             let info_hash: [u8; 20] = {
                 let value = msg.value();
-                value.try_into().unwrap()
+                match value.try_into() {
+                    Ok(value) => value,
+                    Err(_) => continue,
+                }
             };
             let info_str: String =  info_hash.encode_hex();
             

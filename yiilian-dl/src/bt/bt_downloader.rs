@@ -30,9 +30,9 @@ impl BtDownloader {
         download_dir: PathBuf,
         shutdown_rx: ShutdownReceiver,
     ) -> Result<Self, Error> {
-        let dht = create_dht(&config, shutdown_rx)?;
+        let dht = create_dht(&config, shutdown_rx.clone())?;
         let local_id = Id::from_random(&mut thread_rng()).get_bytes();
-
+        
         Ok(BtDownloader {
             dht,
             local_id,
