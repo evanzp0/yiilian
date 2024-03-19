@@ -20,7 +20,7 @@ use yiilian_dht::{
     service::KrpcService,
 };
 use yiilian_dl::bt::bt_downloader::BtDownloader;
-use yiilian_mq::{engine::Engine, message::Message};
+use yiilian_mq::engine::Engine;
 
 use yiilian_crawler::common::{Config, DEFAULT_CONFIG_FILE};
 use yiilian_crawler::event::RecvAnnounceListener;
@@ -97,7 +97,6 @@ async fn download_meta(mq_engine: Arc<Engine>, bt_downloader: &BtDownloader) {
             };
 
             let info_str: String =  info_hash.encode_hex_upper();
-
 
             log::debug!("poll message infohash: {}, offset : {}", msg.offset(), info_str);
             
