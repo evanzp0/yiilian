@@ -98,7 +98,7 @@ async fn download_meta(mq_engine: Arc<Engine>, bt_downloader: &BtDownloader) {
 
             let info_str: String =  info_hash.encode_hex_upper();
 
-            log::debug!(target: "yiilian_crawler", "poll message infohash: {}, offset : {}", info_str, msg.offset());
+            log::debug!(target: "yiilian_crawler", "poll message infohash: {} , offset : {}", info_str, msg.offset());
 
             loop {
                 match bt_downloader.download_meta(&info_hash, &mut blocked_addrs).await {
