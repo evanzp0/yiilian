@@ -72,13 +72,13 @@ impl PeerWire {
     ) -> Result<Bytes, Error> {
         let mut stream = TcpStream::connect(target_address)
             .await
-            .map_err(|err| Error::new_net(Some(err.into()), None, Some(target_address)))?;
+            .map_err(|err| Error::new_net(Some(err.into()), Some("connect".to_owned()), Some(target_address)))?;
 
         // 发送握手消息给对方
         send_handshake(&mut stream, &info_hash, &local_peer_id).await?;
 
         // 接收对方回复的握手消息
-        let rst = read_handshake(&mut stream).await.map_err(|error| Error::new_net(Some(error.into()), None, Some(target_address)))?;
+        let rst = read_handshake(&mut stream).await.map_err(|error| Error::new_net(Some(error.into()), Some("read_handshake".to_owned()), Some(target_address)))?;
 
         // 校验对方握手消息
         if !Handshake::verify(&rst) {

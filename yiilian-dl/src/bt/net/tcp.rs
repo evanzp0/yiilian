@@ -20,7 +20,7 @@ pub async fn send_handshake(
     stream
         .write_all(&hs)
         .await
-        .map_err(|error| Error::new_net(Some(error.into()), None, None))?;
+        .map_err(|error| Error::new_net(Some(error.into()), Some("send_handshake".to_owned()), None))?;
 
     Ok(())
 }
@@ -40,7 +40,7 @@ pub async fn read_message(stream: &mut TcpStream) -> Result<Bytes, Error> {
     let mut buf: [u8; MESSAGE_LEN_PREFIX] = [0; MESSAGE_LEN_PREFIX];
     read(stream, &mut buf)
         .await
-        .map_err(|error| Error::new_net(Some(error.into()), None, None))?;
+        .map_err(|error| Error::new_net(Some(error.into()), Some("read_message [u8; MESSAGE_LEN_PREFIX]".to_owned()), None))?;
     let message_len_bytes = &buf[..];
     let message_len =
         u32::from_be_bytes(message_len_bytes.try_into().expect("bytes len is invalid")) as usize
@@ -57,7 +57,7 @@ pub async fn read_message(stream: &mut TcpStream) -> Result<Bytes, Error> {
     
     read(stream, &mut buf[MESSAGE_LEN_PREFIX..])
         .await
-        .map_err(|error| Error::new_net(Some(error.into()), None, None))?;
+        .map_err(|error| Error::new_net(Some(error.into()), Some("read_message [MESSAGE_LEN_PREFIX..]".to_owned()), None))?;
 
     Ok(buf.into())
 }
@@ -66,7 +66,7 @@ pub async fn send_message(stream: &mut TcpStream, data: &[u8]) -> Result<(), Err
     stream
         .write_all(data)
         .await
-        .map_err(|error| Error::new_net(Some(error.into()), None, None))?;
+        .map_err(|error| Error::new_net(Some(error.into()), Some("send_message".to_owned()), None))?;
 
     Ok(())
 }
@@ -83,7 +83,7 @@ pub async fn read_all(stream: &mut TcpStream) -> Result<Bytes, Error> {
                 println!("{:?}", &buf[0..n]);
                 rst.extend(&buf[0..n]);
             }
-            Err(e) => Err(Error::new_net(Some(e.into()), None, None))?,
+            Err(e) => Err(Error::new_net(Some(e.into()), Some("read_all".to_owned()), None))?,
         }
     }
 
