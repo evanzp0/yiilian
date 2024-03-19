@@ -5,7 +5,26 @@ use std::{net::IpAddr, fs, collections::HashSet};
 use serde::{Deserialize, Serialize};
 use yiilian_core::{net::block_list::BlockAddr, common::util::atoi};
 
-pub const DEFAULT_CONFIG_FILE: &str = "yiilian-bt.yml";
+pub const DEFAULT_CONFIG_FILE: &str = "yiilian-dl.yml";
+
+#[derive(Deserialize, Default, Debug)]
+pub struct DlConfig {
+    pub bt: BtConfig,
+}
+
+impl DlConfig {
+    
+    pub fn new(bt: BtConfig) -> Self {
+        DlConfig {
+            bt
+        }
+    }
+
+    pub fn from_file(cfg_file: &str) -> Self {
+        let cfg = fs::read_to_string(cfg_file).expect(&format!("read {} error", cfg_file));
+        serde_yaml::from_str(&cfg).expect(&format!("parse {} error", cfg_file))
+    }
+}
 
 #[derive(Deserialize, Default, Debug)]
 pub struct BtConfig {
@@ -17,11 +36,6 @@ impl BtConfig {
         BtConfig {
             dht
         }
-    }
-
-    pub fn from_file(cfg_file: &str) -> Self {
-        let cfg = fs::read_to_string(cfg_file).expect(&format!("read {} error", cfg_file));
-        serde_yaml::from_str(&cfg).expect(&format!("parse {} error", cfg_file))
     }
 
     pub fn get_dht_block_list(&self) -> Option<HashSet<BlockAddr>> {
@@ -63,11 +77,11 @@ pub struct FirewallConfig {
 
 #[cfg(test)]
 mod tests {
-    use super::{BtConfig, DEFAULT_CONFIG_FILE};
+    use super::{DlConfig, DEFAULT_CONFIG_FILE};
 
     #[test]
     fn test() {
-        let config = BtConfig::from_file(DEFAULT_CONFIG_FILE);
+        let config = DlConfig::from_file(DEFAULT_CONFIG_FILE);
 
         println!("{:?}", config)
     }
