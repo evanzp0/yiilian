@@ -1,60 +1,3 @@
-# appenders:
-#   stdout:
-#     kind: console
-#     encoder:
-#       pattern: "[{d(%Y-%m-%d %H:%M:%S)} {h({l})} {t}] {m}{n}"
-#   log_file:
-#     kind: rolling_file
-#     path: "log/yiilian-crawler.log"
-#     policy:
-#       kind: compound
-#       trigger:
-#         kind: size
-#         limit: 10 mb
-#       roller:
-#         kind: fixed_window
-#         pattern: 'log/yiilian-crawler.{}.gz'
-#         base: 1
-#         count: 5
-#   announce:
-#     kind: rolling_file
-#     path: "log/announce.log"
-#     policy:
-#       kind: compound
-#       trigger:
-#         kind: size
-#         limit: 10 mb
-#       roller:
-#         kind: fixed_window
-#         pattern: 'log/announce.{}.gz'
-#         base: 1
-#         count: 5
-#   firewall:
-#     kind: rolling_file
-#     path: "log/firewall.log"
-#     policy:
-#       kind: compound
-#       trigger:
-#         kind: size
-#         limit: 10 mb
-#       roller:
-#         kind: delete
-# root:
-#   level: trace
-#   appenders:
-#     - log_file
-# loggers:
-#   yiilian_core::service::firewall_service:
-#     level: debug
-#     appenders:
-#       - firewall
-#     additive: false
-#   yiilian_crawler::event::announce_listener:
-#     level: info
-#     appenders:
-#       - announce
-#     additive: false
-
 appenders:
   stdout:
     kind: console
@@ -62,7 +5,20 @@ appenders:
       pattern: "[{d(%Y-%m-%d %H:%M:%S)} {h({l})} {t}] {m}{n}"
   log_file:
     kind: rolling_file
-    path: "log/bt.log"
+    path: "log/yiilian-crawler.log"
+    policy:
+      kind: compound
+      trigger:
+        kind: size
+        limit: 10 mb
+      roller:
+        kind: fixed_window
+        pattern: 'log/yiilian-crawler.{}.gz'
+        base: 1
+        count: 5
+  firewall:
+    kind: rolling_file
+    path: "log/firewall.log"
     policy:
       kind: compound
       trigger:
@@ -71,12 +27,17 @@ appenders:
       roller:
         kind: delete
 root:
-  level: info
+  level: error
   appenders:
-    - stdout
+    - log_file
 loggers:
   yiilian_core::service::firewall_service:
     level: info
     appenders:
-      - stdout
+      - firewall
+    additive: false
+  yiilian_crawler:
+    level: trace
+    appenders:
+      - log_file
     additive: false

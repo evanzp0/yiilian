@@ -16,19 +16,6 @@ appenders:
         pattern: 'log/yiilian-crawler.{}.gz'
         base: 1
         count: 5
-  announce:
-    kind: rolling_file
-    path: "log/announce.log"
-    policy:
-      kind: compound
-      trigger:
-        kind: size
-        limit: 10 mb
-      roller:
-        kind: fixed_window
-        pattern: 'log/announce.{}.gz'
-        base: 1
-        count: 5
   firewall:
     kind: rolling_file
     path: "log/firewall.log"
@@ -40,17 +27,17 @@ appenders:
       roller:
         kind: delete
 root:
-  level: trace
+  level: error
   appenders:
-    - stdout
+    - log_file
 loggers:
   yiilian_core::service::firewall_service:
     level: info
     appenders:
-      - stdout
+      - firewall
     additive: false
-  yiilian_crawler::event::announce_listener:
-    level: info
+  yiilian_crawler:
+    level: trace
     appenders:
-      - stdout
+      - log_file
     additive: false

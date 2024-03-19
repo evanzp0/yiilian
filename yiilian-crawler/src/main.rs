@@ -95,6 +95,8 @@ async fn download_meta(mq_engine: Arc<Engine>, bt_downloader: &BtDownloader) {
 
     loop {
         if let Some(msg) = mq_engine.poll_message("info_hash", "download_meta_client") {
+            log::debug!("poll message: {}", msg.offset());
+
             let info_hash: [u8; 20] = {
                 let value = msg.value();
                 match value.try_into() {
@@ -106,12 +108,12 @@ async fn download_meta(mq_engine: Arc<Engine>, bt_downloader: &BtDownloader) {
             
             match bt_downloader.download_meta(&info_hash, &mut blocked_addrs).await {
                 Ok(_) => {
-                    println!("{} is downloaded", info_str);
+                    log::trace!("{} is downloaded", info_str);
                     break;
                 },
                 Err(_) => {
                     if instant.elapsed() >= timeout_sec {
-                        println!("{} is not founded", info_str);
+                        log::trace!("{} is not founded", info_str);
                         break;
                     } else {
                         tokio::time::sleep(Duration::from_secs(1)).await

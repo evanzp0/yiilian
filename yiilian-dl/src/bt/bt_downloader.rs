@@ -57,7 +57,7 @@ impl BtDownloader {
         {
             Ok(info) => Ok(info),
             Err(error) => {
-                println!("{:?}", error);
+                log::trace!(target:"yiilian_dl::bt::bt_downloader", "{:?}", error);
                 Err(error)
             }
         }
