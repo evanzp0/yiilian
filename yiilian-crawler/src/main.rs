@@ -20,7 +20,7 @@ use yiilian_dht::{
     service::KrpcService,
 };
 use yiilian_dl::bt::bt_downloader::BtDownloader;
-use yiilian_mq::engine::Engine;
+use yiilian_mq::{engine::Engine, message::Message};
 
 use yiilian_crawler::common::{Config, DEFAULT_CONFIG_FILE};
 use yiilian_crawler::event::RecvAnnounceListener;
@@ -87,7 +87,6 @@ async fn download_meta(mq_engine: Arc<Engine>, bt_downloader: &BtDownloader) {
 
     loop {
         if let Some(msg) = mq_engine.poll_message("info_hash", "download_meta_client") {
-            log::debug!("poll message: {}", msg.offset());
 
             let info_hash: [u8; 20] = {
                 let value = msg.value();
@@ -96,7 +95,11 @@ async fn download_meta(mq_engine: Arc<Engine>, bt_downloader: &BtDownloader) {
                     Err(_) => continue,
                 }
             };
-            let info_str: String =  info_hash.encode_hex();
+
+            let info_str: String =  info_hash.encode_hex_upper();
+
+
+            log::debug!("poll message infohash: {}, offset : {}", msg.offset(), info_str);
             
             match bt_downloader.download_meta(&info_hash, &mut blocked_addrs).await {
                 Ok(_) => {
