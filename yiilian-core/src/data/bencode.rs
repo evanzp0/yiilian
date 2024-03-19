@@ -354,8 +354,6 @@ pub fn decode_dict(data: &[u8], start: usize) -> Result<(BencodeData, usize), Er
         
         if let Some(ref p_key) = prev_key {
             if *p_key > key {
-                println!("prev_key: {:?}, key: {:?}", prev_key, key);
-
                 Err(Error::new_frame(None, Some("invalid dict, key order is invalid".to_owned())))?
             }
         } else {

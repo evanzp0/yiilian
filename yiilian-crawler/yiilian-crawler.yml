@@ -9,7 +9,7 @@ dht_cluster:
     - dht.transmissionbt.com:6881
     - router.bittorrent.com:6881
     - router.utorrent.com:6881
-  block_ips: ["127.0.0.1", "38.12.39.175"]
+  block_ips: ["127.0.0.1", "38.6.187.175"]
   ports: 
     - 16500
     # - 16700
