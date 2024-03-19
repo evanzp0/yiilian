@@ -189,7 +189,7 @@ fn get_oldest_offset(array: &Vec<SegmentInfo>) -> Option<u64> {
         return None;
     }
 
-    let mut oldest =array.first().expect("get oldest");
+    let mut oldest = array.first().expect("get oldest");
 
     for item in array {
         if item.mod_time < oldest.mod_time {
