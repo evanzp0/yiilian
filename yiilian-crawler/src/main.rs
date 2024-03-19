@@ -120,8 +120,6 @@ async fn download_meta(mq_engine: Arc<Engine>, bt_downloader: &BtDownloader) {
                     }
                 },
             }
-
-
         } else {
             tokio::time::sleep(Duration::from_secs(5)).await;
         }

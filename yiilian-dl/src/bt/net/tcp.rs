@@ -48,9 +48,11 @@ pub async fn read_message(stream: &mut TcpStream) -> Result<Bytes, Error> {
 
     let buf: Vec<u8> = vec![0; message_len as usize];
     let mut buf = Cursor::new(buf);
-    buf.seek(SeekFrom::Start(0)).unwrap();
+    buf.seek(SeekFrom::Start(0))
+        .map_err(|error| Error::new_net(Some(error.into()), Some("seek message error".to_owned()), None))?;
     
-    std::io::Write::write(&mut buf, message_len_bytes).unwrap();
+    std::io::Write::write(&mut buf, message_len_bytes)
+        .map_err(|error| Error::new_net(Some(error.into()), Some("write message error".to_owned()), None))?;
     let mut buf: Vec<u8> = buf.into_inner();
     
     read(stream, &mut buf[MESSAGE_LEN_PREFIX..])

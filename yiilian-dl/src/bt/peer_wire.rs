@@ -154,7 +154,7 @@ impl PeerWire {
                             ));
                         }
 
-                        let msg: UtMetadata = payload.try_into().unwrap();
+                        let msg: UtMetadata = payload.try_into()?;
 
                         match msg {
                             UtMetadata::Data {
