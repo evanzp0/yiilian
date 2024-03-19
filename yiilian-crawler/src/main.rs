@@ -1,4 +1,10 @@
-use std::{fs, net::SocketAddr, path::Path, sync::Arc, time::{Duration, Instant}};
+use std::{
+    fs,
+    net::SocketAddr,
+    path::Path,
+    sync::Arc,
+    time::Duration,
+};
 
 use futures::future::join_all;
 
@@ -8,6 +14,7 @@ use yiilian_core::{
     common::{
         error::Error,
         shutdown::{create_shutdown, ShutdownReceiver},
+        util::bytes_to_sockaddr,
     },
     data::Request,
     service::{EventLayer, FirewallLayer},
@@ -42,14 +49,15 @@ async fn main() {
         Arc::new(engine)
     };
 
-    let mut announce_listener = RecvAnnounceListener::new(rx, mq_engine.clone(), shutdown_rx.clone());
+    let mut announce_listener = RecvAnnounceListener::new(rx, mq_engine.clone());
 
     let download_dir = {
         let mut d = home::home_dir().unwrap();
         d.push(".yiilian/dl/");
 
         fs::create_dir_all(d.clone())
-            .map_err(|error| Error::new_file(Some(error.into()), None)).unwrap();
+            .map_err(|error| Error::new_file(Some(error.into()), None))
+            .unwrap();
         d
     };
     let bt_downloader = BtDownloader::new(&config.bt, download_dir, shutdown_rx.clone()).unwrap();
@@ -81,40 +89,67 @@ async fn main() {
 }
 
 async fn download_meta(mq_engine: Arc<Engine>, bt_downloader: &BtDownloader) {
-    let timeout_sec = Duration::from_secs(3 * 60);
+    // let timeout_sec = Duration::from_secs(3 * 60);
     let mut blocked_addrs = vec![];
 
     loop {
         if let Some(msg) = mq_engine.poll_message("info_hash", "download_meta_client") {
-
             let info_hash: [u8; 20] = {
-                let value = msg.value();
+                let value = &msg.value()[0..20];
                 match value.try_into() {
                     Ok(value) => value,
                     Err(_) => continue,
                 }
             };
 
-            let info_str: String =  info_hash.encode_hex_upper();
+            let info_str: String = info_hash.encode_hex_upper();
 
-            log::debug!(target: "yiilian_crawler", "poll message infohash: {} , offset : {}", info_str, msg.offset());
+            let target_addr = {
+                match bytes_to_sockaddr(&msg.value()[20..]) {
+                    Ok(value) => value,
+                    Err(_) => continue,
+                }
+            };
 
-            let instant = Instant::now();
+            log::debug!(target: "yiilian_crawler", "poll message infohash: {} , target: {} , offset : {}", info_str, target_addr, msg.offset());
+
+            // let instant = Instant::now();
             loop {
-                match bt_downloader.download_meta(&info_hash, &mut blocked_addrs).await {
+                match bt_downloader.download_meta_from_target(target_addr, &info_hash, &mut blocked_addrs).await {
                     Ok(_) => {
                         log::trace!(target: "yiilian_crawler", "{} is downloaded", info_str);
                         break;
-                    },
+                    }
                     Err(_) => {
-                        if instant.elapsed() >= timeout_sec {
-                            log::trace!(target: "yiilian_crawler", "{} is not founded", info_str);
-                            break;
-                        } else {
-                            tokio::time::sleep(Duration::from_secs(1)).await
+                        match bt_downloader.download_meta(&info_hash, &mut blocked_addrs).await {
+                            Ok(_) => {
+                                log::trace!(target: "yiilian_crawler", "{} is downloaded", info_str);
+                                break;
+                            } 
+                            Err(_) => {
+                                log::trace!(target: "yiilian_crawler", "{} is not founded", info_str);
+                            }
                         }
-                    },
+                    }
                 }
+
+                // match bt_downloader
+                //     .download_meta(&info_hash, &mut blocked_addrs)
+                //     .await
+                // {
+                //     Ok(_) => {
+                //         log::trace!(target: "yiilian_crawler", "{} is downloaded", info_str);
+                //         break;
+                //     }
+                //     Err(_) => {
+                //         if instant.elapsed() >= timeout_sec {
+                //             log::trace!(target: "yiilian_crawler", "{} is not founded", info_str);
+                //             break;
+                //         } else {
+                //             tokio::time::sleep(Duration::from_secs(1)).await
+                //         }
+                //     }
+                // }
             }
         } else {
             tokio::time::sleep(Duration::from_secs(1)).await;
@@ -127,7 +162,9 @@ fn create_dht_list(
     shutdown_rx: ShutdownReceiver,
     tx: Sender<Arc<Request<KrpcBody>>>,
 ) -> Result<
-    Vec<Dht<impl KrpcService<KrpcBody, ResBody = KrpcBody, Error = Error> + Clone + Send + 'static>>,
+    Vec<
+        Dht<impl KrpcService<KrpcBody, ResBody = KrpcBody, Error = Error> + Clone + Send + 'static>,
+    >,
     Error,
 > {
     let mut dht_list = vec![];

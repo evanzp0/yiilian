@@ -90,7 +90,12 @@ impl BtDownloader {
         &self,
         target_addr: SocketAddr,
         info_hash: &[u8; ID_SIZE],
+        blocked_addrs: &mut Vec<SocketAddr>,
     ) -> Result<[u8; ID_SIZE], Error> {
+        if blocked_addrs.contains(&target_addr) {
+            return Err(Error::new_block(&format!("{} is blocked", target_addr)))
+        }
+
         if let Ok(info) = self.fetch_meta_from_target(target_addr, info_hash).await {
             let torrent = info.encode();
             let mut path = self.download_dir.clone();
