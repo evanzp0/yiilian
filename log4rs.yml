@@ -41,3 +41,8 @@ loggers:
     appenders:
       - log_file
     additive: false
+  yiilian_dl:
+    level: trace
+    appenders:
+      - log_file
+    additive: false
