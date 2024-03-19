@@ -109,8 +109,6 @@ async fn download_meta(
     let mut blocked_addrs = vec![];
 
     loop {
-        let mut is_downloaded = false;
-
         if let Some(msg) = mq_engine.poll_message("info_hash", "download_meta_client") {
             let info_hash: [u8; 20] = {
                 let value = &msg.value()[0..20];
@@ -131,41 +129,37 @@ async fn download_meta(
 
             log::debug!(target: "yiilian_crawler", "poll message infohash: {} , target: {} , offset : {}", info_str, target_addr, msg.offset());
 
-            match bt_downloader
-                .download_meta_from_target(target_addr, &info_hash, &mut blocked_addrs)
-                .await
-            {
-                Ok(_) => {
-                    is_downloaded = true;
+            let bloom_val = hex::encode(info_hash);
+            let bloom_val = hash_it(bloom_val);
+            let chk_rst = bloom.read().expect("bloom.read() error").check(&bloom_val);
 
-                    log::trace!(target: "yiilian_crawler", "{} is downloaded", info_str);
-                }
-                Err(_) => {
-                    match bt_downloader
-                        .download_meta(&info_hash, &mut blocked_addrs)
-                        .await
-                    {
-                        Ok(_) => {
-                            is_downloaded = true;
-
-                            log::trace!(target: "yiilian_crawler", "{} is downloaded", info_str);
-                        }
-                        Err(_) => {
-                            log::trace!(target: "yiilian_crawler", "{} is not founded", info_str);
+            if !chk_rst {
+                match bt_downloader
+                    .download_meta_from_target(target_addr, &info_hash, &mut blocked_addrs)
+                    .await
+                {
+                    Ok(_) => {
+                        // 如果没命中且成功下载，则加入到布隆过滤其中，并输出到日志
+                        bloom.write().expect("bloom.write() error").set(&bloom_val);
+                        
+                        log::trace!(target: "yiilian_crawler", "{} is downloaded", info_str);
+                    }
+                    Err(_) => {
+                        match bt_downloader
+                            .download_meta(&info_hash, &mut blocked_addrs)
+                            .await
+                        {
+                            Ok(_) => {
+                                // 如果没命中且成功下载，则加入到布隆过滤其中，并输出到日志
+                                bloom.write().expect("bloom.write() error").set(&bloom_val);
+                                
+                                log::trace!(target: "yiilian_crawler", "{} is downloaded", info_str);
+                            }
+                            Err(_) => {
+                                log::trace!(target: "yiilian_crawler", "{} is not founded", info_str);
+                            }
                         }
                     }
-                }
-            }
-
-            // 下载完毕则加入 bloom 过滤器
-            if is_downloaded {
-                let bloom_val = hex::encode(info_hash);
-                let bloom_val = hash_it(bloom_val);
-                let chk_rst = bloom.read().expect("bloom.read() error").check(&bloom_val);
-
-                if !chk_rst {
-                    // 如果没命中，则加入到布隆过滤其中，并输出到日志
-                    bloom.write().expect("bloom.write() error").set(&bloom_val);
                 }
             }
         } else {
