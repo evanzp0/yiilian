@@ -98,24 +98,26 @@ async fn download_meta(mq_engine: Arc<Engine>, bt_downloader: &BtDownloader) {
 
             let info_str: String =  info_hash.encode_hex_upper();
 
-            log::debug!(target: "yiilian_crawler", "poll message infohash: {}, offset : {}", msg.offset(), info_str);
-            
-            match bt_downloader.download_meta(&info_hash, &mut blocked_addrs).await {
-                Ok(_) => {
-                    log::trace!(target: "yiilian_crawler", "{} is downloaded", info_str);
-                    break;
-                },
-                Err(_) => {
-                    if instant.elapsed() >= timeout_sec {
-                        log::trace!(target: "yiilian_crawler", "{} is not founded", info_str);
+            log::debug!(target: "yiilian_crawler", "poll message infohash: {}, offset : {}", info_str, msg.offset());
+
+            loop {
+                match bt_downloader.download_meta(&info_hash, &mut blocked_addrs).await {
+                    Ok(_) => {
+                        log::trace!(target: "yiilian_crawler", "{} is downloaded", info_str);
                         break;
-                    } else {
-                        tokio::time::sleep(Duration::from_secs(1)).await
-                    }
-                },
+                    },
+                    Err(_) => {
+                        if instant.elapsed() >= timeout_sec {
+                            log::trace!(target: "yiilian_crawler", "{} is not founded", info_str);
+                            break;
+                        } else {
+                            tokio::time::sleep(Duration::from_secs(1)).await
+                        }
+                    },
+                }
             }
         } else {
-            tokio::time::sleep(Duration::from_secs(5)).await;
+            tokio::time::sleep(Duration::from_secs(1)).await;
         }
     }
 }
