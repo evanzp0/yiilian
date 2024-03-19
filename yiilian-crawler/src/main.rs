@@ -3,10 +3,7 @@ use std::{fs, net::SocketAddr, path::Path, sync::Arc, time::{Duration, Instant}}
 use futures::future::join_all;
 
 use hex::ToHex;
-use tokio::{
-    sync::broadcast::{self, Sender},
-    time::sleep,
-};
+use tokio::sync::broadcast::{self, Sender};
 use yiilian_core::{
     common::{
         error::Error,
