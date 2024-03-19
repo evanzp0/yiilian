@@ -82,7 +82,6 @@ async fn main() {
 
 async fn download_meta(mq_engine: Arc<Engine>, bt_downloader: &BtDownloader) {
     let timeout_sec = Duration::from_secs(3 * 60);
-    let instant = Instant::now();
     let mut blocked_addrs = vec![];
 
     loop {
@@ -100,6 +99,7 @@ async fn download_meta(mq_engine: Arc<Engine>, bt_downloader: &BtDownloader) {
 
             log::debug!(target: "yiilian_crawler", "poll message infohash: {} , offset : {}", info_str, msg.offset());
 
+            let instant = Instant::now();
             loop {
                 match bt_downloader.download_meta(&info_hash, &mut blocked_addrs).await {
                     Ok(_) => {
