@@ -11,7 +11,7 @@ use bloomfilter::Bloom;
 use futures::future::join_all;
 
 use hex::ToHex;
-use tokio::sync::broadcast::{self, Sender};
+use tokio::{signal::unix::SignalKind, sync::broadcast::{self, Sender}};
 use yiilian_core::{
     common::{
         error::Error,
@@ -72,9 +72,18 @@ async fn main() {
         d
     };
     let bt_downloader = BtDownloader::new(&config.bt, download_dir, shutdown_rx.clone()).unwrap();
+    
+    let bm = bloom.clone();
+    let strx = shutdown_rx.clone();
+    tokio::spawn(async move {
+        strx.watch().await;
+        save_bloom(bm);
+    });
 
     drop(shutdown_rx);
 
+    let mut term_sig = tokio::signal::unix::signal(SignalKind::terminate()).unwrap();
+    
     tokio::select! {
         _  = async {
             let mut futs = vec![];
@@ -89,7 +98,6 @@ async fn main() {
         _ = bt_downloader.run_loop() => (),
         _ = download_meta(mq_engine, &bt_downloader, bloom.clone()) => (),
         _ = tokio::signal::ctrl_c() => {
-            save_bloom(bloom).await;
 
             drop(dht_list);
             drop(bt_downloader);
@@ -97,6 +105,14 @@ async fn main() {
             shutdown_tx.shutdown().await;
 
             println!("\nCtrl + c shutdown");
+        },
+        _ = term_sig.recv() => {
+            drop(dht_list);
+            drop(bt_downloader);
+
+            shutdown_tx.shutdown().await;
+
+            println!("\nShutdown");
         },
     };
 }
@@ -141,7 +157,7 @@ async fn download_meta(
                     Ok(_) => {
                         // 如果没命中且成功下载，则加入到布隆过滤其中，并输出到日志
                         bloom.write().expect("bloom.write() error").set(&bloom_val);
-                        
+
                         log::trace!(target: "yiilian_crawler", "{} is downloaded", info_str);
                     }
                     Err(_) => {
@@ -152,7 +168,7 @@ async fn download_meta(
                             Ok(_) => {
                                 // 如果没命中且成功下载，则加入到布隆过滤其中，并输出到日志
                                 bloom.write().expect("bloom.write() error").set(&bloom_val);
-                                
+
                                 log::trace!(target: "yiilian_crawler", "{} is downloaded", info_str);
                             }
                             Err(_) => {
@@ -256,7 +272,7 @@ fn set_up_logging_from_file<P: AsRef<Path>>(file_path: Option<&P>) {
     }
 }
 
-pub async fn save_bloom(bloom: Arc<RwLock<Bloom<u64>>>) {
+pub fn save_bloom(bloom: Arc<RwLock<Bloom<u64>>>) {
     let mut f = File::create(&BLOOM_STATE_FILE).expect("file create BLOOM_STATE_FILE failed");
     let encoded: Vec<u8> =
         bincode::serialize(&*bloom).expect("bincode::serialize BLOOM_STATE_FILE failed");

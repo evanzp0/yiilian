@@ -8,3 +8,4 @@ release
 *.torrent
 /torrent
 test_file.txt
+nohup.out
