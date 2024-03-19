@@ -60,7 +60,6 @@ async fn main() {
     drop(shutdown_rx);
 
     tokio::select! {
-        _ = bt_downloader.run_loop() => (),
         _  = async {
             let mut futs = vec![];
             for dht in &dht_list {
@@ -69,14 +68,10 @@ async fn main() {
             }
 
             join_all(futs).await;
-            sleep(Duration::from_secs(10 * 60)).await;
         } => (),
-        _ = async {
-            announce_listener.listen().await
-        } => (),
-        _ = async {
-            download_meta(mq_engine, &bt_downloader).await;
-        } => (),
+        _ = announce_listener.listen() => (),
+        _ = bt_downloader.run_loop() => (),
+        _ = download_meta(mq_engine, &bt_downloader) => (),
         _ = tokio::signal::ctrl_c() => {
             drop(dht_list);
             drop(bt_downloader);
