@@ -114,7 +114,7 @@ impl PeerWire {
                         if pieces != None {
                             return Err(Error::new_frame(
                                 None,
-                                Some(format!("recv extend message is invalid")),
+                                Some(format!("recv extend message is invalid: {}, {:?}", ext_msg_id, payload)),
                             ));
                         }
 
@@ -141,7 +141,7 @@ impl PeerWire {
                         } else {
                             return Err(Error::new_frame(
                                 None,
-                                Some(format!("recv extend message is invalid")),
+                                Some(format!("target peer not support ut_metadata: {:?}", ext_header)),
                             ));
                         }
                     }

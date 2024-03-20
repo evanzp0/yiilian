@@ -143,6 +143,10 @@ async fn download_meta(
                 }
             };
 
+            if blocked_addrs.contains(&target_addr) {
+                continue
+            }
+
             log::trace!(target: "yiilian_crawler::main", "poll message infohash: {} , target: {} , offset : {}", info_str, target_addr, msg.offset());
 
             let bloom_val = hex::encode(info_hash);
@@ -172,6 +176,7 @@ async fn download_meta(
                                 log::trace!(target: "yiilian_crawler::main", "{} is downloaded", info_str);
                             }
                             Err(_) => {
+                                blocked_addrs.push(target_addr);
                                 log::trace!(target: "yiilian_crawler::main", "{} is not founded", info_str);
                             }
                         }

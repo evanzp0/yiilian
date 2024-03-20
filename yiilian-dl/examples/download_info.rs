@@ -13,9 +13,9 @@ async fn main() {
     let peer_wire = PeerWire::new();
     let local_id = Id::from_random(&mut thread_rng());
 
-    let target_addr: SocketAddr = "46.49.81.151:7872".parse().unwrap();
+    let target_addr: SocketAddr = "142.215.164.101:6882".parse().unwrap();
     let info_hash: [u8; 20] = {
-        let info_hash_str = "CA898835A835E4CF4C995CBC09F5AC47A1BF69D3";
+        let info_hash_str = "98F09643766D5D561E986EFEB5BBA4F6BE98517E";
 
         let h = hex::decode(info_hash_str)
         .map_err(|hex_err| Error::new_id(Some(hex_err.into()), None))
