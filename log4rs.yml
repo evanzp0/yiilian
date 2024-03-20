@@ -16,6 +16,16 @@ appenders:
         pattern: 'log/yiilian-crawler.{}.gz'
         base: 1
         count: 5
+  event:
+    kind: rolling_file
+    path: "log/event.log"
+    policy:
+      kind: compound
+      trigger:
+        kind: size
+        limit: 10 mb
+      roller:
+        kind: delete
   firewall:
     kind: rolling_file
     path: "log/firewall.log"
@@ -36,10 +46,15 @@ loggers:
     appenders:
       - firewall
     additive: false
-  yiilian_crawler:
+  yiilian_crawler::main:
     level: trace
     appenders:
       - log_file
+    additive: false
+  yiilian_crawler::event:
+    level: trace
+    appenders:
+      - event
     additive: false
   yiilian_dl:
     level: trace

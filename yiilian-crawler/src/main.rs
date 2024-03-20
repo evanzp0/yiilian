@@ -143,13 +143,13 @@ async fn download_meta(
                 }
             };
 
-            log::trace!(target: "yiilian_crawler", "poll message infohash: {} , target: {} , offset : {}", info_str, target_addr, msg.offset());
+            log::trace!(target: "yiilian_crawler::main", "poll message infohash: {} , target: {} , offset : {}", info_str, target_addr, msg.offset());
 
             let bloom_val = hex::encode(info_hash);
             let bloom_val = hash_it(bloom_val);
             let chk_rst = bloom.read().expect("bloom.read() error").check(&bloom_val);
 
-            log::trace!(target: "yiilian_crawler", "bloom checked: {}", chk_rst);
+            log::trace!(target: "yiilian_crawler::main", "bloom checked: {}", chk_rst);
 
             if !chk_rst {
                 match bt_downloader
@@ -160,7 +160,7 @@ async fn download_meta(
                         // 如果没命中且成功下载，则加入到布隆过滤其中，并输出到日志
                         bloom.write().expect("bloom.write() error").set(&bloom_val);
 
-                        log::trace!(target: "yiilian_crawler", "{} is downloaded", info_str);
+                        log::trace!(target: "yiilian_crawler::main", "{} is downloaded", info_str);
                     }
                     Err(_) => {
                         match bt_downloader
@@ -171,10 +171,10 @@ async fn download_meta(
                                 // 如果没命中且成功下载，则加入到布隆过滤其中，并输出到日志
                                 bloom.write().expect("bloom.write() error").set(&bloom_val);
 
-                                log::trace!(target: "yiilian_crawler", "{} is downloaded", info_str);
+                                log::trace!(target: "yiilian_crawler::main", "{} is downloaded", info_str);
                             }
                             Err(_) => {
-                                log::trace!(target: "yiilian_crawler", "{} is not founded", info_str);
+                                log::trace!(target: "yiilian_crawler::main", "{} is not founded", info_str);
                             }
                         }
                     }
@@ -183,7 +183,7 @@ async fn download_meta(
         }
 
         tokio::time::sleep(Duration::from_secs(1)).await;
-        log::trace!(target: "yiilian_crawler", "get next message...");
+        log::trace!(target: "yiilian_crawler::main", "get next message...");
     }
 }
 
