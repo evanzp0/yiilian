@@ -32,12 +32,21 @@ where
     type Error = S::Error;
 
     async fn call(&mut self, req: Request<B1>) -> Result<Self::Response, Self::Error> {
-        let req_copy = Arc::new(req.clone());
-        if let Err(e) = self.tx.send(req_copy) {
-            log::debug!("error: {:?}", e);
-        }
 
-        self.inner.call(req).await
+        let rst = self.inner.call(req.clone()).await;
+
+        match rst {
+            Ok(reply) => {
+                let req = Arc::new(req);
+                
+                if let Err(e) = self.tx.send(req) {
+                    log::debug!("error: {:?}", e);
+                }
+
+                Ok(reply)
+            },
+            Err(error) => Err(error),
+        }
     }
 }
 

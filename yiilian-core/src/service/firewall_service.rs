@@ -33,7 +33,7 @@ impl<F> FirewallService<F> {
         shutdown_rx: ShutdownReceiver,
     ) -> Self {
         let track_state = Arc::new(RwLock::new(TrackState::new(max_tracks)));
-        let block_list = BlockList::new(block_list_max_size, None, shutdown_rx);
+        let block_list = BlockList::new("firewall", block_list_max_size, None, shutdown_rx);
 
         block_list.prune_loop();
 

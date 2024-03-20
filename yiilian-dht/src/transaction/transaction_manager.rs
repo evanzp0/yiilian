@@ -9,16 +9,14 @@ use chrono::Utc;
 use tokio::{sync::oneshot, time::interval};
 use yiilian_core::{
     common::{error::Error, expect_log::ExpectLog, shutdown::ShutdownReceiver},
-    data::Request,
+    data::{BtHandshake, Request},
+    net::{block_list::BlockList, tcp::{read_bt_handshake, send_bt_handshake}},
 };
 
 use crate::{
     common::{
-        calculate_token, Id,
-        {
-            dht_ctx_client, dht_ctx_peer_mgr, dht_ctx_routing_tbl, dht_ctx_settings, dht_ctx_state,
-            dht_ctx_trans_mgr,
-        },
+        calculate_token, dht_ctx_client, dht_ctx_peer_mgr, dht_ctx_routing_tbl, dht_ctx_settings,
+        dht_ctx_state, dht_ctx_trans_mgr, Id, Settings,
     },
     data::{
         announce_peer::AnnouncePeer,
@@ -43,16 +41,32 @@ pub struct TransactionManager {
     local_addr: SocketAddr,
     /// 对外发送 query 的事务队列（只有主动发送 query 时才会产生事务）
     transactions: Mutex<HashMap<TransactionId, Transaction>>,
+    announce_block_list: BlockList,
 }
 
 impl TransactionManager {
-    pub fn new(ctx_index: u16, local_addr: SocketAddr, _shutdown: ShutdownReceiver) -> Self {
+    pub fn new(
+        ctx_index: u16,
+        local_addr: SocketAddr,
+        shutdown_rx: ShutdownReceiver,
+        settings: &Settings,
+    ) -> Self {
         let transactions = Mutex::new(HashMap::new());
+
+        let announce_block_list = BlockList::new(
+            "announce_block_list",
+            settings.block_list_max_size,
+            None,
+            shutdown_rx,
+        );
+
+        announce_block_list.prune_loop();
 
         Self {
             ctx_index,
             local_addr,
             transactions,
+            announce_block_list,
         }
     }
 
@@ -384,6 +398,10 @@ impl TransactionManager {
         query: &AnnouncePeer,
         remote_addr: &SocketAddr,
     ) -> Result<(Reply, SocketAddr), Error> {
+        if self.announce_block_list.contains(remote_addr.ip(), remote_addr.port()) {
+            return Err(Error::new_block(&format!("{} is in announce_block_list", remote_addr)))
+        }
+
         let local_id = dht_ctx_state(self.ctx_index)
             .read()
             .expect_error("dht_ctx_state.read() failed")
@@ -404,6 +422,9 @@ impl TransactionManager {
         let is_token_valid = query.token == calculate_token(&remote_addr, token_secret).to_vec()
             || query.token == calculate_token(&remote_addr, old_token_secret).to_vec();
 
+        let reply_error_block_duration_sec =
+            dht_ctx_settings(self.ctx_index).reply_error_block_duration_sec;
+
         if is_token_valid {
             // 如果有 implied_port，则使用请求方的 ip+port; 如果没有 implied_port，则使用请求消息中的 port
             let sockaddr = match query.implied_port {
@@ -414,6 +435,16 @@ impl TransactionManager {
                     tmp
                 }
             };
+ 
+            if !TransactionManager::verify_announce_target(sockaddr, &query.info_hash.to_vec()).await {
+                self.announce_block_list.insert(
+                    remote_addr.ip(),
+                    remote_addr.port() as i32,
+                    Some(Duration::from_secs(reply_error_block_duration_sec)),
+                );
+
+                return Err(Error::new_block(&format!("{} add to announce_block_list", remote_addr)))
+            }
 
             // 将对方 address 加入到 announce 的 info_hash 对应的 peers 列表中
             dht_ctx_peer_mgr(self.ctx_index)
@@ -431,11 +462,51 @@ impl TransactionManager {
 
             Ok((Reply::PingOrAnnounce(reply), remote_addr.clone()))
         } else {
+            self.announce_block_list.insert(
+                remote_addr.ip(),
+                remote_addr.port() as i32,
+                Some(Duration::from_secs(reply_error_block_duration_sec)),
+            );
+
             Err(Error::new_token(&format!(
                 "Invalid token: {:?}",
                 query.token
             )))
         }
+    }
+
+    /// 通过握手消息校验 announce ip 的有效性
+    async fn verify_announce_target(target_addr: SocketAddr, info_hash: &[u8]) -> bool {
+
+        let local_id = Id::from_random(&mut rand::thread_rng());
+        let mut stream = {
+            if let Ok(s) = tokio::net::TcpStream::connect(target_addr).await {
+                s
+            } else {
+                return false
+            }
+        };
+
+        // 发送握手消息给对方
+        if let Err(_) = send_bt_handshake(&mut stream, info_hash, &local_id.to_vec()).await {
+            return false
+        }
+
+        // 接收对方回复的握手消息
+        let rst = {
+            if let Ok(s) = read_bt_handshake(&mut stream).await {
+                s
+            } else {
+                return false
+            }
+        };
+
+        // 校验对方握手消息
+        if !BtHandshake::verify(&rst) {
+            return false
+        }
+
+        true
     }
 
     /// 处理对方的反馈（需要事务处理）

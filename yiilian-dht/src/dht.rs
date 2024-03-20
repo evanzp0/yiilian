@@ -60,7 +60,7 @@ where
         local_addr: SocketAddr,
         service: S,
         settings: Option<Settings>,
-        block_list: Option<HashSet<BlockAddr>>,
+        node_block_list: Option<HashSet<BlockAddr>>,
         shutdown_rx: ShutdownReceiver,
         workers: Option<usize>,
     ) -> Result<Self, Error> {
@@ -74,14 +74,14 @@ where
         };
 
         let transaction_manager =
-            TransactionManager::new(local_addr.port(), local_addr, shutdown_rx.clone());
+            TransactionManager::new(local_addr.port(), local_addr, shutdown_rx.clone(), &settings);
 
         let routing_table = build_routing_table(
             ctx_index,
             local_id,
             settings.block_list_max_size,
             settings.bucket_size,
-            block_list,
+            node_block_list,
             shutdown_rx.clone(),
         );
 
@@ -562,11 +562,11 @@ fn build_routing_table(
     local_id: Id,
     block_list_max_size: usize,
     bucket_size: usize,
-    block_list: Option<HashSet<BlockAddr>>,
+    node_block_list: Option<HashSet<BlockAddr>>,
     shutdown_rx: ShutdownReceiver,
 ) -> Mutex<RoutingTable> {
-    let block_list = BlockList::new(block_list_max_size, block_list, shutdown_rx);
-    let routing_table = RoutingTable::new(ctx_index, bucket_size, block_list, local_id);
+    let node_block_list = BlockList::new("node_block_list", block_list_max_size, node_block_list, shutdown_rx);
+    let routing_table = RoutingTable::new(ctx_index, bucket_size, node_block_list, local_id);
 
     Mutex::new(routing_table)
 }

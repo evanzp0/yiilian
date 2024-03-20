@@ -7,7 +7,7 @@ use crate::{common::error::Error, data::{BtHandshake, HANDSHAKE_LEN, MESSAGE_EXT
 
 // read reads size-length bytes from conn to data.
 pub async fn read(stream: &mut TcpStream, buf: &mut [u8]) -> Result<usize, Box<dyn StdError + Send + Sync>> {
-    let duration = tokio::time::Duration::from_secs(15);
+    let duration = tokio::time::Duration::from_secs(10);
     
     let n = timeout(duration, stream.read_exact(buf)).await??;
     // println!("{n}, {:?}", buf);

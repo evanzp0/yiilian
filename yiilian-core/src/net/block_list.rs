@@ -15,6 +15,7 @@ use crate::common::{expect_log::ExpectLog, shutdown::{spawn_with_shutdown, Shutd
 
 #[derive(Debug, Clone)]
 pub struct BlockList {
+    name: String,
     max_size: usize,
     addr_list: Arc<RwLock<HashSet<BlockAddr>>>,
     shutdown_rx: ShutdownReceiver,
@@ -22,6 +23,7 @@ pub struct BlockList {
 
 impl BlockList {
     pub fn new(
+        name: &str,
         max_size: usize,
         addr_list: Option<HashSet<BlockAddr>>,
         shutdown_rx: ShutdownReceiver,
@@ -33,6 +35,7 @@ impl BlockList {
         };
 
         BlockList {
+            name: name.to_owned(),
             max_size,
             addr_list: Arc::new(RwLock::new(addr_list)),
             shutdown_rx,
@@ -70,7 +73,7 @@ impl BlockList {
                     sleep(Duration::from_secs(1)).await;
                 }
             },
-            "block_list prune loop",
+            format!("{} prune loop", self.name),
             None,
         );
     }
@@ -156,7 +159,7 @@ mod tests {
     async fn test_blacklist() {
         let (mut _shutdown_tx, shutdown_rx) = create_shutdown();
         
-        let block_list = BlockList::new(1, None, shutdown_rx);
+        let block_list = BlockList::new("test", 1, None, shutdown_rx);
         let addr: SocketAddr = "192.168.1.1:8080".parse().unwrap();
 
         block_list.insert(addr.ip(), addr.port() as i32, Some(Duration::from_secs(2)));
