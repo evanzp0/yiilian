@@ -143,9 +143,9 @@ async fn download_meta(
                 }
             };
 
-            if blocked_addrs.contains(&target_addr) {
-                continue
-            }
+            // if blocked_addrs.contains(&target_addr) {
+            //     continue
+            // }
 
             log::trace!(target: "yiilian_crawler::main", "poll message infohash: {} , target: {} , offset : {}", info_str, target_addr, msg.offset());
 
@@ -166,7 +166,7 @@ async fn download_meta(
                     }
                     Err(_) => {
 
-                        blocked_addrs.push(target_addr);
+                        // blocked_addrs.push(target_addr);
 
                         match bt_downloader
                             .download_meta(&info_hash, &mut blocked_addrs)

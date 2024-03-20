@@ -41,7 +41,7 @@ pub struct TransactionManager {
     local_addr: SocketAddr,
     /// 对外发送 query 的事务队列（只有主动发送 query 时才会产生事务）
     transactions: Mutex<HashMap<TransactionId, Transaction>>,
-    announce_block_list: BlockList,
+    // announce_block_list: BlockList,
 }
 
 impl TransactionManager {
@@ -66,7 +66,7 @@ impl TransactionManager {
             ctx_index,
             local_addr,
             transactions,
-            announce_block_list,
+            // announce_block_list,
         }
     }
 
@@ -422,8 +422,8 @@ impl TransactionManager {
         let is_token_valid = query.token == calculate_token(&remote_addr, token_secret).to_vec()
             || query.token == calculate_token(&remote_addr, old_token_secret).to_vec();
 
-        let reply_error_block_duration_sec =
-            dht_ctx_settings(self.ctx_index).reply_error_block_duration_sec;
+        // let reply_error_block_duration_sec =
+        //     dht_ctx_settings(self.ctx_index).reply_error_block_duration_sec;
 
         if is_token_valid {
             // 如果有 implied_port，则使用请求方的 ip+port; 如果没有 implied_port，则使用请求消息中的 port
@@ -462,11 +462,11 @@ impl TransactionManager {
 
             Ok((Reply::PingOrAnnounce(reply), remote_addr.clone()))
         } else {
-            self.announce_block_list.insert(
-                remote_addr.ip(),
-                remote_addr.port() as i32,
-                Some(Duration::from_secs(reply_error_block_duration_sec)),
-            );
+            // self.announce_block_list.insert(
+            //     remote_addr.ip(),
+            //     remote_addr.port() as i32,
+            //     Some(Duration::from_secs(reply_error_block_duration_sec)),
+            // );
 
             Err(Error::new_token(&format!(
                 "Invalid token: {:?}",
