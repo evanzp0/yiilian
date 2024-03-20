@@ -86,6 +86,8 @@ impl RecvAnnounceListener<Request<KrpcBody>> {
                             msg_val.extend(val.info_hash.get_bytes());
                             msg_val.extend(sockaddr_to_bytes(&target_address));
 
+                            log::debug!(target: "yiilian_crawler::event::announce_listener", "Send message: {} {}", val.info_hash, target_address);
+
                             self.mq_engine.push_message("info_hash", InMessage(msg_val.into())).ok();
                         }
                         _ => (),
