@@ -143,11 +143,13 @@ async fn download_meta(
                 }
             };
 
-            log::debug!(target: "yiilian_crawler", "poll message infohash: {} , target: {} , offset : {}", info_str, target_addr, msg.offset());
+            log::trace!(target: "yiilian_crawler", "poll message infohash: {} , target: {} , offset : {}", info_str, target_addr, msg.offset());
 
             let bloom_val = hex::encode(info_hash);
             let bloom_val = hash_it(bloom_val);
             let chk_rst = bloom.read().expect("bloom.read() error").check(&bloom_val);
+
+            log::trace!(target: "yiilian_crawler", "bloom checked: {}", chk_rst);
 
             if !chk_rst {
                 match bt_downloader
@@ -178,9 +180,10 @@ async fn download_meta(
                     }
                 }
             }
-        } else {
-            tokio::time::sleep(Duration::from_secs(1)).await;
         }
+
+        tokio::time::sleep(Duration::from_secs(1)).await;
+        log::trace!(target: "yiilian_crawler", "get next message...");
     }
 }
 

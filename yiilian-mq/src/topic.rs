@@ -8,7 +8,7 @@ use yiilian_core::common::{error::Error, util::{atoi, binary_insert}};
 use crate::{
     consumer_offsets::ConsumerOffsets,
     message::{in_message::InMessage, Message, MESSAGE_PREFIX_LEN},
-    segment::{active_segment::ActiveSegment, gen_mq_file_name, poll_message, LOG_DATA_FILE_EXTENSION, LOG_INDEX_FILE_EXTENSION},
+    segment::{active_segment::ActiveSegment, gen_mq_file_name, poll_message_inner, LOG_DATA_FILE_EXTENSION, LOG_INDEX_FILE_EXTENSION},
 };
 
 const KEEP_SEGMENT_SECS: u64 = 24 * 60 * 60 * 3;
@@ -138,7 +138,7 @@ impl Topic {
                 }
             };
 
-        if let Ok(message) = poll_message(&self.path, segment_offset, target_offset) {
+        if let Ok(message) = poll_message_inner(&self.path, segment_offset, target_offset) {
             if message.is_some() {
                 self.consumers
                     .insert(customer_name, target_offset)

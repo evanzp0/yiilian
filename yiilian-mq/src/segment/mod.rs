@@ -40,7 +40,7 @@ pub fn calc_log_index_size(log_data_size: usize) -> usize {
     index_size
 }
 
-pub fn poll_message(
+pub fn poll_message_inner(
     topic_path: &PathBuf,
     segment_offset: u64,
     target_offset: u64,
