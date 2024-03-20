@@ -1,5 +1,5 @@
 use bytes::{BufMut, Bytes, BytesMut};
-use yiilian_core::common::error::Error;
+use crate::common::error::Error;
 
 const HANDSHAKE_PREFIX: &'static [u8] = b"BitTorrent protocol";
 pub const HANDSHAKE_LEN: usize = 68;
@@ -7,7 +7,7 @@ pub const HANDSHAKE_LEN: usize = 68;
 pub const MESSAGE_EXTENSION_ENABLE: [u8; 8] = [0, 0, 0, 0, 0, 0x10, 0, 0];
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Handshake {
+pub struct BtHandshake {
     prefix_len: u8,
     prefix: &'static [u8],
     reserved_byte: Bytes,
@@ -15,9 +15,9 @@ pub struct Handshake {
     peer_id: Bytes,
 }
 
-impl Handshake {
+impl BtHandshake {
     pub fn new(reserved_byte: &[u8], info_hash: &[u8], peer_id: &[u8]) -> Self {
-        Handshake {
+        BtHandshake {
             prefix_len: HANDSHAKE_PREFIX.len() as u8,
             prefix: HANDSHAKE_PREFIX,
             reserved_byte: reserved_byte.to_owned().into(),
@@ -42,14 +42,14 @@ impl Handshake {
     }
 }
 
-impl From<&Handshake> for Bytes {
-    fn from(value: &Handshake) -> Self {
+impl From<&BtHandshake> for Bytes {
+    fn from(value: &BtHandshake) -> Self {
         value.to_owned().into()
     }
 }
 
-impl From<Handshake> for Bytes {
-    fn from(value: Handshake) -> Self {
+impl From<BtHandshake> for Bytes {
+    fn from(value: BtHandshake) -> Self {
         let mut buf = Vec::with_capacity(HANDSHAKE_LEN);
 
         buf.push(value.prefix_len);
@@ -62,11 +62,11 @@ impl From<Handshake> for Bytes {
     }
 }
 
-impl TryFrom<Bytes> for Handshake {
+impl TryFrom<Bytes> for BtHandshake {
     type Error = Error;
 
     fn try_from(value: Bytes) -> Result<Self, Self::Error> {
-        if !Handshake::verify(&value) {
+        if !BtHandshake::verify(&value) {
             Err(Error::new_frame(
                 None,
                 Some(format!(
@@ -76,15 +76,15 @@ impl TryFrom<Bytes> for Handshake {
             ))?
         }
 
-        Ok(Handshake::new(&value[20..28], &value[28..48], &value[48..]))
+        Ok(BtHandshake::new(&value[20..28], &value[28..48], &value[48..]))
     }
 }
 
-impl TryFrom<BytesMut> for Handshake {
+impl TryFrom<BytesMut> for BtHandshake {
     type Error = Error;
 
     fn try_from(value: BytesMut) -> Result<Self, Self::Error> {
-        if !Handshake::verify(&value) {
+        if !BtHandshake::verify(&value) {
             Err(Error::new_frame(
                 None,
                 Some(format!(
@@ -94,12 +94,12 @@ impl TryFrom<BytesMut> for Handshake {
             ))?
         }
 
-        Ok(Handshake::new(&value[20..28], &value[28..48], &value[48..]))
+        Ok(BtHandshake::new(&value[20..28], &value[28..48], &value[48..]))
     }
 }
 
-impl From<Handshake> for BytesMut {
-    fn from(value: Handshake) -> Self {
+impl From<BtHandshake> for BytesMut {
+    fn from(value: BtHandshake) -> Self {
         let mut buf = BytesMut::with_capacity(HANDSHAKE_LEN);
 
         buf.put_u8(value.prefix_len);
@@ -122,9 +122,9 @@ mod tests {
     fn test_codec() {
         let info_hash = b"00000000000000000001";
         let peer_id = b"00000000000000000002";
-        let hs1 = Handshake::new(&MESSAGE_EXTENSION_ENABLE, info_hash, peer_id);
+        let hs1 = BtHandshake::new(&MESSAGE_EXTENSION_ENABLE, info_hash, peer_id);
         let data: Bytes = hs1.clone().into();
-        let hs2: Handshake = data.try_into().unwrap();
+        let hs2: BtHandshake = data.try_into().unwrap();
 
         assert_eq!(hs1, hs2);
     }
@@ -133,21 +133,21 @@ mod tests {
     fn test_verify() {
         let info_hash = b"00000000000000000001";
         let peer_id = b"00000000000000000002";
-        let hs = Handshake::new(&MESSAGE_EXTENSION_ENABLE, info_hash, peer_id);
+        let hs = BtHandshake::new(&MESSAGE_EXTENSION_ENABLE, info_hash, peer_id);
         let mut data: BytesMut = hs.clone().try_into().unwrap();
 
-        assert_eq!(true, Handshake::verify(&data));
-        assert_eq!(false, Handshake::verify(&data[0..data.len() - 1]));
+        assert_eq!(true, BtHandshake::verify(&data));
+        assert_eq!(false, BtHandshake::verify(&data[0..data.len() - 1]));
 
         data[0] = 17;
-        assert_eq!(false, Handshake::verify(&data));
+        assert_eq!(false, BtHandshake::verify(&data));
         data[0] = 19;
 
         data[1] = b'a';
-        assert_eq!(false, Handshake::verify(&data));
+        assert_eq!(false, BtHandshake::verify(&data));
         data[1] = b'B';
 
         data[25] = 0;
-        assert_eq!(false, Handshake::verify(&data));
+        assert_eq!(false, BtHandshake::verify(&data));
     }
 }

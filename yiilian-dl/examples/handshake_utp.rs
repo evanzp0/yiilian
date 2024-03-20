@@ -5,7 +5,7 @@ use bytes::Bytes;
 use rand::thread_rng;
 use utp::UtpStream;
 use yiilian_core::common::error::Error;
-use yiilian_dl::bt::data::frame::{Handshake, MESSAGE_EXTENSION_ENABLE};
+use yiilian_core::data::{BtHandshake, MESSAGE_EXTENSION_ENABLE};
 use yiilian_dl::bt::net::utp::read_all;
 use yiilian_dht::common::Id;
 
@@ -18,7 +18,7 @@ async fn main() {
         .unwrap();
 
     let peer_id = Id::from_random(&mut thread_rng()).get_bytes();
-    let hs = Handshake::new(&MESSAGE_EXTENSION_ENABLE, &info_hash, &peer_id);
+    let hs = BtHandshake::new(&MESSAGE_EXTENSION_ENABLE, &info_hash, &peer_id);
     let hs: Bytes = hs.into();
 
     let mut stream = UtpStream::connect(peer_address)

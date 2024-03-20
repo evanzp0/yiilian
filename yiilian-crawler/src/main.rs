@@ -149,8 +149,6 @@ async fn download_meta(
             let bloom_val = hash_it(bloom_val);
             let chk_rst = bloom.read().expect("bloom.read() error").check(&bloom_val);
 
-            log::trace!(target: "yiilian_crawler::main", "bloom checked: {}", chk_rst);
-
             if !chk_rst {
                 match bt_downloader
                     .download_meta_from_target(target_addr, &info_hash, &mut blocked_addrs)
@@ -183,7 +181,6 @@ async fn download_meta(
         }
 
         tokio::time::sleep(Duration::from_secs(1)).await;
-        log::trace!(target: "yiilian_crawler::main", "get next message...");
     }
 }
 

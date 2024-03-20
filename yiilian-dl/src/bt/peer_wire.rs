@@ -6,7 +6,7 @@ use sha1::{Digest, Sha1};
 use tokio::{io::AsyncWriteExt, net::TcpStream};
 use yiilian_core::{
     common::error::Error,
-    data::{decode, BencodeData},
+    data::{decode, BencodeData, BtHandshake, MESSAGE_EXTENSION_ENABLE}, net::tcp::{read_bt_handshake, send_bt_handshake},
 };
 use yiilian_dht::common::Id;
 
@@ -15,9 +15,9 @@ use crate::bt::{
         extension::{
             ExtensionHeader, UtMetadata, METADATA_PIECE_BLOCK, UT_METADATA_ID, UT_METADATA_NAME,
         },
-        Handshake, PeerMessage, MESSAGE_EXTENSION_ENABLE,
+        PeerMessage,
     },
-    net::tcp::{read_handshake, read_message, send_handshake, send_message},
+    net::tcp::{read_message, send_message},
 };
 
 pub struct PeerWire;
@@ -37,7 +37,7 @@ impl PeerWire {
             .map_err(|error| Error::new_net(Some(error.into()), None, Some(peer_address)))?;
 
         let peer_id = Id::from_random(&mut thread_rng()).get_bytes();
-        let hs = Handshake::new(&MESSAGE_EXTENSION_ENABLE, info_hash, &peer_id);
+        let hs = BtHandshake::new(&MESSAGE_EXTENSION_ENABLE, info_hash, &peer_id);
         let hs: Bytes = hs.into();
         stream
             .write_all(&hs)
@@ -75,13 +75,13 @@ impl PeerWire {
             .map_err(|err| Error::new_net(Some(err.into()), Some("connect".to_owned()), Some(target_address)))?;
 
         // 发送握手消息给对方
-        send_handshake(&mut stream, &info_hash, &local_peer_id).await?;
+        send_bt_handshake(&mut stream, &info_hash, &local_peer_id).await?;
 
         // 接收对方回复的握手消息
-        let rst = read_handshake(&mut stream).await.map_err(|error| Error::new_net(Some(error.into()), Some("read_handshake".to_owned()), Some(target_address)))?;
+        let rst = read_bt_handshake(&mut stream).await.map_err(|error| Error::new_net(Some(error.into()), Some("read_handshake".to_owned()), Some(target_address)))?;
 
         // 校验对方握手消息
-        if !Handshake::verify(&rst) {
+        if !BtHandshake::verify(&rst) {
             return Err(Error::new_frame(
                 None,
                 Some(format!("recv handshake is invalid: {:?}", rst)),
