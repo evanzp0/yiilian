@@ -162,9 +162,12 @@ async fn download_meta(
                         // 如果没命中且成功下载，则加入到布隆过滤其中，并输出到日志
                         bloom.write().expect("bloom.write() error").set(&bloom_val);
 
-                        log::trace!(target: "yiilian_crawler::main", "{} is downloaded", info_str);
+                        log::debug!(target: "yiilian_crawler::main", "{} is downloaded", info_str);
                     }
                     Err(_) => {
+
+                        blocked_addrs.push(target_addr);
+
                         match bt_downloader
                             .download_meta(&info_hash, &mut blocked_addrs)
                             .await
@@ -173,10 +176,9 @@ async fn download_meta(
                                 // 如果没命中且成功下载，则加入到布隆过滤其中，并输出到日志
                                 bloom.write().expect("bloom.write() error").set(&bloom_val);
 
-                                log::trace!(target: "yiilian_crawler::main", "{} is downloaded", info_str);
+                                log::debug!(target: "yiilian_crawler::main", "{} is downloaded", info_str);
                             }
                             Err(_) => {
-                                blocked_addrs.push(target_addr);
                                 log::trace!(target: "yiilian_crawler::main", "{} is not founded", info_str);
                             }
                         }

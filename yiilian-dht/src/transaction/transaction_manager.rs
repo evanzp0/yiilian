@@ -398,9 +398,9 @@ impl TransactionManager {
         query: &AnnouncePeer,
         remote_addr: &SocketAddr,
     ) -> Result<(Reply, SocketAddr), Error> {
-        if self.announce_block_list.contains(remote_addr.ip(), remote_addr.port()) {
-            return Err(Error::new_block(&format!("{} is in announce_block_list", remote_addr)))
-        }
+        // if self.announce_block_list.contains(remote_addr.ip(), remote_addr.port()) {
+        //     return Err(Error::new_block(&format!("{} is in announce_block_list", remote_addr)))
+        // }
 
         let local_id = dht_ctx_state(self.ctx_index)
             .read()
@@ -436,15 +436,15 @@ impl TransactionManager {
                 }
             };
  
-            if !TransactionManager::verify_announce_target(sockaddr, &query.info_hash.to_vec()).await {
-                self.announce_block_list.insert(
-                    remote_addr.ip(),
-                    remote_addr.port() as i32,
-                    Some(Duration::from_secs(reply_error_block_duration_sec)),
-                );
+            // if !TransactionManager::verify_announce_target(sockaddr, &query.info_hash.to_vec()).await {
+            //     self.announce_block_list.insert(
+            //         remote_addr.ip(),
+            //         remote_addr.port() as i32,
+            //         Some(Duration::from_secs(reply_error_block_duration_sec)),
+            //     );
 
-                return Err(Error::new_block(&format!("{} add to announce_block_list", remote_addr)))
-            }
+            //     return Err(Error::new_block(&format!("{} add to announce_block_list", remote_addr)))
+            // }
 
             // 将对方 address 加入到 announce 的 info_hash 对应的 peers 列表中
             dht_ctx_peer_mgr(self.ctx_index)
@@ -475,6 +475,7 @@ impl TransactionManager {
         }
     }
 
+    #[allow(unused)]
     /// 通过握手消息校验 announce ip 的有效性
     async fn verify_announce_target(target_addr: SocketAddr, info_hash: &[u8]) -> bool {
 
