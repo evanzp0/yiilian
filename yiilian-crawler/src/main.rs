@@ -125,7 +125,8 @@ async fn download_meta(
     let mut blocked_addrs = vec![];
 
     loop {
-        if let Some(msg) = mq_engine.poll_message("info_hash", "download_meta_client") {
+        let msg_rst = mq_engine.poll_message("info_hash", "download_meta_client");
+        if let Some(msg) = msg_rst {
             let info_hash: [u8; 20] = {
                 let value = &msg.value()[0..20];
                 match value.try_into() {
