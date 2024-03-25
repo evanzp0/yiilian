@@ -129,6 +129,7 @@ async fn download_meta(
 
         let msg_rst = mq_engine.poll_message("info_hash", "download_meta_client");
         if let Some(msg) = msg_rst {
+            // todo! info_message and if not download then change message to normal and send into mq again
             let info_hash: [u8; 20] = {
                 let value = &msg.value()[0..20];
                 match value.try_into() {
