@@ -16,8 +16,8 @@ pub struct InfoMessage {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MessageType {
     Normal([u8; 20]),
-    GetPeers {info_hash: [u8; 20], addr: SocketAddr},
-    AnnouncePeer {info_hash: [u8; 20], addr: SocketAddr}
+    GetPeers {info_hash: [u8; 20], remote_addr: SocketAddr},
+    AnnouncePeer {info_hash: [u8; 20], remote_addr: SocketAddr}
 }
 
 impl From<InfoMessage> for Bytes {
@@ -30,12 +30,12 @@ impl From<InfoMessage> for Bytes {
                 rst.put_u8(0);
                 rst.extend_from_slice(&info_hash);
             },
-            MessageType::GetPeers { info_hash, addr } => {
+            MessageType::GetPeers { info_hash, remote_addr: addr } => {
                 rst.put_u8(1);
                 rst.extend_from_slice(&info_hash);
                 rst.extend_from_slice(&sockaddr_to_bytes(&addr));
             },
-            MessageType::AnnouncePeer { info_hash, addr } => {
+            MessageType::AnnouncePeer { info_hash, remote_addr: addr } => {
                 rst.put_u8(2);
                 rst.extend_from_slice(&info_hash);
                 rst.extend_from_slice(&sockaddr_to_bytes(&addr));
@@ -74,7 +74,7 @@ impl TryFrom<&[u8]> for InfoMessage {
 
                 let rst = InfoMessage {
                     try_times,
-                    info_type: MessageType::GetPeers{info_hash, addr},
+                    info_type: MessageType::GetPeers{info_hash, remote_addr: addr},
                 };
                 Ok(rst)
             },
@@ -83,7 +83,7 @@ impl TryFrom<&[u8]> for InfoMessage {
 
                 let rst = InfoMessage {
                     try_times,
-                    info_type: MessageType::GetPeers{info_hash, addr},
+                    info_type: MessageType::GetPeers{info_hash, remote_addr: addr},
                 };
                 Ok(rst)
             },
@@ -107,7 +107,7 @@ mod tests {
         let addr: SocketAddr = "127.0.0.1:80".parse().unwrap();
         let data = InfoMessage {
             try_times: 1,
-            info_type: MessageType::GetPeers {info_hash, addr},
+            info_type: MessageType::GetPeers {info_hash, remote_addr: addr},
         };
 
         let rst: Bytes = data.clone().into();

@@ -313,3 +313,46 @@ pub fn load_bloom() -> Result<Arc<RwLock<Bloom<u64>>>, Error> {
         ))?,
     }
 }
+
+
+
+// #[cfg(test)]
+// mod tests {
+//     use std::sync::{Arc, RwLock};
+
+//     use bloomfilter::Bloom;
+//     use yiilian_core::common::util::hash_it;
+
+//     use crate::event::announce_listener::save_bloom;
+
+//     #[test]
+//     fn test_bloom() {
+//         let bloom_val = hex::encode("abc");
+//         let bloom_val = hash_it(bloom_val);
+//         let mut bloom: Bloom<u64> = Bloom::new_for_fp_rate(100_000_000, 0.001);
+//         bloom.set(&bloom_val);
+
+//         assert_eq!(true, bloom.check(&bloom_val));
+//         assert_eq!(false, bloom.check(&1))
+//     }
+
+//     #[tokio::test]
+//     async fn test_serde() {
+//         let bloom_val = hex::encode("abc");
+//         let bloom_val = hash_it(bloom_val);
+//         let mut bloom: Bloom<u64> = Bloom::new_for_fp_rate(100_000_000, 0.001);
+//         bloom.set(&bloom_val);
+
+//         let bloom = Arc::new(RwLock::new(bloom));
+
+//         let encoded: Vec<u8> = bincode::serialize(&*bloom).unwrap();
+//         let bloom: RwLock<Bloom<u64>> = bincode::deserialize(&encoded[..]).unwrap();
+//         let check = bloom.read().unwrap().check(&bloom_val);
+//         assert_eq!(true, check);
+//         let check = bloom.read().unwrap().check(&1);
+//         assert_eq!(false, check);
+
+//         let bloom = Arc::new(bloom);
+//         save_bloom(bloom).await;
+//     }
+// }
