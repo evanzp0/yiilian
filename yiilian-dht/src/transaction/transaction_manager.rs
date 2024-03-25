@@ -2,7 +2,7 @@ use std::{
     collections::{HashMap, HashSet},
     net::{IpAddr, SocketAddr},
     sync::Mutex,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use chrono::Utc;
@@ -705,7 +705,16 @@ impl TransactionManager {
 
         let mut best_ids = Vec::<Id>::new();
 
+        let timeout_sec = Duration::from_secs(3 * 60);
+        let start  = Instant::now();
+
         loop {
+
+            let elapsed = start.elapsed();
+            if elapsed >= timeout_sec {
+                break;
+            }
+
             // 每次循环都从 routing_table 中加载新的已验证的 node 到当前 buckets 中
             let all_verifyied = dht_ctx_routing_tbl(self.ctx_index)
                 .lock()
@@ -884,7 +893,17 @@ impl TransactionManager {
         // self.find_node(info_hash).await?;
 
         let mut best_ids = Vec::new();
+
+        let timeout_sec = Duration::from_secs(3 * 60);
+        let start  = Instant::now();
+        
         loop {
+
+            let elapsed = start.elapsed();
+            if elapsed >= timeout_sec {
+                return Err(Error::new_timeout(&format!("get_peers loop timeout: {:?} sec", elapsed.as_secs())));
+            }
+
             // Populate our buckets with the main buckets from the DHT
             // 从路由表中获取所有的 node
             let all_verifyied = dht_ctx_routing_tbl(self.ctx_index)
@@ -903,8 +922,9 @@ impl TransactionManager {
                     buckets.add(item, None).ok();
                 }
             }
+
             // 在 buckets 中找到离 target_id 最近的节点，如果没找到任何节点，则稍后再尝试
-            let nearest = buckets.get_nearest_nodes(&info_hash, None);
+            let mut nearest = buckets.get_nearest_nodes(&info_hash, None);
 
             if nearest.is_empty() {
                 tokio::time::sleep(Duration::from_secs(1)).await;
@@ -917,6 +937,10 @@ impl TransactionManager {
                 // 直到找不到更近的节点，则退出循环
                 break;
             }
+            
+            // 只在新增的附近节点中 get_peers
+            nearest.retain(|node| !best_ids.contains(&node.id));
+
             best_ids = best_ids_current;
 
             // 发送 get_peers 请求给这些节点
@@ -937,7 +961,7 @@ impl TransactionManager {
                 );
                 todos.push(get_peers_query);
             }
-
+            
             // Send get_peers to nearest nodes, handle their responses
             for (query, dest_node) in todos {
                 let request_result = dht_ctx_trans_mgr(self.ctx_index)
@@ -980,6 +1004,7 @@ impl TransactionManager {
                                             // 方法1： send ping no wait
                                             let node_id = node.id;
                                             let node_addr = node.address;
+
                                             self.ping_no_wait(node_addr, Some(node_id)).await.ok();
                                         } else {
                                             // 方法2： 将获取的 nodes 加入到未验证 buckets 中
@@ -1018,6 +1043,7 @@ impl TransactionManager {
                                     unique_peers.insert(peer);
                                 }
                             }
+
                         }
                         _ => {
                             log::trace!(

@@ -69,17 +69,21 @@ impl BtDownloader {
         blocked_addrs: &mut Vec<SocketAddr>,
     ) -> Result<BTreeMap<Bytes, BencodeData>, Error> {
         let rst = self.dht.get_peers(Id::new(*info_hash)).await?;
-
+        
         for peer in rst.peers() {
             if blocked_addrs.contains(&peer) {
+                
                 continue
             }
+            
             match self.fetch_meta_from_target(*peer, info_hash).await {
                 Ok(rst) => return Ok(rst),
                 Err(_) => {
                     blocked_addrs.push(*peer);
                 },
             }
+            
+            // tokio::time::sleep(std::time::Duration::from_secs(1)).await;
         }
 
         let info_str: String =  info_hash.encode_hex();
@@ -111,6 +115,7 @@ impl BtDownloader {
             Ok(*info_hash)
         } else {
             let info_str: String =  info_hash.encode_hex();
+
             Err(Error::new_not_found(&format!("not found info_hash: {}", info_str)))
         }
     }
@@ -120,6 +125,7 @@ impl BtDownloader {
         info_hash: &[u8; ID_SIZE],
         blocked_addrs: &mut Vec<SocketAddr>,
     ) -> Result<[u8; ID_SIZE], Error> {
+
         if let Ok(info) = self.fetch_meta(info_hash, blocked_addrs).await {
             let torrent = info.encode();
             let mut path = self.download_dir.clone();
@@ -135,6 +141,7 @@ impl BtDownloader {
             Ok(*info_hash)
         } else {
             let info_str: String =  info_hash.encode_hex();
+
             Err(Error::new_not_found(&format!("not found info_hash: {}", info_str)))
         }
     }

@@ -16,7 +16,9 @@ use yiilian_core::{
     common::{
         error::Error,
         shutdown::{create_shutdown, ShutdownReceiver},
-        util::{bytes_to_sockaddr, hash_it},
+        util::{bytes_to_sockaddr, 
+            hash_it
+        },
     },
     data::Request,
     service::{EventLayer, FirewallLayer},
@@ -122,9 +124,9 @@ async fn download_meta(
     bt_downloader: &BtDownloader,
     bloom: Arc<RwLock<Bloom<u64>>>,
 ) {
-    let mut blocked_addrs = vec![];
-
     loop {
+        let mut blocked_addrs = vec![];
+
         let msg_rst = mq_engine.poll_message("info_hash", "download_meta_client");
         if let Some(msg) = msg_rst {
             let info_hash: [u8; 20] = {
@@ -144,9 +146,9 @@ async fn download_meta(
                 }
             };
 
-            // if blocked_addrs.contains(&target_addr) {
-            //     continue
-            // }
+            if blocked_addrs.contains(&target_addr) {
+                continue
+            }
 
             log::trace!(target: "yiilian_crawler::main", "poll message infohash: {} , target: {} , offset : {}", info_str, target_addr, msg.offset());
 
