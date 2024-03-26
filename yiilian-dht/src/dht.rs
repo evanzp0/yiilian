@@ -74,7 +74,7 @@ where
         };
 
         let transaction_manager =
-            TransactionManager::new(local_addr.port(), local_addr, shutdown_rx.clone(), &settings);
+            TransactionManager::new(local_addr.port(), local_addr);
 
         let routing_table = build_routing_table(
             ctx_index,
