@@ -1,9 +1,9 @@
-use std::{collections::BTreeMap, net::SocketAddr};
+use std::{collections::BTreeMap, net::SocketAddr, time::Duration};
 
 use bytes::{BufMut, Bytes, BytesMut};
 use rand::thread_rng;
 use sha1::{Digest, Sha1};
-use tokio::{io::AsyncWriteExt, net::TcpStream};
+use tokio::{io::AsyncWriteExt, net::TcpStream, time::timeout};
 use yiilian_core::{
     common::error::Error,
     data::{decode, BencodeData, BtHandshake, MESSAGE_EXTENSION_ENABLE}, net::tcp::{read_bt_handshake, send_bt_handshake},
@@ -20,6 +20,8 @@ use crate::bt::{
     net::tcp::{read_message, send_message},
 };
 
+pub const TCP_CONNECT_TIMEOUT_SEC: u64 = 10;
+
 pub struct PeerWire;
 
 impl PeerWire {
@@ -32,9 +34,16 @@ impl PeerWire {
         info_hash: &[u8],
         peer_address: SocketAddr,
     ) -> Result<(), Error> {
-        let mut stream = TcpStream::connect(peer_address)
-            .await
-            .map_err(|error| Error::new_net(Some(error.into()), None, Some(peer_address)))?;
+        let mut stream = {
+            let tmp = timeout(Duration::from_secs(TCP_CONNECT_TIMEOUT_SEC), TcpStream::connect(peer_address)).await;
+            match tmp {
+                Ok(val) => match val {
+                    Ok(stream) => stream,
+                    Err(error) => Err(Error::new_net(Some(error.into()), Some("Tcp connect in download_metadata".to_owned()), Some(peer_address)))?,
+                },
+                Err(_) => Err(Error::new_timeout("Tcp connect timeout"))?,
+            }
+        };
 
         let peer_id = Id::from_random(&mut thread_rng()).get_bytes();
         let hs = BtHandshake::new(&MESSAGE_EXTENSION_ENABLE, info_hash, &peer_id);
@@ -70,9 +79,16 @@ impl PeerWire {
         info_hash: &[u8],
         local_peer_id: &[u8],
     ) -> Result<Bytes, Error> {
-        let mut stream = TcpStream::connect(target_address)
-            .await
-            .map_err(|err| Error::new_net(Some(err.into()), Some("connect".to_owned()), Some(target_address)))?;
+        let mut stream = {
+            let tmp = timeout(Duration::from_secs(TCP_CONNECT_TIMEOUT_SEC), TcpStream::connect(target_address)).await;
+            match tmp {
+                Ok(val) => match val {
+                    Ok(stream) => stream,
+                    Err(error) => Err(Error::new_net(Some(error.into()), Some("Tcp connect in fetch_metdata".to_owned()), Some(target_address)))?,
+                },
+                Err(_) => Err(Error::new_timeout("Tcp connect timeout"))?,
+            }
+        };
 
         // 发送握手消息给对方
         send_bt_handshake(&mut stream, &info_hash, &local_peer_id).await?;

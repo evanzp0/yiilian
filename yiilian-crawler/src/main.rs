@@ -10,15 +10,15 @@ use std::{
 use bloomfilter::Bloom;
 use futures::future::join_all;
 
-use hex::ToHex;
+// use hex::ToHex;
 use tokio::{signal::unix::SignalKind, sync::broadcast::{self, Sender}};
 use yiilian_core::{
     common::{
         error::Error,
         shutdown::{create_shutdown, ShutdownReceiver},
-        util::{bytes_to_sockaddr, 
-            hash_it
-        },
+        // util::{bytes_to_sockaddr, 
+        //     hash_it
+        // },
     },
     data::Request,
     service::{EventLayer, FirewallLayer},
@@ -27,13 +27,13 @@ use yiilian_core::{
 use yiilian_dht::{
     common::SettingsBuilder,
     data::body::KrpcBody,
-    dht::{Dht, DhtBuilder},
+    dht::{Dht, DhtBuilder, DhtMode},
     service::KrpcService,
 };
 use yiilian_dl::bt::bt_downloader::BtDownloader;
 use yiilian_mq::engine::Engine;
 
-use yiilian_crawler::common::{Config, DEFAULT_CONFIG_FILE};
+use yiilian_crawler::{common::{Config, DEFAULT_CONFIG_FILE}, info_message::{InfoMessage, MessageType}};
 use yiilian_crawler::event::RecvAnnounceListener;
 
 const BLOOM_STATE_FILE: &str = "bloom_state.dat";
@@ -119,76 +119,103 @@ async fn main() {
     };
 }
 
+async fn hook() {
+
+}
+
 async fn download_meta(
     mq_engine: Arc<Engine>,
-    bt_downloader: &BtDownloader,
-    bloom: Arc<RwLock<Bloom<u64>>>,
+    _bt_downloader: &BtDownloader,
+    _bloom: Arc<RwLock<Bloom<u64>>>,
 ) {
     loop {
-        let mut blocked_addrs = vec![];
+        // let mut blocked_addrs = vec![];
 
         let msg_rst = mq_engine.poll_message("info_hash", "download_meta_client");
         if let Some(msg) = msg_rst {
             // todo! info_message and if not download then change message to normal and send into mq again
-            let info_hash: [u8; 20] = {
-                let value = &msg.value()[0..20];
-                match value.try_into() {
-                    Ok(value) => value,
-                    Err(_) => continue,
+
+            let info_message: InfoMessage = {
+                match msg.value().try_into() {
+                    Ok(msg) => msg,
+                    Err(error) => {
+                        log::trace!(target: "yiilian_crawler::download_meta", "Decode info_message error: {:?} ", error);
+                        continue;
+                    },
                 }
             };
 
-            let info_str: String = info_hash.encode_hex_upper();
+            match info_message.info_type {
+                MessageType::Normal(_info_hash) => {
+                    
+                },
+                MessageType::GetPeers { info_hash: _, remote_addr: _ } => {
 
-            let target_addr = {
-                match bytes_to_sockaddr(&msg.value()[20..]) {
-                    Ok(value) => value,
-                    Err(_) => continue,
-                }
-            };
+                },
+                MessageType::AnnouncePeer { info_hash: _, remote_addr: _ } => {
 
-            if blocked_addrs.contains(&target_addr) {
-                continue
+                },
             }
 
-            log::trace!(target: "yiilian_crawler::main", "poll message infohash: {} , target: {} , offset : {}", info_str, target_addr, msg.offset());
+            todo!();
 
-            let bloom_val = hex::encode(info_hash);
-            let bloom_val = hash_it(bloom_val);
-            let chk_rst = bloom.read().expect("bloom.read() error").check(&bloom_val);
+            // let info_hash: [u8; 20] = {
+            //     let value = &msg.value()[0..20];
+            //     match value.try_into() {
+            //         Ok(value) => value,
+            //         Err(_) => continue,
+            //     }
+            // };
 
-            if !chk_rst {
-                match bt_downloader
-                    .download_meta_from_target(target_addr, &info_hash, &mut blocked_addrs)
-                    .await
-                {
-                    Ok(_) => {
-                        // 如果没命中且成功下载，则加入到布隆过滤其中，并输出到日志
-                        bloom.write().expect("bloom.write() error").set(&bloom_val);
+            // let info_str: String = info_hash.encode_hex_upper();
 
-                        log::debug!(target: "yiilian_crawler::main", "{} is downloaded", info_str);
-                    }
-                    Err(_) => {
+            // let target_addr = {
+            //     match bytes_to_sockaddr(&msg.value()[20..]) {
+            //         Ok(value) => value,
+            //         Err(_) => continue,
+            //     }
+            // };
 
-                        // blocked_addrs.push(target_addr);
+            // if blocked_addrs.contains(&target_addr) {
+            //     continue
+            // }
 
-                        match bt_downloader
-                            .download_meta(&info_hash, &mut blocked_addrs)
-                            .await
-                        {
-                            Ok(_) => {
-                                // 如果没命中且成功下载，则加入到布隆过滤其中，并输出到日志
-                                bloom.write().expect("bloom.write() error").set(&bloom_val);
+            // log::trace!(target: "yiilian_crawler::main", "poll message infohash: {} , target: {} , offset : {}", info_str, target_addr, msg.offset());
 
-                                log::debug!(target: "yiilian_crawler::main", "{} is downloaded", info_str);
-                            }
-                            Err(_) => {
-                                log::trace!(target: "yiilian_crawler::main", "{} is not founded", info_str);
-                            }
-                        }
-                    }
-                }
-            }
+            // let bloom_val = hex::encode(info_hash);
+            // let bloom_val = hash_it(bloom_val);
+            // let chk_rst = bloom.read().expect("bloom.read() error").check(&bloom_val);
+
+            // if !chk_rst {
+            //     match bt_downloader
+            //         .download_meta_from_target(target_addr, &info_hash, &mut blocked_addrs)
+            //         .await
+            //     {
+            //         Ok(_) => {
+            //             // 如果没命中且成功下载，则加入到布隆过滤其中，并输出到日志
+            //             bloom.write().expect("bloom.write() error").set(&bloom_val);
+
+            //             log::debug!(target: "yiilian_crawler::main", "{} is downloaded", info_str);
+            //         }
+            //         Err(_) => {
+
+            //             match bt_downloader
+            //                 .download_meta(&info_hash, &mut blocked_addrs)
+            //                 .await
+            //             {
+            //                 Ok(_) => {
+            //                     // 如果没命中且成功下载，则加入到布隆过滤其中，并输出到日志
+            //                     bloom.write().expect("bloom.write() error").set(&bloom_val);
+
+            //                     log::debug!(target: "yiilian_crawler::main", "{} is downloaded", info_str);
+            //                 }
+            //                 Err(_) => {
+            //                     log::trace!(target: "yiilian_crawler::main", "{} is not founded", info_str);
+            //                 }
+            //             }
+            //         }
+            //     }
+            // }
         }
 
         tokio::time::sleep(Duration::from_secs(1)).await;
@@ -239,6 +266,7 @@ fn create_dht_list(
             let dht = DhtBuilder::new(local_addr, shutdown_rx.clone(), workers)
                 .block_list(block_ips.clone())
                 .settings(settings.clone())
+                .mode(DhtMode::Crawler(port))
                 .layer(FirewallLayer::new(
                     firewall_max_trace,
                     20,
@@ -258,6 +286,7 @@ fn create_dht_list(
             let dht = DhtBuilder::new(local_addr, shutdown_rx.clone(), workers)
                 .block_list(block_ips.clone())
                 .settings(settings.clone())
+                .mode(DhtMode::Crawler(*port))
                 .layer(FirewallLayer::new(
                     10,
                     20,

@@ -7,12 +7,12 @@ use yiilian_core::{
 };
 
 use crate::{
-    common::Settings,
+    common::{Settings, SettingsBuilder},
     data::body::KrpcBody,
     service::{KrpcService, RouterService},
 };
 
-use super::Dht;
+use super::{Dht, DhtMode};
 
 pub struct DhtBuilder<L, S> {
     local_addr: SocketAddr,
@@ -22,6 +22,7 @@ pub struct DhtBuilder<L, S> {
     block_list: Option<HashSet<BlockAddr>>,
     shutdown_rx: ShutdownReceiver,
     workers: Option<usize>,
+    mode: DhtMode,
 }
 
 impl DhtBuilder<Identity, RouterService> {
@@ -35,6 +36,7 @@ impl DhtBuilder<Identity, RouterService> {
             block_list: None,
             shutdown_rx,
             workers,
+            mode: DhtMode::Normal,
         }
     }
 
@@ -45,6 +47,11 @@ impl DhtBuilder<Identity, RouterService> {
 
     pub fn block_list(mut self, block_list: Option<HashSet<BlockAddr>>) -> Self {
         self.block_list = block_list;
+        self
+    }
+
+    pub fn mode(mut self, mode: DhtMode) -> Self {
+        self.mode = mode;
         self
     }
 }
@@ -63,6 +70,7 @@ impl<L, S> DhtBuilder<L, S> {
             block_list: self.block_list,
             shutdown_rx: self.shutdown_rx,
             workers: self.workers,
+            mode: self.mode,
         }
     }
 
@@ -76,10 +84,11 @@ impl<L, S> DhtBuilder<L, S> {
         let dht = Dht::init(
             self.local_addr,
             service,
-            self.settings,
+            self.settings.unwrap_or(SettingsBuilder::new().build()),
             self.block_list,
             self.shutdown_rx,
             self.workers,
+            self.mode,
         );
 
         dht

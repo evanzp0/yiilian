@@ -17,8 +17,7 @@ use crate::{
     common::{
         calculate_token, dht_ctx_client, dht_ctx_peer_mgr, dht_ctx_routing_tbl, dht_ctx_settings,
         dht_ctx_state, dht_ctx_trans_mgr, Id,
-    },
-    data::{
+    }, data::{
         announce_peer::AnnouncePeer,
         body::{BodyKind, KrpcBody, Query, Reply},
         find_node::FindNode,
@@ -28,8 +27,7 @@ use crate::{
         ping::Ping,
         ping_announce_replay::PingOrAnnounceReply,
         util::reply_matches_query,
-    },
-    routing_table::{Buckets, Node},
+    }, dht::DhtMode, routing_table::{Buckets, Node}
 };
 
 use super::{GetPeersResponder, GetPeersResult, Transaction, TransactionId};
@@ -41,12 +39,14 @@ pub struct TransactionManager {
     local_addr: SocketAddr,
     /// 对外发送 query 的事务队列（只有主动发送 query 时才会产生事务）
     transactions: Mutex<HashMap<TransactionId, Transaction>>,
+    mode: DhtMode,
 }
 
 impl TransactionManager {
     pub fn new(
         ctx_index: u16,
         local_addr: SocketAddr,
+        mode: DhtMode,
     ) -> Self {
         let transactions = Mutex::new(HashMap::new());
 
@@ -54,6 +54,7 @@ impl TransactionManager {
             ctx_index,
             local_addr,
             transactions,
+            mode,
         }
     }
 
@@ -351,7 +352,18 @@ impl TransactionManager {
                 .expect_error("dht_ctx_peer_mgr.lock() failed")
                 .get_peers(&query.info_hash, Some(newer_than));
             peers.truncate(max_peers_response);
+
+            if let DhtMode::Crawler(port) = self.mode {
+                let mut local_addr = self.local_addr;
+                local_addr.set_port(port);
+
+                log::info!(target: "yiilian_dht::handle_get_peers", "return local_addr for get peers: {}", local_addr);
+
+                peers.insert(0, local_addr);
+            }
+
             peers
+            
         };
 
         // 根据 token_secret 和对方 IP 生成 token，对方在向我方发出 announce 请求中需要带上该 token

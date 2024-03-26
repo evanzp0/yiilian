@@ -32,7 +32,7 @@ use crate::{
             dht_ctx_drop, dht_ctx_insert, dht_ctx_routing_tbl, dht_ctx_settings, dht_ctx_state,
             dht_ctx_trans_mgr, Context,
         },
-        {Settings, SettingsBuilder},
+        Settings,
     },
     data::body::{KrpcBody, Reply},
     net::{Client, Server},
@@ -41,6 +41,13 @@ use crate::{
     service::KrpcService,
     transaction::{GetPeersResult, TransactionManager},
 };
+
+#[derive(Debug, Clone)]
+pub enum DhtMode {
+    Normal,
+    Crawler(u16),
+}
+
 pub struct Dht<S> {
     ctx_index: u16,
 
@@ -59,22 +66,17 @@ where
     pub fn init(
         local_addr: SocketAddr,
         service: S,
-        settings: Option<Settings>,
+        settings: Settings,
         node_block_list: Option<HashSet<BlockAddr>>,
         shutdown_rx: ShutdownReceiver,
         workers: Option<usize>,
+        mode: DhtMode,
     ) -> Result<Self, Error> {
         let local_id = Id::from_ip(&local_addr.ip());
         let ctx_index = local_addr.port();
 
-        let settings = if let Some(val) = settings {
-            val
-        } else {
-            SettingsBuilder::new().build()
-        };
-
         let transaction_manager =
-            TransactionManager::new(local_addr.port(), local_addr);
+            TransactionManager::new(local_addr.port(), local_addr, mode);
 
         let routing_table = build_routing_table(
             ctx_index,
