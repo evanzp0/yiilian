@@ -30,7 +30,7 @@ impl From<InfoMessage> for Bytes {
                 rst.extend_from_slice(&info_hash);
             },
             MessageType::AnnouncePeer { info_hash, remote_addr: addr } => {
-                rst.put_u8(2);
+                rst.put_u8(1);
                 rst.extend_from_slice(&info_hash);
                 rst.extend_from_slice(&sockaddr_to_bytes(&addr));
             },
