@@ -200,6 +200,24 @@ impl PeerWire {
                     }
                     _ => {}
                 },
+                // PeerMessage::Bitfield {bitfield} => {
+                //     let len = bitfield.len();
+                //     let empty_bitfield: Bytes = {
+                //         let tmp = vec![0 as u8; len];
+                //         let tmp: Bytes = match tmp.try_into() {
+                //             Ok(val) => val,
+                //             Err(error) => return Err(Error::new_frame(Some(error.into()), None)),
+                //         };
+
+                //         tmp
+                //     };
+                //     let bitfield_msg = PeerMessage::Bitfield { bitfield: empty_bitfield };
+                //     let bitfield_msg: Bytes = bitfield_msg.into();
+            
+                //     send_message(&mut stream, &bitfield_msg).await?;
+                    
+                //     log::trace!(target:"", "Send empty bitfield: len({len})");
+                // },
                 // 其他消息
                 _ => {}
             }
