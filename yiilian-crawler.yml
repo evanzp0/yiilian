@@ -27,3 +27,4 @@ bt:
       - router.utorrent.com:6881
     block_ips: ["127.0.0.1"]
     port: 20001
+hook_port: 10800

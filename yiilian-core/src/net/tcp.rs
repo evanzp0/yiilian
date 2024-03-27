@@ -31,7 +31,8 @@ pub async fn send_bt_handshake(
     Ok(())
 }
 
-pub async fn read_bt_handshake(stream: &mut TcpStream) -> Result<Bytes, Error> {
+/// 读取并校验 bt 握手消息
+pub async fn read_bt_handshake(stream: &mut TcpStream) -> Result<BtHandshake, Error> {
     let mut buf: [u8; HANDSHAKE_LEN] = [0; HANDSHAKE_LEN];
     read(stream, &mut buf)
         .await
@@ -39,5 +40,15 @@ pub async fn read_bt_handshake(stream: &mut TcpStream) -> Result<Bytes, Error> {
 
     let rst: Bytes = buf[..].to_owned().into();
 
-    Ok(rst)
+    // 校验对方握手消息
+    if !BtHandshake::verify(&rst) {
+        return Err(Error::new_frame(
+            None,
+            Some(format!("recv bt handshake is invalid: {:?}", rst)),
+        ));
+    }
+
+    let handshake = rst.try_into()?;
+
+    Ok(handshake)
 }

@@ -3,12 +3,15 @@ use std::fs::File;
 use std::io::Write;
 use std::net::SocketAddr;
 use std::path::PathBuf;
+use std::time::Duration;
 
 use crate::bt::common::BtConfig;
 use crate::bt::peer_wire::PeerWire;
 use bytes::Bytes;
 use hex::ToHex;
 use rand::thread_rng;
+use tokio::net::TcpStream;
+use tokio::time::timeout;
 use yiilian_core::common::error::Error;
 use yiilian_core::common::shutdown::ShutdownReceiver;
 use yiilian_core::data::{BencodeData, Encode};
@@ -18,6 +21,7 @@ use yiilian_dht::dht::Dht;
 use yiilian_dht::dht::DhtBuilder;
 use yiilian_dht::service::RouterService;
 
+pub const TCP_CONNECT_TIMEOUT_SEC: u64 = 10;
 pub struct BtDownloader {
     dht: Dht<FirewallService<RouterService>>,
     local_id: Bytes,
@@ -46,13 +50,14 @@ impl BtDownloader {
 
     pub async fn fetch_meta_from_target(
         &self,
-        target_addr: SocketAddr,
+        stream: TcpStream,
         info_hash: &[u8; ID_SIZE],
+        is_hook: bool,
     ) -> Result<BTreeMap<Bytes, BencodeData>, Error> {
         let peer_wire = PeerWire::new();
 
         match peer_wire
-            .fetch_info(target_addr, info_hash, &self.local_id)
+            .fetch_info(stream, info_hash, &self.local_id, is_hook)
             .await
         {
             Ok(info) => Ok(info),
@@ -67,6 +72,7 @@ impl BtDownloader {
         &self,
         info_hash: &[u8; ID_SIZE],
         blocked_addrs: &mut Vec<SocketAddr>,
+        is_hook: bool,
     ) -> Result<BTreeMap<Bytes, BencodeData>, Error> {
         let rst = self.dht.get_peers(Id::new(*info_hash)).await?;
         
@@ -75,8 +81,19 @@ impl BtDownloader {
                 
                 continue
             }
+
+            let stream = {
+                let tmp = timeout(Duration::from_secs(TCP_CONNECT_TIMEOUT_SEC), TcpStream::connect(peer)).await;
+                match tmp {
+                    Ok(val) => match val {
+                        Ok(stream) => stream,
+                        Err(error) => Err(Error::new_net(Some(error.into()), Some("Tcp connect in fetch_metdata".to_owned()), Some(*peer)))?,
+                    },
+                    Err(_) => Err(Error::new_timeout("Tcp connect timeout"))?,
+                }
+            };
             
-            match self.fetch_meta_from_target(*peer, info_hash).await {
+            match self.fetch_meta_from_target(stream, info_hash, is_hook).await {
                 Ok(rst) => return Ok(rst),
                 Err(_) => {
                     blocked_addrs.push(*peer);
@@ -92,15 +109,12 @@ impl BtDownloader {
 
     pub async fn download_meta_from_target(
         &self,
-        target_addr: SocketAddr,
+        stream: TcpStream,
         info_hash: &[u8; ID_SIZE],
-        blocked_addrs: &mut Vec<SocketAddr>,
+        is_hook: bool,
     ) -> Result<[u8; ID_SIZE], Error> {
-        if blocked_addrs.contains(&target_addr) {
-            return Err(Error::new_block(&format!("{} is blocked", target_addr)))
-        }
 
-        if let Ok(info) = self.fetch_meta_from_target(target_addr, info_hash).await {
+        if let Ok(info) = self.fetch_meta_from_target(stream, info_hash, is_hook).await {
             let torrent = info.encode();
             let mut path = self.download_dir.clone();
             let info_str: String = info_hash.encode_hex();
@@ -124,9 +138,10 @@ impl BtDownloader {
         &self,
         info_hash: &[u8; ID_SIZE],
         blocked_addrs: &mut Vec<SocketAddr>,
+        is_hook: bool,
     ) -> Result<[u8; ID_SIZE], Error> {
 
-        if let Ok(info) = self.fetch_meta(info_hash, blocked_addrs).await {
+        if let Ok(info) = self.fetch_meta(info_hash, blocked_addrs, is_hook).await {
             let torrent = info.encode();
             let mut path = self.download_dir.clone();
             let info_str: String = info_hash.encode_hex();
@@ -144,6 +159,10 @@ impl BtDownloader {
 
             Err(Error::new_not_found(&format!("not found info_hash: {}", info_str)))
         }
+    }
+
+    pub fn local_id(&self) -> &Bytes {
+        &self.local_id
     }
 }
 

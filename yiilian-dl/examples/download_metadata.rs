@@ -68,7 +68,7 @@ async fn main() {
             let mut blocked_addrs = vec![];
 
             loop {
-                match bt_downloader.download_meta(&info_hash, &mut blocked_addrs).await {
+                match bt_downloader.download_meta(&info_hash, &mut blocked_addrs, false).await {
                     Ok(_) => {
                         println!("{} is downloaded", info_str);
                         break;

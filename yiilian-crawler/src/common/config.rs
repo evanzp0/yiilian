@@ -12,6 +12,7 @@ pub const DEFAULT_CONFIG_FILE: &str = "yiilian-crawler.yml";
 pub struct Config {
     pub dht_cluster: DhtClusterConfig,
     pub bt: BtConfig,
+    pub hook_port: u16,
 }
 
 impl Config {

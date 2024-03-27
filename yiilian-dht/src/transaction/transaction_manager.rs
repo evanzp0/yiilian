@@ -9,8 +9,7 @@ use chrono::Utc;
 use tokio::{sync::oneshot, time::interval};
 use yiilian_core::{
     common::{error::Error, expect_log::ExpectLog},
-    data::{BtHandshake, Request},
-    net::tcp::{read_bt_handshake, send_bt_handshake},
+    data::Request,
 };
 
 use crate::{
@@ -354,7 +353,7 @@ impl TransactionManager {
             peers.truncate(max_peers_response);
 
             if let DhtMode::Crawler(port) = self.mode {
-                let mut wan_addr = {            
+                let wan_addr = {            
                     dht_ctx_state(self.ctx_index)
                         .read()
                         .expect("dht_ctx_state.read() failed")
@@ -461,41 +460,6 @@ impl TransactionManager {
                 query.token
             )))
         }
-    }
-
-    #[allow(unused)]
-    /// 通过握手消息校验 announce ip 的有效性
-    async fn verify_announce_target(target_addr: SocketAddr, info_hash: &[u8]) -> bool {
-
-        let local_id = Id::from_random(&mut rand::thread_rng());
-        let mut stream = {
-            if let Ok(s) = tokio::net::TcpStream::connect(target_addr).await {
-                s
-            } else {
-                return false
-            }
-        };
-
-        // 发送握手消息给对方
-        if let Err(_) = send_bt_handshake(&mut stream, info_hash, &local_id.to_vec()).await {
-            return false
-        }
-
-        // 接收对方回复的握手消息
-        let rst = {
-            if let Ok(s) = read_bt_handshake(&mut stream).await {
-                s
-            } else {
-                return false
-            }
-        };
-
-        // 校验对方握手消息
-        if !BtHandshake::verify(&rst) {
-            return false
-        }
-
-        true
     }
 
     /// 处理对方的反馈（需要事务处理）

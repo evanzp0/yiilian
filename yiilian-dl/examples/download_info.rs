@@ -23,11 +23,10 @@ async fn main() {
         h.try_into().unwrap()
     };
 
-    // let mut stream = tokio::net::TcpStream::connect(target_addr).await.unwrap();
-    // stream.write_all(b"hello").await.unwrap();
+    let stream = tokio::net::TcpStream::connect(target_addr).await.unwrap();
 
     match peer_wire
-        .fetch_info(target_addr, &info_hash, &local_id.to_vec())
+        .fetch_info(stream, &info_hash, &local_id.to_vec(), false)
         .await
     {
         Ok(info) => {

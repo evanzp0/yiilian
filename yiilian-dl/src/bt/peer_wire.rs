@@ -1,14 +1,12 @@
-use std::{collections::BTreeMap, net::SocketAddr, time::Duration};
+use std::collections::BTreeMap;
 
 use bytes::{BufMut, Bytes, BytesMut};
-use rand::thread_rng;
 use sha1::{Digest, Sha1};
-use tokio::{io::AsyncWriteExt, net::TcpStream, time::timeout};
+use tokio::net::TcpStream;
 use yiilian_core::{
     common::error::Error,
-    data::{decode, BencodeData, BtHandshake, MESSAGE_EXTENSION_ENABLE}, net::tcp::{read_bt_handshake, send_bt_handshake},
+    data::{decode, BencodeData}, net::tcp::{read_bt_handshake, send_bt_handshake},
 };
-use yiilian_dht::common::Id;
 
 use crate::bt::{
     data::frame::{
@@ -20,8 +18,6 @@ use crate::bt::{
     net::tcp::{read_message, send_message},
 };
 
-pub const TCP_CONNECT_TIMEOUT_SEC: u64 = 10;
-
 pub struct PeerWire;
 
 impl PeerWire {
@@ -29,41 +25,31 @@ impl PeerWire {
         PeerWire
     }
 
-    pub async fn download_metadata(
-        &self,
-        info_hash: &[u8],
-        peer_address: SocketAddr,
-    ) -> Result<(), Error> {
-        let mut stream = {
-            let tmp = timeout(Duration::from_secs(TCP_CONNECT_TIMEOUT_SEC), TcpStream::connect(peer_address)).await;
-            match tmp {
-                Ok(val) => match val {
-                    Ok(stream) => stream,
-                    Err(error) => Err(Error::new_net(Some(error.into()), Some("Tcp connect in download_metadata".to_owned()), Some(peer_address)))?,
-                },
-                Err(_) => Err(Error::new_timeout("Tcp connect timeout"))?,
-            }
-        };
+    // pub async fn download_metadata(
+    //     &self,
+    //     info_hash: &[u8],
+    //     mut stream: TcpStream,
+    //     local_id: &Bytes,
+    // ) -> Result<(), Error> {
+    //     let hs = BtHandshake::new(&MESSAGE_EXTENSION_ENABLE, info_hash, local_id);
+    //     let hs: Bytes = hs.into();
+    //     stream
+    //         .write_all(&hs)
+    //         .await
+    //         .map_err(|error| Error::new_net(Some(error.into()), None, None))?;
 
-        let peer_id = Id::from_random(&mut thread_rng()).get_bytes();
-        let hs = BtHandshake::new(&MESSAGE_EXTENSION_ENABLE, info_hash, &peer_id);
-        let hs: Bytes = hs.into();
-        stream
-            .write_all(&hs)
-            .await
-            .map_err(|error| Error::new_net(Some(error.into()), None, Some(peer_address)))?;
-
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
     pub async fn fetch_info(
         &self,
-        target_address: SocketAddr,
+        stream: TcpStream,
         info_hash: &[u8],
         local_peer_id: &[u8],
+        is_hook: bool,
     ) -> Result<BTreeMap<Bytes, BencodeData>, Error> {
         let metadata = self
-            .fetch_metdata(target_address, &info_hash, &local_peer_id)
+            .fetch_metdata(stream, &info_hash, &local_peer_id, is_hook)
             .await?;
         let mut info = BytesMut::new();
         info.put(&b"d4:info"[..]);
@@ -75,33 +61,18 @@ impl PeerWire {
 
     pub async fn fetch_metdata(
         &self,
-        target_address: SocketAddr,
+        mut stream: TcpStream,
         info_hash: &[u8],
         local_peer_id: &[u8],
+        is_hook: bool,
     ) -> Result<Bytes, Error> {
-        let mut stream = {
-            let tmp = timeout(Duration::from_secs(TCP_CONNECT_TIMEOUT_SEC), TcpStream::connect(target_address)).await;
-            match tmp {
-                Ok(val) => match val {
-                    Ok(stream) => stream,
-                    Err(error) => Err(Error::new_net(Some(error.into()), Some("Tcp connect in fetch_metdata".to_owned()), Some(target_address)))?,
-                },
-                Err(_) => Err(Error::new_timeout("Tcp connect timeout"))?,
-            }
-        };
 
-        // 发送握手消息给对方
-        send_bt_handshake(&mut stream, &info_hash, &local_peer_id).await?;
+        if !is_hook {
+            // 发送握手消息给对方
+            send_bt_handshake(&mut stream, &info_hash, &local_peer_id).await?;
 
-        // 接收对方回复的握手消息
-        let rst = read_bt_handshake(&mut stream).await.map_err(|error| Error::new_net(Some(error.into()), Some("read_handshake".to_owned()), Some(target_address)))?;
-
-        // 校验对方握手消息
-        if !BtHandshake::verify(&rst) {
-            return Err(Error::new_frame(
-                None,
-                Some(format!("recv handshake is invalid: {:?}", rst)),
-            ));
+            // 接收对方回复的握手消息
+            read_bt_handshake(&mut stream).await?;
         }
 
         // 发送扩展握手协议

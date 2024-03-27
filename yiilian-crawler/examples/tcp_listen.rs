@@ -8,9 +8,8 @@ async fn main() -> io::Result<()> {
 
     println!("Listening at: {}", listener.local_addr().unwrap());
 
-    match listener.accept().await {
-        Ok((_socket, addr)) => println!("new client: {:?}", addr),
-        Err(e) => println!("couldn't get client: {:?}", e),
+    while let Ok((_stream, remote_addr)) = listener.accept().await {
+        println!("new client: {:?}", remote_addr);
     }
 
     Ok(())

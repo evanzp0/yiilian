@@ -40,6 +40,14 @@ impl BtHandshake {
         }
             
     }
+
+    pub fn info_hash(&self) -> &Bytes {
+        &self.info_hash
+    }
+
+    pub fn peer_id(&self) -> &Bytes {
+        &self.peer_id
+    }
 }
 
 impl From<&BtHandshake> for Bytes {

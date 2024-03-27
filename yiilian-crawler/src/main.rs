@@ -10,17 +10,24 @@ use std::{
 use bloomfilter::Bloom;
 use futures::future::join_all;
 
+use hex::ToHex;
 // use hex::ToHex;
-use tokio::{signal::unix::SignalKind, sync::broadcast::{self, Sender}};
+use tokio::{
+    net::TcpListener,
+    signal::unix::SignalKind,
+    sync::broadcast::{self, Sender},
+};
 use yiilian_core::{
     common::{
         error::Error,
         shutdown::{create_shutdown, ShutdownReceiver},
-        // util::{bytes_to_sockaddr, 
+        util::hash_it,
+        // util::{bytes_to_sockaddr,
         //     hash_it
         // },
     },
     data::Request,
+    net::tcp::{read_bt_handshake, send_bt_handshake},
     service::{EventLayer, FirewallLayer},
 };
 
@@ -33,8 +40,11 @@ use yiilian_dht::{
 use yiilian_dl::bt::bt_downloader::BtDownloader;
 use yiilian_mq::engine::Engine;
 
-use yiilian_crawler::{common::{Config, DEFAULT_CONFIG_FILE}, info_message::{InfoMessage, MessageType}};
 use yiilian_crawler::event::RecvAnnounceListener;
+use yiilian_crawler::{
+    common::{Config, DEFAULT_CONFIG_FILE},
+    info_message::{InfoMessage, MessageType},
+};
 
 const BLOOM_STATE_FILE: &str = "bloom_state.dat";
 
@@ -74,7 +84,7 @@ async fn main() {
         d
     };
     let bt_downloader = BtDownloader::new(&config.bt, download_dir, shutdown_rx.clone()).unwrap();
-    
+
     let bm = bloom.clone();
     let strx = shutdown_rx.clone();
     tokio::spawn(async move {
@@ -85,7 +95,7 @@ async fn main() {
     drop(shutdown_rx);
 
     let mut term_sig = tokio::signal::unix::signal(SignalKind::terminate()).unwrap();
-    
+
     tokio::select! {
         _  = async {
             let mut futs = vec![];
@@ -98,7 +108,8 @@ async fn main() {
         } => (),
         _ = announce_listener.listen() => (),
         _ = bt_downloader.run_loop() => (),
-        _ = download_meta(mq_engine, &bt_downloader, bloom.clone()) => (),
+        // _ = download_meta(mq_engine, &bt_downloader, bloom.clone()) => (),
+        _ = hook(&bt_downloader, bloom.clone(), config.hook_port) => (),
         _ = tokio::signal::ctrl_c() => {
 
             drop(dht_list);
@@ -119,11 +130,61 @@ async fn main() {
     };
 }
 
-async fn hook() {
+async fn hook(bt_downloader: &BtDownloader, bloom: Arc<RwLock<Bloom<u64>>>, port: u16) -> Result<(), Error> {
+    let bind_addr: SocketAddr = format!( "0.0.0.0:{port}").parse().expect("tcp bind error in hook");
+    let listener = TcpListener::bind(bind_addr).await.map_err(|error| {
+        Error::new_net(
+            Some(error.into()),
+            Some("tcp listen error in hook".to_owned()),
+            Some(bind_addr),
+        )
+    })?;
 
+    println!("Hooking at: {}", listener.local_addr().unwrap());
+
+    while let Ok((mut stream, target_addr)) = listener.accept().await {
+
+        log::trace!(target:"yiilian_crawler::main::hook", "Accept address: {:?}", target_addr);
+
+        // 接收对方回复的握手消息
+        let handshake = read_bt_handshake(&mut stream).await?;
+
+        // 发送握手消息给对方
+        send_bt_handshake(&mut stream, handshake.info_hash(), bt_downloader.local_id()).await?;
+
+        let info_hash: [u8; 20] = {
+            handshake.info_hash()[..]
+                .try_into()
+                .expect("Decode info_hash in handshake error")
+        };
+        let info_str: String = info_hash.encode_hex_upper();
+
+        let bloom_val = hex::encode(info_hash);
+        let bloom_val = hash_it(bloom_val);
+        let chk_rst = bloom.read().expect("bloom.read() error").check(&bloom_val);
+
+        if !chk_rst {
+            match bt_downloader
+                .download_meta_from_target(stream, &info_hash, true)
+                .await
+            {
+                Ok(_) => {
+                    // 如果没命中且成功下载，则加入到布隆过滤其中，并输出到日志
+                    bloom.write().expect("bloom.write() error").set(&bloom_val);
+
+                    log::debug!(target: "yiilian_crawler::main::hook", "{} is downloaded", info_str);
+                }
+                Err(error) => {
+                    log::trace!(target: "yiilian_crawler::main::hook", "{} is failure: {}", info_str, error);
+                }
+            }
+        }
+    }
+
+    Ok(())
 }
 
-async fn download_meta(
+async fn _download_meta(
     mq_engine: Arc<Engine>,
     _bt_downloader: &BtDownloader,
     _bloom: Arc<RwLock<Bloom<u64>>>,
@@ -141,20 +202,20 @@ async fn download_meta(
                     Err(error) => {
                         log::trace!(target: "yiilian_crawler::download_meta", "Decode info_message error: {:?} ", error);
                         continue;
-                    },
+                    }
                 }
             };
 
             match info_message.info_type {
-                MessageType::Normal(_info_hash) => {
-                    
-                },
-                MessageType::GetPeers { info_hash: _, remote_addr: _ } => {
-
-                },
-                MessageType::AnnouncePeer { info_hash: _, remote_addr: _ } => {
-
-                },
+                MessageType::Normal(_info_hash) => {}
+                MessageType::GetPeers {
+                    info_hash: _,
+                    remote_addr: _,
+                } => {}
+                MessageType::AnnouncePeer {
+                    info_hash: _,
+                    remote_addr: _,
+                } => {}
             }
 
             todo!();
@@ -343,8 +404,6 @@ pub fn load_bloom() -> Result<Arc<RwLock<Bloom<u64>>>, Error> {
         ))?,
     }
 }
-
-
 
 // #[cfg(test)]
 // mod tests {
