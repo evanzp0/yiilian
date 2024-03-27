@@ -23,9 +23,6 @@ use yiilian_core::{
         error::Error,
         shutdown::{create_shutdown, ShutdownReceiver},
         util::hash_it,
-        // util::{bytes_to_sockaddr,
-        //     hash_it
-        // },
     },
     data::Request,
     net::tcp::{read_bt_handshake, send_bt_handshake},
