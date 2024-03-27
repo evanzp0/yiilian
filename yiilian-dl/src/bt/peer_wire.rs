@@ -189,8 +189,7 @@ impl PeerWire {
                                             ));
                                         }
 
-                                        // todo
-                                        println!("metadata is downloaded");
+                                        // println!("metadata is downloaded");
 
                                         return Ok(metadata_info.into());
                                     }
