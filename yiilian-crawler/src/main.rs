@@ -222,24 +222,12 @@ async fn download_meta_by_msg(
             };
 
             match info_message.info_type {
-                MessageType::GetPeers {
-                    info_hash,
-                    remote_addr: _,
-                } => {
+                MessageType::Normal(info_hash) => {
+
                     if info_message.try_times <= 0 {
                         continue;
                     }
 
-                    let msg_data = InfoMessage {
-                        try_times: info_message.try_times - 1,
-                        info_type: MessageType::Normal(info_hash),
-                    };
-
-                    mq_engine
-                        .push_message("info_hash", InMessage(msg_data.into()))
-                        .ok();
-                }
-                MessageType::Normal(info_hash) => {
                     let mut blocked_addrs = vec![];
                     let info_str: String = info_hash.encode_hex_upper();
 
@@ -260,8 +248,15 @@ async fn download_meta_by_msg(
                                 log::debug!(target: "yiilian_crawler::main", "{} is downloaded", info_str);
                             }
                         }
-                        Err(_) => {
-                            log::trace!(target: "yiilian_crawler::main", "{} is not founded", info_str);
+                        Err(error) => {
+                            log::trace!(target: "yiilian_crawler::main::download_meta_by_msg", "Resend message by error: {error}");
+
+                            let msg_data = InfoMessage {
+                                try_times: info_message.try_times - 1,
+                                info_type: MessageType::Normal(info_hash),
+                            };
+
+                            mq_engine.push_message("info_hash", InMessage(msg_data.into())).ok();
                         }
                     }
                 }
@@ -269,6 +264,11 @@ async fn download_meta_by_msg(
                     info_hash,
                     remote_addr,
                 } => {
+
+                    if info_message.try_times <= 0 {
+                        continue;
+                    }
+
                     let info_str: String = info_hash.encode_hex_upper();
                     let bloom_val = hex::encode(info_hash);
                     let bloom_val = hash_it(bloom_val);
@@ -289,10 +289,17 @@ async fn download_meta_by_msg(
                                 // 如果没命中且成功下载，则加入到布隆过滤其中，并输出到日志
                                 bloom.write().expect("bloom.write() error").set(&bloom_val);
 
-                                log::debug!(target: "yiilian_crawler::main", "{} is downloaded", info_str);
+                                log::debug!(target: "yiilian_crawler::main::download_meta_by_msg", "{} is downloaded", info_str);
                             }
                             Err(error) => {
-                                log::trace!(target: "yiilian_crawler::main", "{error}");
+                                log::trace!(target: "yiilian_crawler::main::download_meta_by_msg", "Resend message by error: {error}");
+
+                                let msg_data = InfoMessage {
+                                    try_times: info_message.try_times - 1,
+                                    info_type: MessageType::Normal(info_hash),
+                                };
+
+                                mq_engine.push_message("info_hash", InMessage(msg_data.into())).ok();
                             }
                         }
                     }

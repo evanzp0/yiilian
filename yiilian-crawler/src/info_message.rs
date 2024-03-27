@@ -4,7 +4,7 @@ use bytes::{BufMut, Bytes, BytesMut};
 use yiilian_core::common::{error::Error, util::{bytes_to_sockaddr, sockaddr_to_bytes}};
 
 /// [0]: try_times
-/// [1]: type, 0 - Normal, 1 - GetPeers, 2 - AnnouncePeer
+/// [1]: type, 0 - Normal, 1 AnnouncePeer
 /// [2..22]: infohash
 /// [22..]: addr
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -16,7 +16,6 @@ pub struct InfoMessage {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MessageType {
     Normal([u8; 20]),
-    GetPeers {info_hash: [u8; 20], remote_addr: SocketAddr},
     AnnouncePeer {info_hash: [u8; 20], remote_addr: SocketAddr}
 }
 
@@ -29,11 +28,6 @@ impl From<InfoMessage> for Bytes {
             MessageType::Normal(info_hash) => {
                 rst.put_u8(0);
                 rst.extend_from_slice(&info_hash);
-            },
-            MessageType::GetPeers { info_hash, remote_addr: addr } => {
-                rst.put_u8(1);
-                rst.extend_from_slice(&info_hash);
-                rst.extend_from_slice(&sockaddr_to_bytes(&addr));
             },
             MessageType::AnnouncePeer { info_hash, remote_addr: addr } => {
                 rst.put_u8(2);
@@ -74,20 +68,11 @@ impl TryFrom<&[u8]> for InfoMessage {
 
                 let rst = InfoMessage {
                     try_times,
-                    info_type: MessageType::GetPeers{info_hash, remote_addr: addr},
+                    info_type: MessageType::AnnouncePeer {info_hash, remote_addr: addr},
                 };
                 Ok(rst)
             },
-            2 => {
-                let addr = bytes_to_sockaddr(&value[22..])?;
-
-                let rst = InfoMessage {
-                    try_times,
-                    info_type: MessageType::GetPeers{info_hash, remote_addr: addr},
-                };
-                Ok(rst)
-            },
-            3..=u8::MAX => {
+            2..=u8::MAX => {
                 Err(Error::new_decode(&format!("Decode info_hash not support type: {:?}", value)))?
             },
         }
@@ -107,7 +92,7 @@ mod tests {
         let addr: SocketAddr = "127.0.0.1:80".parse().unwrap();
         let data = InfoMessage {
             try_times: 1,
-            info_type: MessageType::GetPeers {info_hash, remote_addr: addr},
+            info_type: MessageType::AnnouncePeer {info_hash, remote_addr: addr},
         };
 
         let rst: Bytes = data.clone().into();

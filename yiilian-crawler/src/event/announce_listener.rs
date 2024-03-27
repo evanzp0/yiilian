@@ -29,7 +29,6 @@ impl RecvAnnounceListener<Request<KrpcBody>> {
                 Ok(req) => {
                     match req.body.get_kind() {
                         BodyKind::Query(Query::GetPeers(val)) => {
-                            let remote_addr = req.remote_addr;
                             let info_hash = {
                                 let tmp = &val.info_hash.get_bytes()[0..];
                                 let info_hash: [u8; 20] = tmp
@@ -41,7 +40,7 @@ impl RecvAnnounceListener<Request<KrpcBody>> {
 
                             let data = InfoMessage {
                                 try_times: 1,
-                                info_type: MessageType::GetPeers {info_hash, remote_addr},
+                                info_type: MessageType::Normal(info_hash),
                             };
 
                             log::debug!(target: "yiilian_crawler::event::announce_listener", "Send message: {:?}", data);
@@ -73,7 +72,7 @@ impl RecvAnnounceListener<Request<KrpcBody>> {
 
                             let data = InfoMessage {
                                 try_times: 1,
-                                info_type: MessageType::GetPeers {info_hash, remote_addr},
+                                info_type: MessageType::AnnouncePeer {info_hash, remote_addr},
                             };
 
                             log::debug!(target: "yiilian_crawler::event::announce_listener", "Send message: {:?}", data);
