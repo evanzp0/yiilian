@@ -327,7 +327,7 @@ fn create_dht_list(
             let dht = DhtBuilder::new(local_addr, shutdown_rx.clone(), workers)
                 .block_list(block_ips.clone())
                 .settings(settings.clone())
-                .mode(DhtMode::Crawler(port))
+                .mode(DhtMode::Crawler(config.hook_port))
                 .layer(FirewallLayer::new(
                     firewall_max_trace,
                     20,
@@ -347,7 +347,7 @@ fn create_dht_list(
             let dht = DhtBuilder::new(local_addr, shutdown_rx.clone(), workers)
                 .block_list(block_ips.clone())
                 .settings(settings.clone())
-                .mode(DhtMode::Crawler(*port))
+                .mode(DhtMode::Crawler(config.hook_port))
                 .layer(FirewallLayer::new(
                     10,
                     20,
