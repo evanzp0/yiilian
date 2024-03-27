@@ -106,7 +106,7 @@ async fn main() {
         _ = announce_listener.listen() => (),
         _ = bt_downloader.run_loop() => (),
         _ = download_meta_by_msg(mq_engine, &bt_downloader, bloom.clone()) => (),
-        _ = hook(&bt_downloader, bloom.clone(), config.hook_port) => (),
+        _ = hook(&bt_downloader, bloom.clone(), config.bt.download_port) => (),
         _ = tokio::signal::ctrl_c() => {
 
             drop(dht_list);
@@ -135,7 +135,7 @@ async fn hook(bt_downloader: &BtDownloader, bloom: Arc<RwLock<Bloom<u64>>>, port
         .await
         .expect("tcp listen error in hook");
 
-    println!("Hooking at: {}", listener.local_addr().unwrap());
+    println!("Download at: {}", listener.local_addr().unwrap());
 
     loop {
         match listener.accept().await {
@@ -351,7 +351,7 @@ fn create_dht_list(
             let dht = DhtBuilder::new(local_addr, shutdown_rx.clone(), workers)
                 .block_list(block_ips.clone())
                 .settings(settings.clone())
-                .mode(DhtMode::Crawler(config.hook_port))
+                .mode(DhtMode::Crawler(config.bt.download_port))
                 .layer(FirewallLayer::new(
                     firewall_max_trace,
                     20,
@@ -371,7 +371,7 @@ fn create_dht_list(
             let dht = DhtBuilder::new(local_addr, shutdown_rx.clone(), workers)
                 .block_list(block_ips.clone())
                 .settings(settings.clone())
-                .mode(DhtMode::Crawler(config.hook_port))
+                .mode(DhtMode::Crawler(config.bt.download_port))
                 .layer(FirewallLayer::new(
                     10,
                     20,

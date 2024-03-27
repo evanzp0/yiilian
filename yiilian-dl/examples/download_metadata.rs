@@ -37,7 +37,7 @@ async fn main() {
         firewall: None,
     };
 
-    let bt_config = BtConfig::new(dht_config);
+    let bt_config = BtConfig::new(dht_config, 10800);
     let download_dir = {
         let mut d = home::home_dir().unwrap();
         d.push(".yiilian/dl/");

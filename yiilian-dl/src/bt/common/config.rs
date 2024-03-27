@@ -29,12 +29,14 @@ impl DlConfig {
 #[derive(Deserialize, Default, Debug)]
 pub struct BtConfig {
     pub dht: DhtConfig,
+    pub download_port: u16,
 }
 
 impl BtConfig {
-    pub fn new(dht: DhtConfig) -> Self {
+    pub fn new(dht: DhtConfig, download_port: u16) -> Self {
         BtConfig {
-            dht
+            dht,
+            download_port
         }
     }
 
