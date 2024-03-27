@@ -11,7 +11,6 @@ use bloomfilter::Bloom;
 use futures::future::join_all;
 
 use hex::ToHex;
-// use hex::ToHex;
 use tokio::{
     net::TcpListener,
     signal::unix::SignalKind,
