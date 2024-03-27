@@ -114,23 +114,26 @@ impl BtDownloader {
         is_hook: bool,
     ) -> Result<[u8; ID_SIZE], Error> {
 
-        if let Ok(info) = self.fetch_meta_from_target(stream, info_hash, is_hook).await {
-            let torrent = info.encode();
-            let mut path = self.download_dir.clone();
-            let info_str: String = info_hash.encode_hex();
-            path.push(info_str + ".torrent");
+        match self.fetch_meta_from_target(stream, info_hash, is_hook).await {
+            Ok(info) => {
+                let torrent = info.encode();
+                let mut path = self.download_dir.clone();
+                let info_str: String = info_hash.encode_hex();
+                path.push(info_str + ".torrent");
+    
+                let mut f =
+                    File::create(path).map_err(|error| Error::new_file(Some(error.into()), None))?;
+    
+                f.write_all(&torrent)
+                    .map_err(|error| Error::new_file(Some(error.into()), None))?;
+    
+                Ok(*info_hash)
+            }
+            Err(error) => {
+                let info_str: String =  info_hash.encode_hex();
 
-            let mut f =
-                File::create(path).map_err(|error| Error::new_file(Some(error.into()), None))?;
-
-            f.write_all(&torrent)
-                .map_err(|error| Error::new_file(Some(error.into()), None))?;
-
-            Ok(*info_hash)
-        } else {
-            let info_str: String =  info_hash.encode_hex();
-
-            Err(Error::new_not_found(&format!("not found info_hash: {}", info_str)))
+                Err(Error::new_not_found(&format!("Download {} meta error: {}", info_str, error)))
+            }
         }
     }
     

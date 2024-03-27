@@ -110,9 +110,7 @@ async fn main() {
         _ = announce_listener.listen() => (),
         _ = bt_downloader.run_loop() => (),
         // _ = download_meta(mq_engine, &bt_downloader, bloom.clone()) => (),
-        hook_rst = hook(&bt_downloader, bloom.clone(), config.hook_port) => {
-            log::trace!(target: "yiilian_crawler::main::hook", "{:?}", hook_rst);
-        },
+        _ = hook_loop(&bt_downloader, bloom.clone(), config.hook_port) => (),
         _ = tokio::signal::ctrl_c() => {
 
             drop(dht_list);
@@ -133,65 +131,70 @@ async fn main() {
     };
 }
 
-async fn hook(
-    bt_downloader: &BtDownloader,
-    bloom: Arc<RwLock<Bloom<u64>>>,
-    port: u16,
-) -> Result<(), Error> {
+async fn hook_loop(bt_downloader: &BtDownloader, bloom: Arc<RwLock<Bloom<u64>>>, port: u16) {
     let bind_addr: SocketAddr = format!("0.0.0.0:{port}")
         .parse()
         .expect("tcp bind error in hook");
-    let listener = TcpListener::bind(bind_addr).await.map_err(|error| {
-        Error::new_net(
-            Some(error.into()),
-            Some("tcp listen error in hook".to_owned()),
-            Some(bind_addr),
-        )
-    })?;
+    let listener = TcpListener::bind(bind_addr)
+        .await
+        .expect("tcp listen error in hook");
 
     println!("Hooking at: {}", listener.local_addr().unwrap());
 
-    while let Ok((mut stream, target_addr)) = listener.accept().await {
-        log::trace!(target:"yiilian_crawler::main::hook", "Accept address: {:?}", target_addr);
+    loop {
+        match listener.accept().await {
+            Err(error) => {
+                log::trace!(target: "yiilian_crawler::main::hook", "{:?}", error);
+            }
+            Ok((mut stream, target_addr)) => {
+                log::trace!(target:"yiilian_crawler::main::hook", "Accept address: {:?}", target_addr);
 
-        // 接收对方回复的握手消息
-        let handshake = read_bt_handshake(&mut stream).await?;
+                // 接收对方回复的握手消息
+                let handshake = if let Ok(rst) = read_bt_handshake(&mut stream).await {
+                    rst
+                } else {
+                    continue;
+                };
 
-        // 发送握手消息给对方
-        send_bt_handshake(&mut stream, handshake.info_hash(), bt_downloader.local_id()).await?;
-
-        let info_hash: [u8; 20] = {
-            handshake.info_hash()[..]
-                .try_into()
-                .expect("Decode info_hash in handshake error")
-        };
-        let info_str: String = info_hash.encode_hex_upper();
-
-        let bloom_val = hex::encode(info_hash);
-        let bloom_val = hash_it(bloom_val);
-        let chk_rst = bloom.read().expect("bloom.read() error").check(&bloom_val);
-
-        if !chk_rst {
-            match bt_downloader
-                .download_meta_from_target(stream, &info_hash, true)
-                .await
-            {
-                Ok(_) => {
-                    // 如果没命中且成功下载，则加入到布隆过滤其中，并输出到日志
-                    bloom.write().expect("bloom.write() error").set(&bloom_val);
-
-                    log::debug!(target: "yiilian_crawler::main::hook", "{} is downloaded", info_str);
+                // 发送握手消息给对方
+                if let Err(_) = send_bt_handshake(&mut stream, handshake.info_hash(), bt_downloader.local_id())
+                        .await
+                {
+                    continue;
                 }
-                Err(error) => {
-                    log::trace!(target: "yiilian_crawler::main::hook", "{} is failure: {}", info_str, error);
+
+                let info_hash: [u8; 20] = {
+                    handshake.info_hash()[..]
+                        .try_into()
+                        .expect("Decode info_hash in handshake error")
+                };
+                let info_str: String = info_hash.encode_hex_upper();
+
+                let bloom_val = hex::encode(info_hash);
+                let bloom_val = hash_it(bloom_val);
+                let chk_rst = bloom.read().expect("bloom.read() error").check(&bloom_val);
+
+                if !chk_rst {
+                    match bt_downloader
+                        .download_meta_from_target(stream, &info_hash, true)
+                        .await
+                    {
+                        Ok(_) => {
+                            // 如果没命中且成功下载，则加入到布隆过滤其中，并输出到日志
+                            bloom.write().expect("bloom.write() error").set(&bloom_val);
+
+                            log::debug!(target: "yiilian_crawler::main::hook", "{} is downloaded", info_str);
+                        }
+                        Err(error) => {
+                            log::trace!(target: "yiilian_crawler::main::hook", "{} is failure: {}", info_str, error);
+                        }
+                    }
                 }
             }
         }
 
         sleep(Duration::from_secs(1)).await;
     }
-
-    Ok(())
 }
 
 async fn _download_meta(
