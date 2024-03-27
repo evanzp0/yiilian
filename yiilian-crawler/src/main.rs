@@ -186,7 +186,7 @@ async fn hook_loop(bt_downloader: &BtDownloader, bloom: Arc<RwLock<Bloom<u64>>>,
                             log::debug!(target: "yiilian_crawler::main::hook", "{} is downloaded", info_str);
                         }
                         Err(error) => {
-                            log::trace!(target: "yiilian_crawler::main::hook", "{} is failure: {}", info_str, error);
+                            log::trace!(target: "yiilian_crawler::main::hook", "{}", error);
                         }
                     }
                 }
