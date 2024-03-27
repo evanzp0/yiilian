@@ -16,6 +16,7 @@ use tokio::{
     net::TcpListener,
     signal::unix::SignalKind,
     sync::broadcast::{self, Sender},
+    time::sleep,
 };
 use yiilian_core::{
     common::{
@@ -109,7 +110,9 @@ async fn main() {
         _ = announce_listener.listen() => (),
         _ = bt_downloader.run_loop() => (),
         // _ = download_meta(mq_engine, &bt_downloader, bloom.clone()) => (),
-        _ = hook(&bt_downloader, bloom.clone(), config.hook_port) => (),
+        hook_rst = hook(&bt_downloader, bloom.clone(), config.hook_port) => {
+            log::trace!(target: "yiilian_crawler::main::hook", "{:?}", hook_rst);
+        },
         _ = tokio::signal::ctrl_c() => {
 
             drop(dht_list);
@@ -130,8 +133,14 @@ async fn main() {
     };
 }
 
-async fn hook(bt_downloader: &BtDownloader, bloom: Arc<RwLock<Bloom<u64>>>, port: u16) -> Result<(), Error> {
-    let bind_addr: SocketAddr = format!( "0.0.0.0:{port}").parse().expect("tcp bind error in hook");
+async fn hook(
+    bt_downloader: &BtDownloader,
+    bloom: Arc<RwLock<Bloom<u64>>>,
+    port: u16,
+) -> Result<(), Error> {
+    let bind_addr: SocketAddr = format!("0.0.0.0:{port}")
+        .parse()
+        .expect("tcp bind error in hook");
     let listener = TcpListener::bind(bind_addr).await.map_err(|error| {
         Error::new_net(
             Some(error.into()),
@@ -143,7 +152,6 @@ async fn hook(bt_downloader: &BtDownloader, bloom: Arc<RwLock<Bloom<u64>>>, port
     println!("Hooking at: {}", listener.local_addr().unwrap());
 
     while let Ok((mut stream, target_addr)) = listener.accept().await {
-
         log::trace!(target:"yiilian_crawler::main::hook", "Accept address: {:?}", target_addr);
 
         // 接收对方回复的握手消息
@@ -179,6 +187,8 @@ async fn hook(bt_downloader: &BtDownloader, bloom: Arc<RwLock<Bloom<u64>>>, port
                 }
             }
         }
+
+        sleep(Duration::from_secs(1)).await;
     }
 
     Ok(())

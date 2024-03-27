@@ -363,8 +363,6 @@ impl TransactionManager {
 
                 if let Some(wan_addr) = wan_addr {
                     let wan_addr = SocketAddr::new(wan_addr.into(), port);
-
-                    log::info!(target: "yiilian_dht::handle_get_peers", "return wan_addr for get peers: {}", wan_addr);
     
                     peers.insert(0, wan_addr);
                 }
