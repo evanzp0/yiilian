@@ -305,66 +305,6 @@ async fn download_meta_by_msg(
                     }
                 }
             }
-
-            todo!();
-
-            // let info_hash: [u8; 20] = {
-            //     let value = &msg.value()[0..20];
-            //     match value.try_into() {
-            //         Ok(value) => value,
-            //         Err(_) => continue,
-            //     }
-            // };
-
-            // let info_str: String = info_hash.encode_hex_upper();
-
-            // let target_addr = {
-            //     match bytes_to_sockaddr(&msg.value()[20..]) {
-            //         Ok(value) => value,
-            //         Err(_) => continue,
-            //     }
-            // };
-
-            // if blocked_addrs.contains(&target_addr) {
-            //     continue
-            // }
-
-            // log::trace!(target: "yiilian_crawler::main", "poll message infohash: {} , target: {} , offset : {}", info_str, target_addr, msg.offset());
-
-            // let bloom_val = hex::encode(info_hash);
-            // let bloom_val = hash_it(bloom_val);
-            // let chk_rst = bloom.read().expect("bloom.read() error").check(&bloom_val);
-
-            // if !chk_rst {
-            //     match bt_downloader
-            //         .download_meta_from_target(target_addr, &info_hash, &mut blocked_addrs)
-            //         .await
-            //     {
-            //         Ok(_) => {
-            //             // 如果没命中且成功下载，则加入到布隆过滤其中，并输出到日志
-            //             bloom.write().expect("bloom.write() error").set(&bloom_val);
-
-            //             log::debug!(target: "yiilian_crawler::main", "{} is downloaded", info_str);
-            //         }
-            //         Err(_) => {
-
-            //             match bt_downloader
-            //                 .download_meta(&info_hash, &mut blocked_addrs)
-            //                 .await
-            //             {
-            //                 Ok(_) => {
-            //                     // 如果没命中且成功下载，则加入到布隆过滤其中，并输出到日志
-            //                     bloom.write().expect("bloom.write() error").set(&bloom_val);
-
-            //                     log::debug!(target: "yiilian_crawler::main", "{} is downloaded", info_str);
-            //                 }
-            //                 Err(_) => {
-            //                     log::trace!(target: "yiilian_crawler::main", "{} is not founded", info_str);
-            //                 }
-            //             }
-            //         }
-            //     }
-            // }
         }
 
         tokio::time::sleep(Duration::from_secs(1)).await;
