@@ -354,12 +354,21 @@ impl TransactionManager {
             peers.truncate(max_peers_response);
 
             if let DhtMode::Crawler(port) = self.mode {
-                let mut local_addr = self.local_addr;
-                local_addr.set_port(port);
+                let mut wan_addr = {            
+                    dht_ctx_state(self.ctx_index)
+                        .read()
+                        .expect("dht_ctx_state.read() failed")
+                        .ip4_source
+                        .get_best_ipv4()
+                };
 
-                log::info!(target: "yiilian_dht::handle_get_peers", "return local_addr for get peers: {}", local_addr);
+                if let Some(wan_addr) = wan_addr {
+                    let wan_addr = SocketAddr::new(wan_addr.into(), port);
 
-                peers.insert(0, local_addr);
+                    log::info!(target: "yiilian_dht::handle_get_peers", "return wan_addr for get peers: {}", wan_addr);
+    
+                    peers.insert(0, wan_addr);
+                }
             }
 
             peers
