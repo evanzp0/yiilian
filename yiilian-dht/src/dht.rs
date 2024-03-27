@@ -57,6 +57,8 @@ pub struct Dht<S> {
 
     /// 保存 dht routing_table 已验证节点的文件
     nodes_file: PathBuf,
+
+    mode: DhtMode,
 }
 
 impl<S> Dht<S>
@@ -72,11 +74,16 @@ where
         workers: Option<usize>,
         mode: DhtMode,
     ) -> Result<Self, Error> {
-        let local_id = Id::from_ip(&local_addr.ip());
+        let local_id =  if let DhtMode::Crawler(_) = mode {
+            Id::from_random(&mut rand::thread_rng())
+        } else {
+            Id::from_ip(&local_addr.ip())
+        };
+        
         let ctx_index = local_addr.port();
 
         let transaction_manager =
-            TransactionManager::new(local_addr.port(), local_addr, mode);
+            TransactionManager::new(local_addr.port(), local_addr, mode.clone());
 
         let routing_table = build_routing_table(
             ctx_index,
@@ -134,6 +141,7 @@ where
             local_addr,
             server,
             nodes_file,
+            mode,
         })
     }
 
@@ -455,12 +463,18 @@ where
 
     /// 每隔 10 秒，周期性维护 IPv4 （使用本机的最佳外网IP地址生成本机节点 ID）
     async fn periodic_ip4_maintenance(&self) -> Result<(), Error> {
+
         let ip4_maintenance_interval_sec =
             dht_ctx_settings(self.ctx_index).ip4_maintenance_interval_sec;
 
         loop {
             sleep(Duration::from_secs(ip4_maintenance_interval_sec)).await;
+            
             log::trace!(target: "yiilian_dht::dht::periodic_ip4_maintenance", "[{}] Enter periodic_ip4_maintenance", self.ctx_index);
+
+            if let DhtMode::Crawler(_) = self.mode {
+                continue;
+            }
 
             // 每隔 10 秒，将各 ip 投票数 - 1
             dht_ctx_state(self.ctx_index)
