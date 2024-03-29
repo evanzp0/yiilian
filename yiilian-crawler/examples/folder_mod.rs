@@ -37,6 +37,6 @@ fn main() {
             fs::rename(entry.path(), target_fd).unwrap();
         }
 
-        sleep(Duration::from_secs(1));
+        sleep(Duration::from_millis(1));
     }
 }
