@@ -120,19 +120,20 @@ impl BtDownloader {
         match self.fetch_meta_from_target(stream, info_hash, is_hook).await {
             Ok(info) => {
                 let torrent = info.encode();
-                let mut path = self.download_dir.clone();
                 let info_str: String = info_hash.encode_hex();
 
-                let mut path = {
+                let path = {
+                    let mut path = self.download_dir.clone();
+
                     let hash = hash_it(&info_str);
                     let mod_num = hash % FOLDER_NUM;
 
                     path.push(mod_num.to_string());
+                    path.push(info_str + ".torrent");
+
                     path
                 }; 
 
-                path.push(info_str + ".torrent");
-    
                 let mut f =
                     File::create(path).map_err(|error| Error::new_file(Some(error.into()), None))?;
     
