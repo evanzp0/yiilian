@@ -14,6 +14,7 @@ use tokio::net::TcpStream;
 use tokio::time::timeout;
 use yiilian_core::common::error::Error;
 use yiilian_core::common::shutdown::ShutdownReceiver;
+use yiilian_core::common::util::hash_it;
 use yiilian_core::data::{BencodeData, Encode};
 use yiilian_core::service::{FirewallLayer, FirewallService};
 use yiilian_dht::common::{Id, SettingsBuilder, ID_SIZE};
@@ -22,6 +23,8 @@ use yiilian_dht::dht::DhtBuilder;
 use yiilian_dht::service::RouterService;
 
 pub const TCP_CONNECT_TIMEOUT_SEC: u64 = 10;
+const FOLDER_NUM: u64 = 1000;
+
 pub struct BtDownloader {
     dht: Dht<FirewallService<RouterService>>,
     local_id: Bytes,
@@ -119,6 +122,15 @@ impl BtDownloader {
                 let torrent = info.encode();
                 let mut path = self.download_dir.clone();
                 let info_str: String = info_hash.encode_hex();
+
+                let mut path = {
+                    let hash = hash_it(&info_str);
+                    let mod_num = hash % FOLDER_NUM;
+
+                    path.push(mod_num.to_string());
+                    path
+                }; 
+
                 path.push(info_str + ".torrent");
     
                 let mut f =
