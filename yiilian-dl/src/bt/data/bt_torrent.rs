@@ -2,8 +2,8 @@ use bytes::Bytes;
 
 #[derive(Debug, Clone)]
 pub struct BtTorrent {
-    announce: String,
-    info: MetaInfo,
+    pub announce: String,
+    pub info: MetaInfo,
 }
 
 #[derive(Debug, Clone)]
@@ -24,6 +24,6 @@ pub enum MetaInfo {
 
 #[derive(Debug, Clone)]
 pub struct MultiFile {
-    length: usize,
-    path: String,
+    pub length: usize,
+    pub path: String,
 }
