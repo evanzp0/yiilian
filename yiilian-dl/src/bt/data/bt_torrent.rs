@@ -1,3 +1,5 @@
+use std::fmt;
+
 use bytes::Bytes;
 use yiilian_core::{common::error::Error, data::BencodeData};
 
@@ -7,7 +9,7 @@ pub struct BtTorrent {
     pub info: MetaInfo,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum MetaInfo {
     SingleFile {
         length: usize,
@@ -23,6 +25,25 @@ pub enum MetaInfo {
     },
 }
 
+impl fmt::Debug for MetaInfo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut f = f.debug_tuple("MetaInfo");
+
+        match self {
+            MetaInfo::SingleFile { length, name, pieces: _, piece_length: _ } => {
+                f.field(&length);
+                f.field(&name);
+            },
+            MetaInfo::MultiFile { files, name, pieces: _, piece_length: _ } => {
+                f.field(&files);
+                f.field(&name);
+            },
+        }
+        
+        f.finish()
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct MultiFile {
     pub length: usize,
@@ -34,6 +55,7 @@ impl TryFrom<&[u8]> for BtTorrent {
 
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
         let data = BencodeData::parse(value)?;
+
         let data = data.as_map()?;
         let announce = if let Some(announce) = data.get(&b"announce"[..]) {
             let tmp = announce.as_bstr()?;
@@ -118,7 +140,8 @@ impl TryFrom<&[u8]> for BtTorrent {
                             .as_int()?
                             as usize;
                         let path = if let Some(path) = item.get(&b"path"[..]) {
-                            let path = path.as_bstr()?;
+                            let path = path.as_list()?;
+                            let path = path[0].as_bstr()?;
                             unsafe { String::from_utf8_unchecked(path.to_vec()) }
                         } else {
                             Err(Error::new_decode(&format!(

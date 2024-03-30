@@ -5,7 +5,6 @@ Cargo.lock
 bloom_state.dat
 yiilian-dht/snip_tmp.rs
 release
-*.torrent
 /torrent
 test_file.txt
 nohup.out
