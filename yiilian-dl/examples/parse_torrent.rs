@@ -8,5 +8,5 @@ fn main() {
 
     let test_torrent: BtTorrent = (&test_torrent[..]).try_into().unwrap();
 
-    println!("{:?}", test_torrent);
+    println!("{:#?}", test_torrent);
 }

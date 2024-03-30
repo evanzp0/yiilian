@@ -18,7 +18,7 @@ pub enum MetaInfo {
         piece_length: usize,
     },
     MultiFile {
-        files: Vec<MultiFile>,
+        files: Vec<FileInfo>,
         name: String,
         pieces: Bytes,
         piece_length: usize,
@@ -27,25 +27,39 @@ pub enum MetaInfo {
 
 impl fmt::Debug for MetaInfo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut f = f.debug_tuple("MetaInfo");
+        let mut f = f.debug_map();
 
         match self {
-            MetaInfo::SingleFile { length, name, pieces: _, piece_length: _ } => {
-                f.field(&length);
-                f.field(&name);
-            },
-            MetaInfo::MultiFile { files, name, pieces: _, piece_length: _ } => {
-                f.field(&files);
-                f.field(&name);
-            },
+            MetaInfo::SingleFile {
+                length,
+                name,
+                pieces,
+                piece_length,
+            } => {
+                f.entry(&"length", length);
+                f.entry(&"name", name);
+                f.entry(&"pieces", &format!("...({} bytes)...", pieces.len()));
+                f.entry(&"piece length", piece_length);
+            }
+            MetaInfo::MultiFile {
+                files,
+                name,
+                pieces,
+                piece_length,
+            } => {
+                f.entry(&"files", files);
+                f.entry(&"name", name);
+                f.entry(&"pieces", &format!("...({} bytes)...", pieces.len()));
+                f.entry(&"piece length", piece_length);
+            }
         }
-        
+
         f.finish()
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct MultiFile {
+pub struct FileInfo {
     pub length: usize,
     pub path: String,
 }
@@ -70,8 +84,7 @@ impl TryFrom<&[u8]> for BtTorrent {
                 let length = info
                     .get(&b"length"[..])
                     .unwrap_or(&BencodeData::Int(0))
-                    .as_int()?
-                    as usize;
+                    .as_int()? as usize;
                 let name = if let Some(name) = info.get(&b"name"[..]) {
                     let name = name.as_bstr()?;
                     unsafe { String::from_utf8_unchecked(name.to_vec()) }
@@ -98,8 +111,12 @@ impl TryFrom<&[u8]> for BtTorrent {
                     )))?
                 };
 
-                MetaInfo::SingleFile { length, name, pieces, piece_length }
-
+                MetaInfo::SingleFile {
+                    length,
+                    name,
+                    pieces,
+                    piece_length,
+                }
             } else if info.has_key("files") {
                 let info = info.as_map()?;
                 let name = if let Some(name) = info.get(&b"name"[..]) {
@@ -137,8 +154,7 @@ impl TryFrom<&[u8]> for BtTorrent {
                         let length = item
                             .get(&b"length"[..])
                             .unwrap_or(&BencodeData::Int(0))
-                            .as_int()?
-                            as usize;
+                            .as_int()? as usize;
                         let path = if let Some(path) = item.get(&b"path"[..]) {
                             let path = path.as_list()?;
                             let path = path[0].as_bstr()?;
@@ -150,10 +166,7 @@ impl TryFrom<&[u8]> for BtTorrent {
                             )))?
                         };
 
-                        let tmp_file = MultiFile {
-                            length,
-                            path,
-                        };
+                        let tmp_file = FileInfo { length, path };
                         tmp_files.push(tmp_file);
                     }
 
@@ -165,7 +178,12 @@ impl TryFrom<&[u8]> for BtTorrent {
                     )))?
                 };
 
-                MetaInfo::MultiFile { files, name, pieces, piece_length }
+                MetaInfo::MultiFile {
+                    files,
+                    name,
+                    pieces,
+                    piece_length,
+                }
             } else {
                 Err(Error::new_decode(&format!(
                     "BtTorrent 'info' field decode error : {:?}",
@@ -179,6 +197,6 @@ impl TryFrom<&[u8]> for BtTorrent {
             )))?
         };
 
-        Ok( BtTorrent { announce, info } )
+        Ok(BtTorrent { announce, info })
     }
 }
