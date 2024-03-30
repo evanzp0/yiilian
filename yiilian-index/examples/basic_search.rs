@@ -6,8 +6,6 @@ use tempfile::TempDir;
 fn main() -> tantivy::Result<()> {
     let index_path = TempDir::new()?;
 
-    println!("tmp dir: {:?}", index_path);
-
     let mut schema_builder = Schema::builder();
     schema_builder.add_text_field("title", TEXT | STORED);
     schema_builder.add_text_field("body", TEXT);
@@ -41,6 +39,13 @@ fn main() -> tantivy::Result<()> {
             limbs and branches that arch over the pool"
     ))?;
 
+    index_writer.commit()?;
+
+    drop(index_writer);
+
+    let index = Index::open_in_dir(&index_path)?;
+    let mut index_writer = index.writer(50_000_000)?;
+
     index_writer.add_document(doc!(
     title => "Frankenstein",
     title => "The Modern Prometheus",
@@ -61,7 +66,7 @@ fn main() -> tantivy::Result<()> {
 
     let query_parser = QueryParser::for_index(&index, vec![title, body]);
 
-    let query = query_parser.parse_query("sea rejoice")?;
+    let query = query_parser.parse_query("sea hear that")?;
 
     let top_docs = searcher.search(&query, &TopDocs::with_limit(10))?;
 
