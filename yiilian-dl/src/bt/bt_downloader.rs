@@ -159,9 +159,19 @@ impl BtDownloader {
 
         if let Ok(info) = self.fetch_meta(info_hash, blocked_addrs, is_hook).await {
             let torrent = info.encode();
-            let mut path = self.download_dir.clone();
             let info_str: String = info_hash.encode_hex();
-            path.push(info_str + ".torrent");
+
+            let path = {
+                let mut path = self.download_dir.clone();
+
+                let hash = hash_it(&info_str);
+                let mod_num = hash % FOLDER_NUM;
+
+                path.push(mod_num.to_string());
+                path.push(info_str + ".torrent");
+
+                path
+            };
 
             let mut f =
                 File::create(path).map_err(|error| Error::new_file(Some(error.into()), None))?;
