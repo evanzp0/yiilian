@@ -167,6 +167,7 @@ impl PeerWire {
                                     pieces[piece as usize] = block;
                                 }
 
+                                // 校验 info_hash 是否有效
                                 if let Some(pieces) = &pieces {
                                     if is_pieces_done(pieces) {
                                         let mut metadata_info = BytesMut::new();

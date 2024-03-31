@@ -1,10 +1,16 @@
 use std::fmt;
 
 use bytes::Bytes;
-use yiilian_core::{common::error::Error, data::BencodeData};
+use hex::ToHex;
+use sha1::{Digest, Sha1};
+use yiilian_core::{
+    common::error::Error,
+    data::{BencodeData, Encode},
+};
 
 #[derive(Debug, Clone)]
 pub struct BtTorrent {
+    pub info_hash: String,
     pub announce: String,
     pub info: MetaInfo,
 }
@@ -78,7 +84,17 @@ impl TryFrom<&[u8]> for BtTorrent {
             "".to_owned()
         };
 
-        let info = if let Some(info) = data.get(&b"info"[..]) {
+        let (info, info_hash) = if let Some(info) = data.get(&b"info"[..]) {
+            let info_hash: String = {
+                // info.encode().encode_hex_upper()
+                let metadata_info = info.encode();
+                let mut hasher = Sha1::new();
+                hasher.update(&metadata_info);
+                let i_hash = hasher.finalize().to_vec();
+                
+                i_hash.encode_hex_upper()
+            };
+
             if info.has_key("length") {
                 let info = info.as_map()?;
                 let length = info
@@ -111,12 +127,15 @@ impl TryFrom<&[u8]> for BtTorrent {
                     )))?
                 };
 
-                MetaInfo::SingleFile {
-                    length,
-                    name,
-                    pieces,
-                    piece_length,
-                }
+                (
+                    MetaInfo::SingleFile {
+                        length,
+                        name,
+                        pieces,
+                        piece_length,
+                    },
+                    info_hash,
+                )
             } else if info.has_key("files") {
                 let info = info.as_map()?;
                 let name = if let Some(name) = info.get(&b"name"[..]) {
@@ -178,12 +197,15 @@ impl TryFrom<&[u8]> for BtTorrent {
                     )))?
                 };
 
-                MetaInfo::MultiFile {
-                    files,
-                    name,
-                    pieces,
-                    piece_length,
-                }
+                (
+                    MetaInfo::MultiFile {
+                        files,
+                        name,
+                        pieces,
+                        piece_length,
+                    },
+                    info_hash,
+                )
             } else {
                 Err(Error::new_decode(&format!(
                     "BtTorrent 'info' field decode error : {:?}",
@@ -197,6 +219,6 @@ impl TryFrom<&[u8]> for BtTorrent {
             )))?
         };
 
-        Ok(BtTorrent { announce, info })
+        Ok(BtTorrent { announce, info, info_hash })
     }
 }
