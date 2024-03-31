@@ -19,12 +19,13 @@ use crate::{
 
 #[derive(Debug)]
 pub struct Engine {
+    log_data_size: usize,
     path: PathBuf,
     topics: HashMap<String, Arc<Mutex<Topic>>>,
 }
 
 impl Engine {
-    pub fn new(shutdown_rx: ShutdownReceiver) -> Result<Self, Error> {
+    pub fn new(log_data_size: usize, shutdown_rx: ShutdownReceiver) -> Result<Self, Error> {
         let path: PathBuf = home::home_dir().unwrap().join(".yiilian/mq/");
 
         fs::create_dir_all(path.clone())
@@ -47,7 +48,7 @@ impl Engine {
                         p
                     };
 
-                    let topic = Topic::new(topic_name, topic_path)?;
+                    let topic = Topic::new(topic_name, topic_path, log_data_size)?;
 
                     topics.insert(topic_name.to_owned(), Arc::new(Mutex::new(topic)));
                 }
@@ -63,7 +64,7 @@ impl Engine {
             None,
         );
 
-        Ok(Engine { path, topics })
+        Ok(Engine { path, topics, log_data_size })
     }
 
     async fn purge_loop(topic_list: Vec<Arc<Mutex<Topic>>>) {
@@ -91,7 +92,7 @@ impl Engine {
         fs::create_dir_all(topic_path.clone())
             .map_err(|error| Error::new_file(Some(error.into()), None))?;
 
-        let topic = Topic::new(topic_name, topic_path)?;
+        let topic = Topic::new(topic_name, topic_path, self.log_data_size)?;
 
         self.topics
             .insert(topic_name.to_owned(), Arc::new(Mutex::new(topic)));

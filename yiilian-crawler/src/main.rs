@@ -35,7 +35,7 @@ use yiilian_dht::{
     service::KrpcService,
 };
 use yiilian_dl::bt::bt_downloader::BtDownloader;
-use yiilian_mq::{engine::Engine, message::in_message::InMessage};
+use yiilian_mq::{engine::Engine, message::in_message::InMessage, segment::LOG_DATA_SIZE};
 
 use yiilian_crawler::event::RecvAnnounceListener;
 use yiilian_crawler::{
@@ -54,7 +54,7 @@ async fn main() {
     let dht_list = create_dht_list(&config, shutdown_rx.clone(), tx).unwrap();
 
     let mq_engine = {
-        let mut engine = Engine::new(shutdown_rx.clone()).expect("create mq engine");
+        let mut engine = Engine::new(LOG_DATA_SIZE, shutdown_rx.clone()).expect("create mq engine");
         engine
             .open_topic("info_hash")
             .expect("open info_hash topic");

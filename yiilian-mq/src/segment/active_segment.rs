@@ -25,7 +25,7 @@ impl ActiveSegment {
         self.offset
     }
 
-    pub fn new(offset: u64, base_path: PathBuf) -> Result<Self, Error> {
+    pub fn new(offset: u64, base_path: PathBuf, log_data_size: usize) -> Result<Self, Error> {
         let log_data_file = {
             let mut path = base_path.clone();
             path.push(gen_mq_file_name(offset, LOG_DATA_FILE_EXTENSION));
@@ -35,7 +35,7 @@ impl ActiveSegment {
                 .create(true)
                 .open(&path)
                 .map_err(|error| Error::new_file(Some(error.into()), None))?;
-            file.set_len(LOG_DATA_SIZE as u64)
+            file.set_len(log_data_size as u64)
                 .map_err(|error| Error::new_file(Some(error.into()), None))?;
             file
         };

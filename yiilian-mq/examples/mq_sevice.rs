@@ -1,13 +1,13 @@
 use std::time::Duration;
 
 use yiilian_core::common::shutdown::create_shutdown;
-use yiilian_mq::engine::Engine;
+use yiilian_mq::{engine::Engine, segment::LOG_DATA_SIZE};
 
 #[tokio::main]
 async fn main() {
     let (mut shutdown_tx, shutdown_rx) = create_shutdown();
 
-    let mut engine = Engine::new(shutdown_rx).unwrap();
+    let mut engine = Engine::new(LOG_DATA_SIZE, shutdown_rx).unwrap();
     let topic = engine.open_topic("info_hash").unwrap();
     // for i in 0..5 {
     //     let value = format!("value_{}", i);

@@ -25,7 +25,7 @@ const KEEP_SEGMENT_SECS: u64 = 24 * 60 * 60 * 3;
 pub struct Topic {
     #[allow(unused)]
     name: String,
-
+    log_data_size: usize,
     path: PathBuf,
     active_segment: ActiveSegment,
     consumers: ConsumerOffsets,
@@ -33,7 +33,7 @@ pub struct Topic {
 }
 
 impl Topic {
-    pub fn new(name: &str, path: PathBuf) -> Result<Self, Error> {
+    pub fn new(name: &str, path: PathBuf, log_data_size: usize) -> Result<Self, Error> {
         let entries = fs::read_dir(path.clone())
             .map_err(|error| Error::new_file(Some(error.into()), None))?;
 
@@ -72,7 +72,7 @@ impl Topic {
             .get(segment_offsets.len() - 1)
             .expect("segment_offsets should exist")
             .offset;
-        let active_segment = ActiveSegment::new(last_segment_offset, path.clone())?;
+        let active_segment = ActiveSegment::new(last_segment_offset, path.clone(), log_data_size)?;
 
         let consumer_offsets_path: PathBuf = {
             let mut p = path.clone();
@@ -88,6 +88,7 @@ impl Topic {
             active_segment,
             consumers: consumer_offsets,
             segment_offsets,
+            log_data_size,
         })
     }
 
@@ -110,7 +111,7 @@ impl Topic {
 
         if !enough_space {
             let new_offset = self.active_segment.get_next_offset();
-            let active_segment = ActiveSegment::new(new_offset, self.path.clone())?;
+            let active_segment = ActiveSegment::new(new_offset, self.path.clone(), self.log_data_size)?;
             let segment_info = SegmentInfo::new(new_offset, SystemTime::now());
             self.segment_offsets.push(segment_info);
             self.active_segment = active_segment;
