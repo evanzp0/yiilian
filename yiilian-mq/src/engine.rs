@@ -7,9 +7,15 @@ use std::{
 
 use std::time::Duration;
 use tokio::time::sleep;
-use yiilian_core::common::{error::Error, shutdown::{spawn_with_shutdown, ShutdownReceiver}};
+use yiilian_core::common::{
+    error::Error,
+    shutdown::{spawn_with_shutdown, ShutdownReceiver},
+};
 
-use crate::{message::{in_message::InMessage, Message}, topic::Topic};
+use crate::{
+    message::{in_message::InMessage, Message},
+    topic::Topic,
+};
 
 #[derive(Debug)]
 pub struct Engine {
@@ -48,14 +54,14 @@ impl Engine {
             }
         }
 
-        let topic_list: Vec<Arc<Mutex<Topic>>>  = topics.values().map(|v| v.clone()).collect(); 
+        let topic_list: Vec<Arc<Mutex<Topic>>> = topics.values().map(|v| v.clone()).collect();
 
-        spawn_with_shutdown(shutdown_rx, 
-            async move {
-                Engine::purge_loop(topic_list).await
-            }, 
-            "mq engine purge loop", 
-            None);
+        spawn_with_shutdown(
+            shutdown_rx,
+            async move { Engine::purge_loop(topic_list).await },
+            "mq engine purge loop",
+            None,
+        );
 
         Ok(Engine { path, topics })
     }
@@ -87,9 +93,31 @@ impl Engine {
 
         let topic = Topic::new(topic_name, topic_path)?;
 
-        self.topics.insert(topic_name.to_owned(), Arc::new(Mutex::new(topic)));
+        self.topics
+            .insert(topic_name.to_owned(), Arc::new(Mutex::new(topic)));
 
         Ok(self.topics.get(topic_name).unwrap().clone())
+    }
+
+    pub fn remove_topic(&mut self, topic_name: &str) -> Result<(), Error> {
+        if self.topics.contains_key(topic_name) {
+            self.topics.remove(topic_name);
+
+            let topic_path = {
+                let mut p = self.path.clone();
+                p.push(topic_name);
+                p
+            };
+
+            if let Err(_) = fs::remove_dir_all(topic_path.clone()) {
+                Err(Error::new_file(
+                    None,
+                    Some(format!("remove topic {:?} error", topic_path)),
+                ))?
+            };
+        }
+
+        Ok(())
     }
 
     pub fn push_message(&self, topic_name: &str, message: InMessage) -> Result<(), Error> {
@@ -102,8 +130,11 @@ impl Engine {
 
     pub fn poll_message(&self, topic_name: &str, consumer_name: &str) -> Option<Message> {
         if let Some(topic) = self.topics.get(topic_name) {
-            let message = topic.lock().expect("lock topic").poll_message(consumer_name);
-            
+            let message = topic
+                .lock()
+                .expect("lock topic")
+                .poll_message(consumer_name);
+
             message
         } else {
             None
