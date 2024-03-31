@@ -1,14 +1,22 @@
 use std::{
-    fs, path::PathBuf, time::{Duration, SystemTime}
+    fs::{self, OpenOptions},
+    path::PathBuf,
+    time::{Duration, SystemTime},
 };
 
 use chrono::Utc;
-use yiilian_core::common::{error::Error, util::{atoi, binary_insert}};
+use yiilian_core::common::{
+    error::Error,
+    util::{atoi, binary_insert},
+};
 
 use crate::{
     consumer_offsets::ConsumerOffsets,
     message::{in_message::InMessage, Message, MESSAGE_PREFIX_LEN},
-    segment::{active_segment::ActiveSegment, gen_mq_file_name, poll_message_inner, LOG_DATA_FILE_EXTENSION, LOG_INDEX_FILE_EXTENSION},
+    segment::{
+        active_segment::ActiveSegment, gen_mq_file_name, log_index::log_index_file::LogIndexFile,
+        poll_message_inner, LOG_DATA_FILE_EXTENSION, LOG_INDEX_FILE_EXTENSION,
+    },
 };
 
 const KEEP_SEGMENT_SECS: u64 = 24 * 60 * 60 * 3;
@@ -17,7 +25,7 @@ const KEEP_SEGMENT_SECS: u64 = 24 * 60 * 60 * 3;
 pub struct Topic {
     #[allow(unused)]
     name: String,
-    
+
     path: PathBuf,
     active_segment: ActiveSegment,
     consumers: ConsumerOffsets,
@@ -84,7 +92,7 @@ impl Topic {
     }
 
     pub fn consumer_offsets(&mut self) -> &mut ConsumerOffsets {
-        return &mut self.consumers
+        return &mut self.consumers;
     }
 
     pub fn remove_consumer(&mut self, consumer_name: &str) {
@@ -114,6 +122,59 @@ impl Topic {
         self.active_segment.push_message(message)
     }
 
+    pub fn count(&self, customer_name: &str) -> Result<u64, Error> {
+        let mut count = 0;
+
+        if let Some(consumer_offset) = self.consumers.get(customer_name) {
+            if let Some(segment_offset) = get_floor_offset(consumer_offset, &self.segment_offsets) {
+                let index_file_name = gen_mq_file_name(segment_offset, LOG_INDEX_FILE_EXTENSION);
+                let mut index_path = self.path.to_owned();
+
+                index_path.push(index_file_name);
+                let index_file = OpenOptions::new()
+                    .read(true)
+                    .write(true)
+                    .create(true)
+                    .open(&index_path)
+                    .map_err(|error| Error::new_file(Some(error.into()), None))?;
+
+                let mut log_index_file = LogIndexFile::new(segment_offset, index_file)?;
+
+                let current_gap = if let Some(last_index_item) = log_index_file.last() {
+                    let last_offset = last_index_item.message_offset();
+                    last_offset - consumer_offset
+                } else {
+                    0
+                };
+
+                for segment_info in &self.segment_offsets {
+                    if segment_info.offset <= segment_offset {
+                        continue;
+                    }
+
+                    let index_file_name =
+                        gen_mq_file_name(segment_offset, LOG_INDEX_FILE_EXTENSION);
+                    let mut index_path = self.path.to_owned();
+
+                    index_path.push(index_file_name);
+                    let index_file = OpenOptions::new()
+                        .read(true)
+                        .write(true)
+                        .create(true)
+                        .open(&index_path)
+                        .map_err(|error| Error::new_file(Some(error.into()), None))?;
+
+                    let log_index_file = LogIndexFile::new(segment_offset, index_file)?;
+                    count += log_index_file.count();
+                }
+
+                count += current_gap;
+            }
+        }
+
+        Ok(count)
+    }
+
     pub fn poll_message(&mut self, customer_name: &str) -> Option<Message> {
         let (segment_offset, target_offset) =
             if let Some(mut target_offset) = self.consumers.get(customer_name) {
@@ -140,9 +201,7 @@ impl Topic {
 
         if let Ok(message) = poll_message_inner(&self.path, segment_offset, target_offset) {
             if message.is_some() {
-                self.consumers
-                    .insert(customer_name, target_offset)
-                    .ok();
+                self.consumers.insert(customer_name, target_offset).ok();
             }
 
             message
@@ -225,11 +284,7 @@ fn get_floor_offset(target_offset: u64, array: &Vec<SegmentInfo>) -> Option<u64>
         }
     }
 
-    let left = if left > 0 { 
-        left -1
-     } else { 
-        return None
-    };
+    let left = if left > 0 { left - 1 } else { return None };
 
     mid_offset = array
         .get(left as usize)
@@ -319,7 +374,7 @@ mod tests {
 
         let segment_infos = vec![
             SegmentInfo::new(0, mod_time - Duration::from_secs(10 * KEEP_SEGMENT_SECS)),
-            SegmentInfo::new(2, mod_time - Duration::from_secs(20* KEEP_SEGMENT_SECS)),
+            SegmentInfo::new(2, mod_time - Duration::from_secs(20 * KEEP_SEGMENT_SECS)),
             SegmentInfo::new(4, mod_time - Duration::from_secs(5 * KEEP_SEGMENT_SECS)),
             SegmentInfo::new(5, mod_time),
         ];
@@ -335,7 +390,7 @@ mod tests {
 
         let segment_infos = vec![
             SegmentInfo::new(0, mod_time - Duration::from_secs(10 * KEEP_SEGMENT_SECS)),
-            SegmentInfo::new(2, mod_time - Duration::from_secs(20* KEEP_SEGMENT_SECS)),
+            SegmentInfo::new(2, mod_time - Duration::from_secs(20 * KEEP_SEGMENT_SECS)),
             SegmentInfo::new(4, mod_time - Duration::from_secs(5 * KEEP_SEGMENT_SECS)),
             SegmentInfo::new(5, mod_time),
         ];

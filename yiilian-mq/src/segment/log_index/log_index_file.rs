@@ -53,13 +53,17 @@ impl LogIndexFile {
         self.file.seek(SeekFrom::Start(LOGINDEX_PREFIX_LEN as u64)).expect("reset error");
     }
     
-    pub fn count(&self) -> usize {
-        self.len() / LOGINDEX_ITEM_LEN
+    pub fn count(&self) -> u64 {
+        (self.len() / LOGINDEX_ITEM_LEN) as u64
+    }
+
+    pub fn last(&mut self)-> Option<LogIndexItem> {
+        self.get(self.count() as usize - 1)
     }
 
     pub fn get(&mut self, index: usize) -> Option<LogIndexItem> {
 
-        if index >= self.count() {
+        if index >= self.count() as usize {
             return None
         }
 
@@ -155,6 +159,9 @@ mod tests {
 
         let item = log_index_file.get_by_offset(1).unwrap();
         assert_eq!(1, item.message_offset());
+
+        let item = log_index_file.last().unwrap();
+        assert_eq!(2, item.message_offset());
 
         fs::remove_file(path).unwrap();
     }
