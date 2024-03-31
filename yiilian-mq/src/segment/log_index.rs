@@ -11,6 +11,7 @@ pub const LOGINDEX_ITEM_LEN: usize = 16;
 
 /// LogIndex = len(8) + [ message_offset(8) + message_pos(8) .. ]
 pub struct LogIndex {
+    /// LogIndex 字节数
     length: usize,
     offset: u64,
     cache: MmapMut,
