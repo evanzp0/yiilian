@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use tantivy::{
-    collector::TopDocs, directory::MmapDirectory, doc, query::QueryParser, schema::{Schema, STORED, TEXT}, Directory, Index, ReloadPolicy
+    collector::TopDocs, directory::MmapDirectory, doc, merge_policy::DefaultMergePolicy, query::QueryParser, schema::{Schema, STORED, TEXT}, Directory, Index, ReloadPolicy
 };
 
 fn main() -> tantivy::Result<()> {
@@ -20,6 +20,11 @@ fn main() -> tantivy::Result<()> {
 
     let index = Index::open_or_create(mmap_directory, schema.clone())?;
     let mut index_writer = index.writer(50_000_000)?;
+
+    // let mut merge_policy = DefaultMergePolicy::default();
+    // merge_policy.set_min_layer_size(8);
+    // merge_policy.set_max_docs_before_merge(20);
+    // index_writer.set_merge_policy(Box::new(merge_policy));
 
     index_writer.add_document(doc!(
     title => "Of Mice and Men",
@@ -58,7 +63,7 @@ fn main() -> tantivy::Result<()> {
 
     index_writer.merge(&segments);
     index_writer.wait_merging_threads().unwrap();
-    
+
     let segments = index.searchable_segment_ids().unwrap();
     println!("{}", segments.len());
 
