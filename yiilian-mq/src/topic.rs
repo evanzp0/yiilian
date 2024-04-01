@@ -141,7 +141,6 @@ impl Topic {
                 {
                     Ok(file) => file,
                     Err(error) => {
-                        println!("{}", error);
                         log::trace!(target: "yiilian-mq::topic", "{}", error);
                         return 0
                     },
@@ -151,7 +150,6 @@ impl Topic {
                 {
                     Ok(file) => file,
                     Err(error) => {
-                        println!("{}", error);
                         log::trace!(target: "yiilian-mq::topic", "{}", error);
                         return 0
                     },
@@ -183,7 +181,6 @@ impl Topic {
                         {
                             Ok(file) => file,
                             Err(error) => {
-                                println!("{}", error);
                                 log::trace!(target: "yiilian-mq::topic", "{}", error);
                                 return 0
                             },
@@ -193,7 +190,6 @@ impl Topic {
                     {
                         Ok(file) => file,
                         Err(error) => {
-                            println!("{}", error);
                             log::trace!(target: "yiilian-mq::topic", "{}", error);
                             return 0
                         },

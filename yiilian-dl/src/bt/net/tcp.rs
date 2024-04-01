@@ -52,8 +52,6 @@ pub async fn read_all(stream: &mut TcpStream) -> Result<Bytes, Error> {
         match stream.read(&mut buf).await {
             Ok(0) => break,
             Ok(n) => {
-                // println!("{n}");
-                println!("{:?}", &buf[0..n]);
                 rst.extend(&buf[0..n]);
             }
             Err(e) => Err(Error::new_net(Some(e.into()), Some("read_all".to_owned()), None))?,

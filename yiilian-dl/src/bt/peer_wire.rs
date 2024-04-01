@@ -180,7 +180,6 @@ impl PeerWire {
                                         let i_hash = hasher.finalize().to_vec();
 
                                         if i_hash != info_hash {
-                                            println!("metadata is not valid for info_hash");
                                             return Err(Error::new_frame(
                                                 None,
                                                 Some(format!(

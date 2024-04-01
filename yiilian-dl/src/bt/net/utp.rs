@@ -13,7 +13,6 @@ pub fn read_all(stream: &mut UtpStream) -> Result<Bytes, Error> {
         match stream.read(&mut buf) {
             Ok(0) => break,
             Ok(n) => {
-                println!("{n}");
                 rst.extend(&buf[0..n]);
             }
             Err(e) => {
