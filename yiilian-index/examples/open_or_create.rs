@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use tantivy::{
-    collector::TopDocs, directory::MmapDirectory, doc, merge_policy::DefaultMergePolicy, query::QueryParser, schema::{Schema, STORED, TEXT}, Directory, Index, ReloadPolicy
+    collector::TopDocs, directory::MmapDirectory, doc, query::QueryParser, schema::{Schema, STORED, TEXT}, Directory, Index, ReloadPolicy
 };
 
 fn main() -> tantivy::Result<()> {
