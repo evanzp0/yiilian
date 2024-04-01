@@ -111,7 +111,8 @@ impl Topic {
 
         if !enough_space {
             let new_offset = self.active_segment.get_next_offset();
-            let active_segment = ActiveSegment::new(new_offset, self.path.clone(), self.log_data_size)?;
+            let active_segment =
+                ActiveSegment::new(new_offset, self.path.clone(), self.log_data_size)?;
             let segment_info = SegmentInfo::new(new_offset, SystemTime::now());
             self.segment_offsets.push(segment_info);
             self.active_segment = active_segment;
@@ -123,7 +124,7 @@ impl Topic {
         self.active_segment.push_message(message)
     }
 
-    pub fn count(&self, customer_name: &str) -> Result<u64, Error> {
+    pub fn count(&self, customer_name: &str) -> u64 {
         let mut count = 0;
 
         if let Some(consumer_offset) = self.consumers.get(customer_name) {
@@ -132,14 +133,29 @@ impl Topic {
                 let mut index_path = self.path.to_owned();
 
                 index_path.push(index_file_name);
-                let index_file = OpenOptions::new()
+                let index_file = match OpenOptions::new()
                     .read(true)
                     .write(true)
                     .create(true)
                     .open(&index_path)
-                    .map_err(|error| Error::new_file(Some(error.into()), None))?;
+                {
+                    Ok(file) => file,
+                    Err(error) => {
+                        println!("{}", error);
+                        log::trace!(target: "yiilian-mq::topic", "{}", error);
+                        return 0
+                    },
+                };
 
-                let mut log_index_file = LogIndexFile::new(segment_offset, index_file)?;
+                let mut log_index_file = match LogIndexFile::new(segment_offset, index_file)
+                {
+                    Ok(file) => file,
+                    Err(error) => {
+                        println!("{}", error);
+                        log::trace!(target: "yiilian-mq::topic", "{}", error);
+                        return 0
+                    },
+                };
 
                 let current_gap = if let Some(last_index_item) = log_index_file.last() {
                     let last_offset = last_index_item.message_offset();
@@ -158,14 +174,30 @@ impl Topic {
                     let mut index_path = self.path.to_owned();
 
                     index_path.push(index_file_name);
-                    let index_file = OpenOptions::new()
+                    let index_file = match OpenOptions::new()
                         .read(true)
                         .write(true)
                         .create(true)
                         .open(&index_path)
-                        .map_err(|error| Error::new_file(Some(error.into()), None))?;
+                        .map_err(|error| Error::new_file(Some(error.into()), None))
+                        {
+                            Ok(file) => file,
+                            Err(error) => {
+                                println!("{}", error);
+                                log::trace!(target: "yiilian-mq::topic", "{}", error);
+                                return 0
+                            },
+                        };
 
-                    let log_index_file = LogIndexFile::new(segment_offset, index_file)?;
+                    let log_index_file = match LogIndexFile::new(segment_offset, index_file) 
+                    {
+                        Ok(file) => file,
+                        Err(error) => {
+                            println!("{}", error);
+                            log::trace!(target: "yiilian-mq::topic", "{}", error);
+                            return 0
+                        },
+                    };
                     count += log_index_file.count();
                 }
 
@@ -173,7 +205,7 @@ impl Topic {
             }
         }
 
-        Ok(count)
+        count
     }
 
     pub fn poll_message(&mut self, customer_name: &str) -> Option<Message> {

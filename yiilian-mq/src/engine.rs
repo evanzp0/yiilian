@@ -64,7 +64,11 @@ impl Engine {
             None,
         );
 
-        Ok(Engine { path, topics, log_data_size })
+        Ok(Engine {
+            path,
+            topics,
+            log_data_size,
+        })
     }
 
     async fn purge_loop(topic_list: Vec<Arc<Mutex<Topic>>>) {
@@ -140,5 +144,52 @@ impl Engine {
         } else {
             None
         }
+    }
+
+    pub fn message_count(&self, topic_name: &str, consumer_name: &str) -> u64 {
+        if let Some(topic) = self.topics.get(topic_name) {
+            topic.lock().expect("lock topic").count(consumer_name)
+        } else {
+            0
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use yiilian_core::common::shutdown::create_shutdown;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn test_engine() {
+        let (_shutdown_tx, shutdown_rx) = create_shutdown();
+        let topic_name = "test_count";
+        let consumer_name = "test_client";
+
+        let mut engine = {
+            let mut engine = Engine::new(100, shutdown_rx.clone()).expect("create mq engine");
+            engine
+                .open_topic(topic_name)
+                .expect("open test_count topic");
+
+            engine
+        };
+
+        for i in 0..20 {
+            let value = format!("value_{}", i);
+            let message = InMessage(value.into());
+            engine.push_message(topic_name, message).unwrap();
+        }
+
+        for _i in 0..8 {
+            engine.poll_message(topic_name, consumer_name).unwrap();
+        }
+
+        let count = engine.message_count(topic_name, consumer_name);
+        assert_eq!(12, count);
+
+        engine.remove_topic(topic_name).unwrap();
     }
 }
