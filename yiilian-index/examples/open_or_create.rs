@@ -42,7 +42,25 @@ fn main() -> tantivy::Result<()> {
              increasing confidence in the success of my undertaking."
     ))?;
 
+    index_writer.add_document(doc!(
+        title => "Frankenstein",
+        title => "The Modern Prometheus",
+        body => "You will rejoice to hear that no disaster has accompanied the commencement of an \
+                 enterprise which you have regarded with such evil forebodings.  I arrived here \
+                 yesterday, and my first task is to assure my dear sister of my welfare and \
+                 increasing confidence in the success of my undertaking."
+        ))?;
+
     index_writer.commit()?;
+
+    let segments = index.searchable_segment_ids().unwrap();
+    println!("{}", segments.len());
+
+    index_writer.merge(&segments);
+    index_writer.wait_merging_threads().unwrap();
+    
+    let segments = index.searchable_segment_ids().unwrap();
+    println!("{}", segments.len());
 
     let reader = index
         .reader_builder()
