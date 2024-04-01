@@ -64,7 +64,8 @@ fn main() -> tantivy::Result<()> {
      )).unwrap();
      index_writer.commit()?;
 
-     reader.reload()?;
+    //  reader.reload()?;
+    let reader = index.reader()?;
 
      let frankenstein_new_doc = extract_doc_given_isbn(&reader, &frankenstein_isbn)?.unwrap();
     assert_eq!(
