@@ -45,6 +45,9 @@ use yiilian_crawler::{
 
 const BLOOM_STATE_FILE: &str = "bloom_state.dat";
 
+const HASH_TOPIC_NAME: &str = "info_hash";
+const INDEX_TOPIC_NAME: &str = "info_index";
+
 #[tokio::main]
 async fn main() {
     set_up_logging_from_file::<&str>(None);
@@ -53,11 +56,16 @@ async fn main() {
     let (tx, rx) = broadcast::channel(1024);
     let dht_list = create_dht_list(&config, shutdown_rx.clone(), tx).unwrap();
 
+
+
     let mq_engine = {
         let mut engine = Engine::new(LOG_DATA_SIZE, shutdown_rx.clone()).expect("create mq engine");
         engine
-            .open_topic("info_hash")
-            .expect("open info_hash topic");
+            .open_topic(HASH_TOPIC_NAME)
+            .expect(&format!("open {} topic", HASH_TOPIC_NAME));
+        engine
+            .open_topic(INDEX_TOPIC_NAME)
+            .expect(&format!("open {} topic", INDEX_TOPIC_NAME));
 
         Arc::new(engine)
     };
@@ -105,8 +113,8 @@ async fn main() {
         } => (),
         _ = announce_listener.listen() => (),
         _ = bt_downloader.run_loop() => (),
-        _ = download_meta_by_msg(mq_engine, &bt_downloader, bloom.clone()) => (),
-        _ = hook(&bt_downloader, bloom.clone(), config.bt.download_port) => (),
+        _ = download_meta_by_msg(mq_engine.clone(), &bt_downloader, bloom.clone()) => (),
+        _ = hook(&bt_downloader, bloom.clone(), config.bt.download_port, mq_engine.clone()) => (),
         _ = tokio::signal::ctrl_c() => {
 
             drop(dht_list);
@@ -127,7 +135,7 @@ async fn main() {
     };
 }
 
-async fn hook(bt_downloader: &BtDownloader, bloom: Arc<RwLock<Bloom<u64>>>, port: u16) {
+async fn hook(bt_downloader: &BtDownloader, bloom: Arc<RwLock<Bloom<u64>>>, port: u16, mq_engine: Arc<Engine>) {
     let bind_addr: SocketAddr = format!("0.0.0.0:{port}")
         .parse()
         .expect("tcp bind error in hook");
@@ -176,11 +184,20 @@ async fn hook(bt_downloader: &BtDownloader, bloom: Arc<RwLock<Bloom<u64>>>, port
                         .download_meta_from_target(stream, &info_hash, true)
                         .await
                     {
-                        Ok(_) => {
+                        Ok(path) => {
                             // 如果没命中且成功下载，则加入到布隆过滤其中，并输出到日志
                             bloom.write().expect("bloom.write() error").set(&bloom_val);
 
                             log::debug!(target: "yiilian_crawler::main::hook", "{} is downloaded", info_str);
+
+                            let path = match path.to_str() {
+                                Some(p) => p.to_owned(),
+                                None => continue,
+                            };
+                            let message = yiilian_mq::message::in_message::InMessage(path.into());
+                            if let Err(error) = mq_engine.push_message(INDEX_TOPIC_NAME, message) {
+                                log::trace!(target: "yiilian_crawler::main::hook", "push_message error: {}", error);
+                            }
                         }
                         Err(error) => {
                             log::trace!(target: "yiilian_crawler::main::hook", "{}", error);
@@ -200,7 +217,7 @@ async fn download_meta_by_msg(
     bloom: Arc<RwLock<Bloom<u64>>>,
 ) {
     loop {
-        let msg_rst = mq_engine.poll_message("info_hash", "download_meta_client");
+        let msg_rst = mq_engine.poll_message(HASH_TOPIC_NAME, "download_meta_client");
 
         if let Some(msg) = msg_rst {
             log::trace!(target: "yiilian_crawler::main", "poll message offset : {}", msg.offset());
@@ -231,7 +248,7 @@ async fn download_meta_by_msg(
                         .download_meta(&info_hash, &mut blocked_addrs, false)
                         .await
                     {
-                        Ok(_) => {
+                        Ok(path) => {
                             let bloom_val = hex::encode(info_hash);
                             let bloom_val = hash_it(bloom_val);
                             let chk_rst =
@@ -242,6 +259,15 @@ async fn download_meta_by_msg(
                                 bloom.write().expect("bloom.write() error").set(&bloom_val);
 
                                 log::debug!(target: "yiilian_crawler::main", "{} is downloaded", info_str);
+
+                                let path = match path.to_str() {
+                                    Some(p) => p.to_owned(),
+                                    None => continue,
+                                };
+                                let message = yiilian_mq::message::in_message::InMessage(path.into());
+                                if let Err(error) = mq_engine.push_message(INDEX_TOPIC_NAME, message) {
+                                    log::trace!(target: "yiilian_crawler::main::hook", "push_message error: {}", error);
+                                }
                             }
                         }
                         Err(error) => {
@@ -252,7 +278,7 @@ async fn download_meta_by_msg(
                                 info_type: MessageType::Normal(info_hash),
                             };
 
-                            mq_engine.push_message("info_hash", InMessage(msg_data.into())).ok();
+                            mq_engine.push_message(HASH_TOPIC_NAME, InMessage(msg_data.into())).ok();
                         }
                     }
                 }
@@ -281,11 +307,20 @@ async fn download_meta_by_msg(
                             .download_meta_from_target(stream, &info_hash, false)
                             .await
                         {
-                            Ok(_) => {
+                            Ok(path) => {
                                 // 如果没命中且成功下载，则加入到布隆过滤其中，并输出到日志
                                 bloom.write().expect("bloom.write() error").set(&bloom_val);
 
                                 log::debug!(target: "yiilian_crawler::main::download_meta_by_msg", "{} is downloaded", info_str);
+
+                                let path = match path.to_str() {
+                                    Some(p) => p.to_owned(),
+                                    None => continue,
+                                };
+                                let message = yiilian_mq::message::in_message::InMessage(path.into());
+                                if let Err(error) = mq_engine.push_message(INDEX_TOPIC_NAME, message) {
+                                    log::trace!(target: "yiilian_crawler::main::hook", "push_message error: {}", error);
+                                }
                             }
                             Err(error) => {
                                 log::trace!(target: "yiilian_crawler::main::download_meta_by_msg", "Resend message by error: {error}");
@@ -295,7 +330,7 @@ async fn download_meta_by_msg(
                                     info_type: MessageType::Normal(info_hash),
                                 };
 
-                                mq_engine.push_message("info_hash", InMessage(msg_data.into())).ok();
+                                mq_engine.push_message(HASH_TOPIC_NAME, InMessage(msg_data.into())).ok();
                             }
                         }
                     }

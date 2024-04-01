@@ -115,7 +115,7 @@ impl BtDownloader {
         stream: TcpStream,
         info_hash: &[u8; ID_SIZE],
         is_hook: bool,
-    ) -> Result<[u8; ID_SIZE], Error> {
+    ) -> Result<PathBuf, Error> {
 
         match self.fetch_meta_from_target(stream, info_hash, is_hook).await {
             Ok(info) => {
@@ -135,12 +135,12 @@ impl BtDownloader {
                 }; 
 
                 let mut f =
-                    File::create(path).map_err(|error| Error::new_file(Some(error.into()), None))?;
+                    File::create(path.clone()).map_err(|error| Error::new_file(Some(error.into()), None))?;
     
                 f.write_all(&torrent)
                     .map_err(|error| Error::new_file(Some(error.into()), None))?;
-    
-                Ok(*info_hash)
+
+                Ok(path)
             }
             Err(error) => {
                 let info_str: String =  info_hash.encode_hex();
@@ -155,7 +155,7 @@ impl BtDownloader {
         info_hash: &[u8; ID_SIZE],
         blocked_addrs: &mut Vec<SocketAddr>,
         is_hook: bool,
-    ) -> Result<[u8; ID_SIZE], Error> {
+    ) -> Result<PathBuf, Error> {
 
         if let Ok(info) = self.fetch_meta(info_hash, blocked_addrs, is_hook).await {
             let torrent = info.encode();
@@ -174,12 +174,12 @@ impl BtDownloader {
             };
 
             let mut f =
-                File::create(path).map_err(|error| Error::new_file(Some(error.into()), None))?;
+                File::create(path.clone()).map_err(|error| Error::new_file(Some(error.into()), None))?;
 
             f.write_all(&torrent)
                 .map_err(|error| Error::new_file(Some(error.into()), None))?;
 
-            Ok(*info_hash)
+            Ok(path)
         } else {
             let info_str: String =  info_hash.encode_hex();
 
