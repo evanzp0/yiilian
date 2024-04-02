@@ -19,7 +19,7 @@ fn main() -> tantivy::Result<()> {
     let body = schema.get_field("body").unwrap();
 
     let mut old_man_doc = Document::default();
-    old_man_doc.add_text(title, "The Old Man and the Sea");
+    old_man_doc.add_text(title, "The.Old.Man.and.the.Sea");
     old_man_doc.add_text(
         body,
         "He was an old man who fished alone in a skiff in the Gulf Stream and \
@@ -28,7 +28,7 @@ fn main() -> tantivy::Result<()> {
     index_writer.add_document(old_man_doc)?;
 
     index_writer.add_document(doc!(
-    title => "Of Mice and Men",
+    title => "Of_Mice_and_Men",
     body => "A few miles south of Soledad, the Salinas River drops in close to the hillside \
             bank and runs deep and green. The water is warm too, for it has slipped twinkling \
             over the yellow sands in the sunlight before reaching the narrow pool. On one \
@@ -66,7 +66,7 @@ fn main() -> tantivy::Result<()> {
 
     let query_parser = QueryParser::for_index(&index, vec![title, body]);
 
-    let query = query_parser.parse_query("sea hear that")?;
+    let query = query_parser.parse_query("Mice Men")?;
 
     let top_docs = searcher.search(&query, &TopDocs::with_limit(10))?;
 
