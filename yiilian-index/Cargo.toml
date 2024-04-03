@@ -8,3 +8,6 @@ edition = "2021"
 [dependencies]
 tantivy = "0.19"
 tempfile = "3.10"
+dysql = { version = "2", features = ["sqlx-sqlite"] }
+sqlx = { version = "0.7", features = [ "runtime-tokio-native-tls", "chrono", "uuid" ], optional = true } 
+tokio = { version = "1", features = ["full"] }
