@@ -45,8 +45,6 @@ impl ResourceIndex {
             is_indexed: 0,
         };
 
-        println!("{:?}", dto);
-
         let _ = execute!(|&mut *conn, dto| {
             r#"insert into res_info
                     (info_hash, res_type, create_time, mod_time, is_indexed) 
