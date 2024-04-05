@@ -18,7 +18,7 @@ pub struct BtTorrent {
 #[derive(Clone)]
 pub enum MetaInfo {
     SingleFile {
-        length: usize,
+        length: i64,
         name: String,
         pieces: Bytes,
         piece_length: usize,
@@ -66,7 +66,7 @@ impl fmt::Debug for MetaInfo {
 
 #[derive(Debug, Clone)]
 pub struct FileInfo {
-    pub length: usize,
+    pub length: i64,
     pub path: String,
 }
 
@@ -127,6 +127,7 @@ impl TryFrom<&[u8]> for BtTorrent {
                     )))?
                 };
 
+                let length = length as i64;
                 (
                     MetaInfo::SingleFile {
                         length,
@@ -184,6 +185,7 @@ impl TryFrom<&[u8]> for BtTorrent {
                                 value
                             )))?
                         };
+                        let length = length as i64;
 
                         let tmp_file = FileInfo { length, path };
                         tmp_files.push(tmp_file);

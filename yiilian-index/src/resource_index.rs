@@ -5,11 +5,13 @@ use dysql::execute;
 use dysql::SqlxExecutorAdatper;
 use sqlx::{
     sqlite::{SqliteConnectOptions, SqliteJournalMode},
-    ConnectOptions, SqliteConnection,
+    ConnectOptions, Connection, SqliteConnection,
 };
 
+use yiilian_core::data::MetaInfo;
 use yiilian_core::{common::error::Error, data::BtTorrent};
 
+use crate::res_info::ResFile;
 use crate::res_info::ResInfo;
 
 pub struct ResourceIndex {
@@ -34,24 +36,79 @@ impl ResourceIndex {
     }
 
     pub async fn add_bt_info_record(&mut self, bt_torrent: &BtTorrent) -> Result<(), Error> {
-        let conn = &mut self.db_connection;
         let now = Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string();
 
         let dto = ResInfo {
             info_hash: bt_torrent.info_hash.clone(),
             res_type: 1,
             create_time: now.clone(),
-            mod_time: now,
+            mod_time: now.clone(),
             is_indexed: 0,
         };
 
-        let _ = execute!(|&mut *conn, dto| {
-            r#"insert into res_info
-                    (info_hash, res_type, create_time, mod_time, is_indexed) 
-                values 
-                    (:info_hash, :res_type,:create_time, :mod_time, :is_indexed)"#
-        })
+        let conn = &mut self.db_connection;
+        let mut tran = conn
+            .begin()
+            .await
+            .map_err(|error| Error::new_db(Some(error.into()), None))?;
+
+        let _ = execute!(|&mut *tran, dto| {r#"
+            insert into res_info
+                (info_hash, res_type, create_time, mod_time, is_indexed) 
+            values 
+                (:info_hash, :res_type,:create_time, :mod_time, :is_indexed)
+        "#})
         .map_err(|error| Error::new_db(Some(error.into()), None))?;
+
+        let mut res_files = vec![];
+
+        match &bt_torrent.info {
+            MetaInfo::SingleFile {
+                length,
+                name,
+                ..
+            } => {
+                let file = ResFile {
+                    info_hash: bt_torrent.info_hash.clone(),
+                    file_path: name.clone(),
+                    file_size: *length,
+                    create_time: now.clone(),
+                    mod_time: now.clone(),
+                };
+
+                res_files.push(file);
+            }
+            MetaInfo::MultiFile {
+                files,
+                ..
+            } => {
+                for f in files {
+                    let file = ResFile {
+                        info_hash: bt_torrent.info_hash.clone(),
+                        file_path: f.path.clone(),
+                        file_size: f.length,
+                        create_time: now.clone(),
+                        mod_time: now.clone(),
+                    };
+
+                    res_files.push(file);
+                }
+            }
+        }
+
+        for res_file in res_files {
+            let _ = execute!(|&mut *tran, res_file| {r#"
+                insert into res_file
+                    (info_hash, file_path, file_size, create_time, mod_time)
+                values 
+                    (:info_hash, :file_path, :file_size, :create_time, :mod_time)
+            "#})
+            .map_err(|error| Error::new_db(Some(error.into()), None))?;
+        }
+
+        tran.commit()
+            .await
+            .map_err(|error| Error::new_db(Some(error.into()), None))?;
 
         Ok(())
     }
@@ -60,12 +117,12 @@ impl ResourceIndex {
 #[cfg(test)]
 mod tests {
 
-    use yiilian_core::data::MetaInfo;
+    use yiilian_core::data::{FileInfo, MetaInfo};
 
     use super::*;
 
     #[tokio::test]
-    async fn test_db() {
+    async fn test_add_single() {
         let conn = connect_db().await;
 
         let mut ri = ResourceIndex::new_from_conn(conn);
@@ -79,6 +136,31 @@ mod tests {
                 pieces: b"pieces"[..].into(),
                 piece_length: 1000,
             },
+        };
+
+        ri.add_bt_info_record(&bt_torrent).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_add_multiple() {
+        let conn = connect_db().await;
+
+        let mut ri = ResourceIndex::new_from_conn(conn);
+
+        let mf = MetaInfo::MultiFile {
+            files: vec![
+                FileInfo { length: 100, path: "f1".to_owned() },
+                FileInfo { length: 200, path: "f2".to_owned() },
+            ],
+            name: "test_mf".to_owned(),
+            pieces: b"pieces"[..].into(),
+            piece_length: 1000,
+        };
+
+        let bt_torrent = BtTorrent {
+            info_hash: "00000000000000000001".to_owned(),
+            announce: "".to_owned(),
+            info: mf,
         };
 
         ri.add_bt_info_record(&bt_torrent).await.unwrap();
@@ -112,23 +194,23 @@ mod tests {
         .await
         .unwrap();
 
-        // sqlx::query("DROP TABLE IF EXISTS res_file")
-        //     .execute(&mut conn)
-        //     .await
-        //     .unwrap();
-        // sqlx::query(
-        //     r#"
-        //     CREATE TABLE res_file (
-        //         info_hash VARCHAR(100) NOT NULL,
-        //         file_path VARCHAR(1000) NOT NULL,
-        //         file_size INT NOT NULL,
-        //         create_time VARCHAR(100) NOT NULL,
-        //         mod_time VARCHAR(100) NOT NULL
-        //     )"#,
-        // )
-        // .execute(&mut conn)
-        // .await
-        // .unwrap();
+        sqlx::query("DROP TABLE IF EXISTS res_file")
+            .execute(&mut conn)
+            .await
+            .unwrap();
+        sqlx::query(
+            r#"
+            CREATE TABLE res_file (
+                info_hash VARCHAR(100) NOT NULL,
+                file_path VARCHAR(1000) NOT NULL,
+                file_size INT NOT NULL,
+                create_time VARCHAR(100) NOT NULL,
+                mod_time VARCHAR(100) NOT NULL
+            )"#,
+        )
+        .execute(&mut conn)
+        .await
+        .unwrap();
 
         conn
     }

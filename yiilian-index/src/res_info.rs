@@ -15,7 +15,7 @@ pub struct ResInfo {
 pub struct ResFile {
     pub info_hash: String,
     pub file_path: String,
-    pub file_size: usize,
+    pub file_size: i64,
     pub create_time: String,
     pub mod_time: String,
 }
