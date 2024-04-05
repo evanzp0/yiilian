@@ -1,6 +1,6 @@
 use std::fs;
 
-use yiilian_dl::bt::data::bt_torrent::BtTorrent;
+use yiilian_core::data::BtTorrent;
 
 fn main() {
 

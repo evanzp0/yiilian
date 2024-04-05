@@ -12,7 +12,7 @@ impl Frame {
     }
 
     pub fn get(&self, key: &str) -> Option<&BencodeData> {
-        self.0.get(key.as_bytes().into())
+        self.0.get(key.as_bytes())
     }
 
     /// 检查 frame 中是否有存在和 items 中相同的 key + value 条目。

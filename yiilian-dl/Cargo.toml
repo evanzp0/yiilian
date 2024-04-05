@@ -15,10 +15,10 @@ log4rs = { version = "1", features = ["background_rotation", "gzip"] }
 bloomfilter = { version = "1", features = ["serde"] }
 bincode = "1"
 hex = "0.4"
+sha-1 = "0.10"
 bytes = "1.5"
 num_enum = "0.7"
 rand = "0.8"
-sha-1 = "0.10.1"
 utp = "0.7"
 
 [dev-dependencies]

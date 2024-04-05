@@ -116,7 +116,7 @@ impl BencodeData {
 
     pub fn get_dict_item(&self, key: &str) -> Option<&BencodeData> {
         if let BencodeData::Map(m) = self {
-            let rst = m.get(key.as_bytes().into());
+            let rst = m.get(key.as_bytes());
 
             // rst.map(|val| val.to_owned())
             rst

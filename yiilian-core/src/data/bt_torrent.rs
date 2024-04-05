@@ -3,7 +3,7 @@ use std::fmt;
 use bytes::Bytes;
 use hex::ToHex;
 use sha1::{Digest, Sha1};
-use yiilian_core::{
+use crate::{
     common::error::Error,
     data::{BencodeData, Encode},
 };

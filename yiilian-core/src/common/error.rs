@@ -79,6 +79,8 @@ pub enum Kind {
     OverCapacity,
 
     NotFound,
+
+    DB,
 }
 
 impl Error {
@@ -101,6 +103,9 @@ impl Error {
         Error::new(Kind::OverCapacity, Some(description.to_owned()), None, None)
     } 
 
+    pub fn new_db(cause: Option<Cause>, description: Option<String>) ->Self {
+        Error::new(Kind::DB, description, cause, None)
+    } 
 
     pub fn new_memory(cause: Option<Cause>, description: Option<String>) ->Self {
         Error::new(Kind::Memory, description, cause, None)

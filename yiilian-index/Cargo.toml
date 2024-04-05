@@ -6,8 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+yiilian-core = "0.1"
 tantivy = "0.19"
 tempfile = "3.10"
 dysql = { version = "2", features = ["sqlx-sqlite"] }
-sqlx = { version = "0.7", features = [ "runtime-tokio-native-tls", "chrono", "uuid" ], optional = true } 
+sqlx = { version = "0.7", features = [ "runtime-tokio-native-tls", "chrono", "uuid" ] } 
 tokio = { version = "1", features = ["full"] }
+chrono = "0.4"
