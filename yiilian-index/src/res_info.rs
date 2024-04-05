@@ -2,7 +2,7 @@ use dysql::Content;
 use sqlx::FromRow;
 
 
-#[derive(FromRow, Content, Clone)]
+#[derive(FromRow, Content, Clone, Debug)]
 pub struct ResInfo {
     pub info_hash: String,
     pub res_type: u8,
@@ -11,7 +11,7 @@ pub struct ResInfo {
     pub is_indexed: u8,
 } 
 
-#[derive(FromRow, Content, Clone)]
+#[derive(FromRow, Content, Clone, Debug)]
 pub struct ResFile {
     pub info_hash: String,
     pub file_path: String,
