@@ -5,10 +5,10 @@ use sqlx::FromRow;
 #[derive(FromRow, Content, Clone, Debug)]
 pub struct ResInfo {
     pub info_hash: String,
-    pub res_type: u8,
+    pub res_type: i32,
     pub create_time: String,
     pub mod_time: String,
-    pub is_indexed: u8,
+    pub is_indexed: i32,
 } 
 
 #[derive(FromRow, Content, Clone, Debug)]

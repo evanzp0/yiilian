@@ -114,23 +114,23 @@ mod tests {
         .await
         .unwrap();
 
-        sqlx::query("DROP TABLE IF EXISTS res_file")
-            .execute(&mut conn)
-            .await
-            .unwrap();
-        sqlx::query(
-            r#"
-            CREATE TABLE res_file (
-                info_hash VARCHAR(100) NOT NULL,
-                file_path VARCHAR(1000) NOT NULL,
-                file_size INT NOT NULL,
-                create_time VARCHAR(100) NOT NULL,
-                mod_time VARCHAR(100) NOT NULL
-            )"#,
-        )
-        .execute(&mut conn)
-        .await
-        .unwrap();
+        // sqlx::query("DROP TABLE IF EXISTS res_file")
+        //     .execute(&mut conn)
+        //     .await
+        //     .unwrap();
+        // sqlx::query(
+        //     r#"
+        //     CREATE TABLE res_file (
+        //         info_hash VARCHAR(100) NOT NULL,
+        //         file_path VARCHAR(1000) NOT NULL,
+        //         file_size INT NOT NULL,
+        //         create_time VARCHAR(100) NOT NULL,
+        //         mod_time VARCHAR(100) NOT NULL
+        //     )"#,
+        // )
+        // .execute(&mut conn)
+        // .await
+        // .unwrap();
 
         conn
     }
