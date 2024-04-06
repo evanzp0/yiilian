@@ -22,6 +22,7 @@ use tantivy::IndexWriter;
 use yiilian_core::data::MetaInfo;
 use yiilian_core::{common::error::Error, data::BtTorrent};
 
+use crate::res_info_doc::ResInfoDoc;
 use crate::res_info_record::ResFileRecord;
 use crate::res_info_record::ResInfoRecord;
 
@@ -132,6 +133,11 @@ impl ResourceIndex {
             .map_err(|error| Error::new_db(Some(error.into()), None))?;
 
         Ok(())
+    }
+
+    pub fn index_res_info(&mut self, res_info_doc: &ResInfoDoc) -> Result<(), Error> {
+
+        todo!()
     }
 }
 

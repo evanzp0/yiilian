@@ -1,14 +1,10 @@
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ResInfoDoc {
     pub info_hash: String,
     pub res_type: i32,
     pub create_time: String,
-    pub files: Vec<ResFileDoc>
-}
-
-#[derive(Clone, Debug)]
-pub struct ResFileDoc {
-    pub file_path: String,
-    pub file_size: i64,
+    pub file_paths: Vec<String>,
+    pub file_sizes: Vec<i32>,
 }
