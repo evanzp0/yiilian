@@ -81,6 +81,8 @@ pub enum Kind {
     NotFound,
 
     DB,
+
+    Index,
 }
 
 impl Error {
@@ -105,6 +107,10 @@ impl Error {
 
     pub fn new_db(cause: Option<Cause>, description: Option<String>) ->Self {
         Error::new(Kind::DB, description, cause, None)
+    } 
+
+    pub fn new_index(cause: Option<Cause>, description: Option<String>) ->Self {
+        Error::new(Kind::Index, description, cause, None)
     } 
 
     pub fn new_memory(cause: Option<Cause>, description: Option<String>) ->Self {
