@@ -2,7 +2,12 @@ use std::str::FromStr;
 
 use chrono::Utc;
 use dysql::execute;
+use dysql::fetch_all;
+use dysql::page;
+use dysql::PageDto;
+use dysql::Pagination;
 use dysql::SqlxExecutorAdatper;
+use dysql::Value;
 use sqlx::{
     sqlite::{SqliteConnectOptions, SqliteJournalMode},
     ConnectOptions, Connection, SqliteConnection,
@@ -11,8 +16,8 @@ use sqlx::{
 use yiilian_core::data::MetaInfo;
 use yiilian_core::{common::error::Error, data::BtTorrent};
 
-use crate::res_info::ResFile;
-use crate::res_info::ResInfo;
+use crate::res_info_record::ResFileRecord;
+use crate::res_info_record::ResInfoRecord;
 
 pub struct ResourceIndex {
     db_connection: SqliteConnection,
@@ -35,10 +40,38 @@ impl ResourceIndex {
         ResourceIndex { db_connection }
     }
 
+    pub async fn fetch_unindex_bt_info_record(
+        &mut self,
+        page_no: u64,
+    ) -> Result<Pagination<ResInfoRecord>, Error> {
+        let mut pg_dto = PageDto::new_with_sort(100, page_no, Option::<()>::None, vec![]);
+
+        let mut conn = &mut self.db_connection;
+
+        let rst = page!(|&mut conn, pg_dto| -> ResInfoRecord {
+            "select * from res_info where is_indexed = 0"
+        })
+        .map_err(|error| Error::new_db(Some(error.into()), None))?;
+
+        Ok(rst)
+    }
+
+    pub async fn fetch_bt_files_record(&mut self, info_hash: &str) -> Vec<ResFileRecord> {
+        let mut conn = &mut self.db_connection;
+        let value = Value::new(info_hash);
+
+        let rst = fetch_all!(|&mut conn, &value| -> ResFileRecord {
+            "SELECT * FROM res_file WHERE info_hash = :value"
+        })
+        .unwrap();
+
+        rst
+    }
+
     pub async fn add_bt_info_record(&mut self, bt_torrent: &BtTorrent) -> Result<(), Error> {
         let now = Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string();
 
-        let dto = ResInfo {
+        let dto = ResInfoRecord {
             info_hash: bt_torrent.info_hash.clone(),
             res_type: 1,
             create_time: now.clone(),
@@ -63,12 +96,8 @@ impl ResourceIndex {
         let mut res_files = vec![];
 
         match &bt_torrent.info {
-            MetaInfo::SingleFile {
-                length,
-                name,
-                ..
-            } => {
-                let file = ResFile {
+            MetaInfo::SingleFile { length, name, .. } => {
+                let file = ResFileRecord {
                     info_hash: bt_torrent.info_hash.clone(),
                     file_path: name.clone(),
                     file_size: *length,
@@ -78,12 +107,9 @@ impl ResourceIndex {
 
                 res_files.push(file);
             }
-            MetaInfo::MultiFile {
-                files,
-                ..
-            } => {
+            MetaInfo::MultiFile { files, .. } => {
                 for f in files {
-                    let file = ResFile {
+                    let file = ResFileRecord {
                         info_hash: bt_torrent.info_hash.clone(),
                         file_path: f.path.clone(),
                         file_size: f.length,
@@ -122,7 +148,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_add_single() {
+    async fn test_add_single_and_fetch() {
         let conn = connect_db().await;
 
         let mut ri = ResourceIndex::new_from_conn(conn);
@@ -139,6 +165,12 @@ mod tests {
         };
 
         ri.add_bt_info_record(&bt_torrent).await.unwrap();
+
+        let rst = ri.fetch_unindex_bt_info_record(0).await.unwrap();
+        assert_eq!("00000000000000000001", rst.data[0].info_hash);
+
+        let rst = ri.fetch_bt_files_record("00000000000000000001").await;
+        assert_eq!("00000000000000000001", rst[0].info_hash);
     }
 
     #[tokio::test]
@@ -149,8 +181,14 @@ mod tests {
 
         let mf = MetaInfo::MultiFile {
             files: vec![
-                FileInfo { length: 100, path: "f1".to_owned() },
-                FileInfo { length: 200, path: "f2".to_owned() },
+                FileInfo {
+                    length: 100,
+                    path: "f1".to_owned(),
+                },
+                FileInfo {
+                    length: 200,
+                    path: "f2".to_owned(),
+                },
             ],
             name: "test_mf".to_owned(),
             pieces: b"pieces"[..].into(),
@@ -212,6 +250,14 @@ mod tests {
         .await
         .unwrap();
 
+        sqlx::query("DROP INDEX IF EXISTS idx_res_file_info_hash")
+            .execute(&mut conn)
+            .await
+            .unwrap();
+        sqlx::query("CREATE INDEX idx_res_file_info_hash ON res_file (info_hash)")
+            .execute(&mut conn)
+            .await
+            .unwrap();
         conn
     }
 }

@@ -3,7 +3,7 @@ use sqlx::FromRow;
 
 
 #[derive(FromRow, Content, Clone, Debug)]
-pub struct ResInfo {
+pub struct ResInfoRecord {
     pub info_hash: String,
     pub res_type: i32,
     pub create_time: String,
@@ -12,7 +12,7 @@ pub struct ResInfo {
 } 
 
 #[derive(FromRow, Content, Clone, Debug)]
-pub struct ResFile {
+pub struct ResFileRecord {
     pub info_hash: String,
     pub file_path: String,
     pub file_size: i64,
