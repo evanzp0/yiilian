@@ -1,3 +1,4 @@
+
 use std::str::FromStr;
 
 use chrono::Utc;
@@ -13,6 +14,11 @@ use sqlx::{
     ConnectOptions, Connection, SqliteConnection,
 };
 
+use tantivy::schema::Schema;
+use tantivy::schema::STORED;
+use tantivy::schema::TEXT;
+use tantivy::Index;
+use tantivy::IndexWriter;
 use yiilian_core::data::MetaInfo;
 use yiilian_core::{common::error::Error, data::BtTorrent};
 
@@ -21,23 +27,12 @@ use crate::res_info_record::ResInfoRecord;
 
 pub struct ResourceIndex {
     db_connection: SqliteConnection,
+    index_writer: IndexWriter,
 }
 
 impl ResourceIndex {
-    pub async fn new(db_uri: &str) -> Result<Self, Error> {
-        let db_connection = SqliteConnectOptions::from_str(db_uri)
-            .map_err(|error| Error::new_db(Some(error.into()), None))?
-            .journal_mode(SqliteJournalMode::Wal)
-            .read_only(false)
-            .connect()
-            .await
-            .map_err(|error| Error::new_db(Some(error.into()), None))?;
-
-        Ok(ResourceIndex { db_connection })
-    }
-
-    pub fn new_from_conn(db_connection: SqliteConnection) -> Self {
-        ResourceIndex { db_connection }
+    pub fn new(db_connection: SqliteConnection, index_writer: IndexWriter) -> Self {
+        ResourceIndex { db_connection, index_writer }
     }
 
     pub async fn fetch_unindex_bt_info_record(
@@ -140,9 +135,64 @@ impl ResourceIndex {
     }
 }
 
+
+#[derive(Default)]
+pub struct ResourceIndexBuilder {
+    db_connection: Option<SqliteConnection>,
+    index_writer: Option<IndexWriter>,
+}
+
+impl ResourceIndexBuilder {
+    pub fn new() -> ResourceIndexBuilder {
+        ResourceIndexBuilder::default()
+    }
+
+    pub async fn db_uri(mut self, db_uri: &str) -> Self {
+        let db_connection = SqliteConnectOptions::from_str(db_uri)
+            .unwrap()
+            .journal_mode(SqliteJournalMode::Wal)
+            .read_only(false)
+            .connect()
+            .await
+            .unwrap();
+
+        self.db_connection = Some(db_connection);
+
+        self
+    }
+
+    pub fn index_path(mut self, index_path: &str) -> Self {
+        let mut schema_builder = Schema::builder();
+        schema_builder.add_text_field("title", TEXT | STORED);
+        schema_builder.add_text_field("body", TEXT);
+    
+        let schema = schema_builder.build();
+    
+        let index = Index::create_in_dir(&index_path, schema.clone()).unwrap();
+        let index_writer = index.writer(50_000_000).unwrap();
+
+        self.index_writer = Some(index_writer);
+        
+        self
+    }
+
+    pub fn db_connection(mut self, db_connection: SqliteConnection) -> Self {
+        self.db_connection = Some(db_connection);
+        self
+    }
+
+    pub fn index_writer(mut self, index_writer: IndexWriter) -> Self {
+        self.index_writer = Some(index_writer);
+        self
+    }
+
+    pub fn build(self) -> ResourceIndex {
+        ResourceIndex::new(self.db_connection.unwrap(), self.index_writer.unwrap())
+    }
+}
+
 #[cfg(test)]
 mod tests {
-
     use yiilian_core::data::{FileInfo, MetaInfo};
 
     use super::*;
@@ -150,8 +200,14 @@ mod tests {
     #[tokio::test]
     async fn test_add_single_and_fetch() {
         let conn = connect_db().await;
+        let schema = Schema::builder().build();
+        let index = Index::create_in_ram(schema.clone());
+        let index_writer = index.writer(50_000_000).unwrap();
 
-        let mut ri = ResourceIndex::new_from_conn(conn);
+        let mut ri= ResourceIndexBuilder::new()
+            .db_connection(conn)
+            .index_writer(index_writer)
+            .build();
 
         let bt_torrent = BtTorrent {
             info_hash: "00000000000000000001".to_owned(),
@@ -176,8 +232,14 @@ mod tests {
     #[tokio::test]
     async fn test_add_multiple() {
         let conn = connect_db().await;
+        let schema = Schema::builder().build();
+        let index = Index::create_in_ram(schema.clone());
+        let index_writer = index.writer(50_000_000).unwrap();
 
-        let mut ri = ResourceIndex::new_from_conn(conn);
+        let mut ri= ResourceIndexBuilder::new()
+            .db_connection(conn)
+            .index_writer(index_writer)
+            .build();
 
         let mf = MetaInfo::MultiFile {
             files: vec![
