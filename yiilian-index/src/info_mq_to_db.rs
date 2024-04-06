@@ -3,97 +3,25 @@ use std::str::FromStr;
 
 use chrono::Utc;
 use dysql::execute;
-use dysql::fetch_all;
-use dysql::page;
-use dysql::PageDto;
-use dysql::Pagination;
 use dysql::SqlxExecutorAdatper;
-use dysql::Value;
 use sqlx::{
     sqlite::{SqliteConnectOptions, SqliteJournalMode},
     ConnectOptions, Connection, SqliteConnection,
 };
 
-use tantivy::schema::Schema;
-use tantivy::schema::STORED;
-use tantivy::schema::TEXT;
-use tantivy::Index;
-use tantivy::IndexWriter;
 use yiilian_core::data::MetaInfo;
 use yiilian_core::{common::error::Error, data::BtTorrent};
 
-use crate::res_info_doc::ResInfoDoc;
 use crate::res_info_record::ResFileRecord;
 use crate::res_info_record::ResInfoRecord;
 
-pub struct ResourceIndex {
+pub struct InfoMqToDb {
     db_connection: SqliteConnection,
-    index_writer: IndexWriter,
-    schema: Schema,
 }
 
-impl ResourceIndex {
-    pub fn new(db_connection: SqliteConnection, index_writer: IndexWriter, schema: Schema) -> Self {
-        ResourceIndex { db_connection, index_writer, schema }
-    }
-
-    pub fn index_res_info(&mut self, res_info: &ResInfoRecord, res_files: &Vec<ResFileRecord>) -> Result<(), Error> {
-
-        let mut file_paths = vec![];
-        let mut file_sizes = vec![];
-        for file in  res_files {
-            file_paths.push(file.file_path.clone());
-            file_sizes.push(file.file_size);
-        }
-
-        let res_doc = ResInfoDoc {
-            info_hash: res_info.info_hash.clone(),
-            res_type: res_info.res_type,
-            create_time: res_info.create_time.clone(),
-            file_paths,
-            file_sizes,
-        };
-
-        let res_doc = serde_json::to_string(&res_doc)
-            .map_err(|error| Error::new_index(Some(error.into()), None))?;
-        let res_doc = self.schema.parse_document(&res_doc)
-            .map_err(|error| Error::new_index(Some(error.into()), None))?;
-
-        self.index_writer.add_document(res_doc)
-            .map_err(|error| Error::new_index(Some(error.into()), None))?;
-
-        self.index_writer.commit()
-            .map_err(|error| Error::new_index(Some(error.into()), None))?;
-
-        Ok(())
-    }
-
-    pub async fn fetch_unindex_bt_info_record(
-        &mut self,
-        page_no: u64,
-    ) -> Result<Pagination<ResInfoRecord>, Error> {
-        let mut pg_dto = PageDto::new_with_sort(100, page_no, Option::<()>::None, vec![]);
-
-        let mut conn = &mut self.db_connection;
-
-        let rst = page!(|&mut conn, pg_dto| -> ResInfoRecord {
-            "select * from res_info where is_indexed = 0"
-        })
-        .map_err(|error| Error::new_db(Some(error.into()), None))?;
-
-        Ok(rst)
-    }
-
-    pub async fn fetch_bt_files_record(&mut self, info_hash: &str) -> Vec<ResFileRecord> {
-        let mut conn = &mut self.db_connection;
-        let value = Value::new(info_hash);
-
-        let rst = fetch_all!(|&mut conn, &value| -> ResFileRecord {
-            "SELECT * FROM res_file WHERE info_hash = :value"
-        })
-        .unwrap();
-
-        rst
+impl InfoMqToDb {
+    pub fn new(db_connection: SqliteConnection) -> Self {
+        InfoMqToDb { db_connection }
     }
 
     pub async fn add_bt_info_record(&mut self, bt_torrent: &BtTorrent) -> Result<(), Error> {
@@ -170,15 +98,13 @@ impl ResourceIndex {
 
 
 #[derive(Default)]
-pub struct ResourceIndexBuilder {
+pub struct InfoMqToDbBuilder {
     db_connection: Option<SqliteConnection>,
-    index_writer: Option<IndexWriter>,
-    schema: Option<Schema>,
 }
 
-impl ResourceIndexBuilder {
-    pub fn new() -> ResourceIndexBuilder {
-        ResourceIndexBuilder::default()
+impl InfoMqToDbBuilder {
+    pub fn new() -> InfoMqToDbBuilder {
+        InfoMqToDbBuilder::default()
     }
 
     pub async fn db_uri(mut self, db_uri: &str) -> Self {
@@ -195,37 +121,13 @@ impl ResourceIndexBuilder {
         self
     }
 
-    pub fn index_path(mut self, index_path: &str) -> Self {
-        let mut schema_builder = Schema::builder();
-        schema_builder.add_text_field("info_hash", TEXT | STORED);
-        schema_builder.add_i64_field("res_type", STORED);
-        schema_builder.add_text_field("create_time", STORED);
-        schema_builder.add_text_field("file_paths", TEXT | STORED);
-        schema_builder.add_i64_field("file_sizes", STORED);
-    
-        let schema = schema_builder.build();
-    
-        let index = Index::create_in_dir(&index_path, schema.clone()).unwrap();
-        let index_writer = index.writer(50_000_000).unwrap();
-
-        self.index_writer = Some(index_writer);
-        self.schema = Some(schema);
-
-        self
-    }
-
     pub fn db_connection(mut self, db_connection: SqliteConnection) -> Self {
         self.db_connection = Some(db_connection);
         self
     }
 
-    pub fn index_writer(mut self, index_writer: IndexWriter) -> Self {
-        self.index_writer = Some(index_writer);
-        self
-    }
-
-    pub fn build(self) -> ResourceIndex {
-        ResourceIndex::new(self.db_connection.unwrap(), self.index_writer.unwrap(), self.schema.unwrap())
+    pub fn build(self) -> InfoMqToDb {
+        InfoMqToDb::new(self.db_connection.unwrap())
     }
 }
 
@@ -238,17 +140,15 @@ mod tests {
     #[tokio::test]
     async fn test_add_single_and_fetch() {
         let conn = connect_db().await;
-        let schema = Schema::builder().build();
-        let index = Index::create_in_ram(schema.clone());
-        let index_writer = index.writer(50_000_000).unwrap();
 
-        let mut ri= ResourceIndexBuilder::new()
+        let mut ri= InfoMqToDbBuilder::new()
             .db_connection(conn)
-            .index_writer(index_writer)
             .build();
 
+        let info_hash = "00000000000000000001".to_owned();
+
         let bt_torrent = BtTorrent {
-            info_hash: "00000000000000000001".to_owned(),
+            info_hash: info_hash.clone(),
             announce: "".to_owned(),
             info: MetaInfo::SingleFile {
                 length: 1200,
@@ -259,24 +159,14 @@ mod tests {
         };
 
         ri.add_bt_info_record(&bt_torrent).await.unwrap();
-
-        let rst = ri.fetch_unindex_bt_info_record(0).await.unwrap();
-        assert_eq!("00000000000000000001", rst.data[0].info_hash);
-
-        let rst = ri.fetch_bt_files_record("00000000000000000001").await;
-        assert_eq!("00000000000000000001", rst[0].info_hash);
     }
 
     #[tokio::test]
     async fn test_add_multiple() {
         let conn = connect_db().await;
-        let schema = Schema::builder().build();
-        let index = Index::create_in_ram(schema.clone());
-        let index_writer = index.writer(50_000_000).unwrap();
 
-        let mut ri= ResourceIndexBuilder::new()
+        let mut ri= InfoMqToDbBuilder::new()
             .db_connection(conn)
-            .index_writer(index_writer)
             .build();
 
         let mf = MetaInfo::MultiFile {
