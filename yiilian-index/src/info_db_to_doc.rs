@@ -1,6 +1,8 @@
 
 use std::str::FromStr;
+use std::time::Duration;
 
+use dysql::execute;
 use dysql::fetch_all;
 use dysql::SqlxExecutorAdatper;
 use dysql::Value;
@@ -14,11 +16,15 @@ use tantivy::schema::STORED;
 use tantivy::schema::TEXT;
 use tantivy::Index;
 use tantivy::IndexWriter;
+use tokio::time::sleep;
 use yiilian_core::common::error::Error;
 
 use crate::res_info_doc::ResInfoDoc;
 use crate::res_info_record::ResFileRecord;
 use crate::res_info_record::ResInfoRecord;
+
+const MAX_PROC_DOC_NUM: i32 = 10000;
+const INDEX_INTERVAL_SEC: u64 = 60 * 60;
 
 pub struct InfoDbToDoc {
     db_connection: SqliteConnection,
@@ -29,6 +35,69 @@ pub struct InfoDbToDoc {
 impl InfoDbToDoc {
     pub fn new(db_connection: SqliteConnection, index_writer: IndexWriter, schema: Schema) -> Self {
         InfoDbToDoc { db_connection, index_writer, schema }
+    }
+
+    pub async fn index_loop(&mut self) {
+        let mut proc_doc_num = 0;
+        let mut is_found = false;
+
+        loop {
+            let fetch_rst = self.fetch_unindex_bt_info_record().await;
+            match fetch_rst {
+                Err(error) => {
+                    log::trace!(target: "yiilian_index::info_db_to_doc::index_loop", "fetch_rst error: {}", error);
+                    sleep(Duration::from_secs(1)).await;
+
+                    continue;
+                },
+                Ok(res_infos) => {
+                    if res_infos.len() > 0 {
+                        is_found = true;
+
+                        for res_info in res_infos {
+                            let fetch_files_rst = self.fetch_bt_files_record(&res_info.info_hash).await;
+                            match fetch_files_rst {
+                                Err(error) => {
+                                    log::trace!(target: "yiilian_index::info_db_to_doc::index_loop", "fetch_files_rst error: {}", error);
+                                    break;
+                                },
+                                Ok(res_files) => {
+                                    if let Err(error) = self.index_res_info(&res_info, &res_files) {
+                                        log::trace!(target: "yiilian_index::info_db_to_doc::index_loop", "index_res_info error: {}", error);
+                                        continue;
+                                    } else {
+                                        self.update_indexed_res_info(&res_info.info_hash).await.ok();
+
+                                    }
+                                },
+                            }
+
+                            proc_doc_num += 1;
+                        };
+                    }
+                },
+            }
+
+            if !is_found || proc_doc_num >= MAX_PROC_DOC_NUM {
+                proc_doc_num = 0;
+                is_found = false;
+                
+                sleep(Duration::from_secs(INDEX_INTERVAL_SEC)).await;
+            }
+        }
+    }
+
+    async fn update_indexed_res_info(&mut self, info_hash: &str) -> Result<(), Error> {
+        let mut conn = &mut self.db_connection;
+
+        let value = Value::new(info_hash);
+
+        execute!(|&mut conn, &value| {
+            "update  res_info set is_indexed = 1 WHERE info_hash = :value"
+        })
+        .map_err(|error| Error::new_db(Some(error.into()), None))?;
+
+        Ok(())
     }
 
     pub fn index_res_info(&mut self, res_info: &ResInfoRecord, res_files: &Vec<ResFileRecord>) -> Result<(), Error> {
@@ -73,16 +142,16 @@ impl InfoDbToDoc {
         Ok(rst)
     }
 
-    pub async fn fetch_bt_files_record(&mut self, info_hash: &str) -> Vec<ResFileRecord> {
+    pub async fn fetch_bt_files_record(&mut self, info_hash: &str) -> Result<Vec<ResFileRecord>, Error> {
         let mut conn = &mut self.db_connection;
         let value = Value::new(info_hash);
 
         let rst = fetch_all!(|&mut conn, &value| -> ResFileRecord {
             "SELECT * FROM res_file WHERE info_hash = :value"
         })
-        .unwrap();
+        .map_err(|error| Error::new_db(Some(error.into()), None))?;
 
-        rst
+        Ok(rst)
     }
 }
 
@@ -175,7 +244,7 @@ mod tests {
         assert_eq!("00000000000000000001", rst[0].info_hash);
 
         let rst = ri.fetch_bt_files_record("00000000000000000001").await;
-        assert_eq!("00000000000000000001", rst[0].info_hash);
+        assert_eq!("00000000000000000001", rst.unwrap()[0].info_hash);
     }
 
     async fn connect_db() -> sqlx::SqliteConnection {
