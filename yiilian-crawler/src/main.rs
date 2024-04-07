@@ -56,8 +56,6 @@ async fn main() {
     let (tx, rx) = broadcast::channel(1024);
     let dht_list = create_dht_list(&config, shutdown_rx.clone(), tx).unwrap();
 
-
-
     let mq_engine = {
         let mut engine = Engine::new(LOG_DATA_SIZE, shutdown_rx.clone()).expect("create mq engine");
         engine

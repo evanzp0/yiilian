@@ -1,5 +1,8 @@
 
+use std::fs;
 use std::str::FromStr;
+use std::sync::Arc;
+use std::time::Duration;
 
 use chrono::Utc;
 use dysql::execute;
@@ -9,19 +12,53 @@ use sqlx::{
     ConnectOptions, Connection, SqliteConnection,
 };
 
+use tokio::time::sleep;
 use yiilian_core::data::MetaInfo;
 use yiilian_core::{common::error::Error, data::BtTorrent};
+use yiilian_mq::engine::Engine;
 
 use crate::res_info_record::ResFileRecord;
 use crate::res_info_record::ResInfoRecord;
+use crate::INDEX_TOPIC_NAME;
+
+const MQ_CLIENT_PERSIST: &str = "persist_info_client";
 
 pub struct InfoMqToDb {
     db_connection: SqliteConnection,
+    mq_engine: Arc<Engine>,
 }
 
 impl InfoMqToDb {
-    pub fn new(db_connection: SqliteConnection) -> Self {
-        InfoMqToDb { db_connection }
+    pub fn new(db_connection: SqliteConnection, mq_engine: Arc<Engine>) -> Self {
+        InfoMqToDb { db_connection, mq_engine }
+    }
+
+    pub async fn persist_loop(&mut self) {
+        loop {
+            let message = self.mq_engine.poll_message(INDEX_TOPIC_NAME, MQ_CLIENT_PERSIST);
+            if let Some(message) = message {
+                let meta_path = unsafe { String::from_utf8_unchecked(message.value().into()) };
+                match fs::read(meta_path) {
+                    Ok(val) => {
+                        match BtTorrent::try_from(&val[..]) {
+                            Ok(bt_torrent) => {
+                                if let Err(error) = self.add_bt_info_record(&bt_torrent).await {
+                                    log::trace!(target: "yiilian_index::info_mq_to_db::persist_loop", "add_bt_info_record error: {}", error);
+                                }
+                            },
+                            Err(error) => {
+                                log::trace!(target: "yiilian_index::info_mq_to_db::persist_loop", "Decode bt_torrent error: {}", error);
+                            },
+                        }
+                    },
+                    Err(error) => {
+                        log::trace!(target: "yiilian_index::info_mq_to_db::persist_loop", "Read bt_torrent error: {}", error);
+                    },
+                }
+            }
+
+            sleep(Duration::from_secs(1)).await;
+        }
     }
 
     pub async fn add_bt_info_record(&mut self, bt_torrent: &BtTorrent) -> Result<(), Error> {
@@ -100,6 +137,7 @@ impl InfoMqToDb {
 #[derive(Default)]
 pub struct InfoMqToDbBuilder {
     db_connection: Option<SqliteConnection>,
+    mq_engine: Option<Arc<Engine>>,
 }
 
 impl InfoMqToDbBuilder {
@@ -126,8 +164,13 @@ impl InfoMqToDbBuilder {
         self
     }
 
+    pub fn mq_engine(mut self, mq_engine: Arc<Engine>) -> Self {
+        self.mq_engine = Some(mq_engine);
+        self
+    }
+
     pub fn build(self) -> InfoMqToDb {
-        InfoMqToDb::new(self.db_connection.unwrap())
+        InfoMqToDb::new(self.db_connection.unwrap(), self.mq_engine.unwrap())
     }
 }
 

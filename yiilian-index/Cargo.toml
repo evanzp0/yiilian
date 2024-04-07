@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 yiilian-core = "0.1"
+yiilian-mq = "0.1"
 tantivy = "0.19"
 tempfile = "3.10"
 dysql = { version = "2", features = ["sqlx-sqlite"] }
