@@ -1,6 +1,5 @@
 use std::{path::Path, sync::{Arc, Mutex}};
 
-use yiilian_core::common::shutdown::create_shutdown;
 use yiilian_index::info_mq_to_db::InfoMqToDbBuilder;
 use yiilian_mq::{engine::Engine, segment::LOG_DATA_SIZE};
 
@@ -9,9 +8,7 @@ use yiilian_mq::{engine::Engine, segment::LOG_DATA_SIZE};
 async fn main() {
     set_up_logging_from_file::<&str>(None);
 
-    let (mut _shutdown_tx, shutdown_rx) = create_shutdown();
-
-    let mut mq_engine = Engine::new(LOG_DATA_SIZE, shutdown_rx).unwrap();
+    let mut mq_engine = Engine::new(LOG_DATA_SIZE).unwrap();
     mq_engine.open_topic("info_index").unwrap();
     let mq_engine = Arc::new(Mutex::new(mq_engine));
     

@@ -5,10 +5,10 @@ use yiilian_mq::{engine::Engine, segment::LOG_DATA_SIZE};
 
 #[tokio::main]
 async fn main() {
-    let (mut shutdown_tx, shutdown_rx) = create_shutdown();
+    let (mut shutdown_tx, _shutdown_rx) = create_shutdown();
 
-    let mut engine = Engine::new(LOG_DATA_SIZE, shutdown_rx).unwrap();
-    let topic = engine.open_topic("info_hash").unwrap();
+    let mut engine = Engine::new(LOG_DATA_SIZE).unwrap();
+    engine.open_topic("info_hash").unwrap();
     // for i in 0..5 {
     //     let value = format!("value_{}", i);
     //     let message = yiilian_mq::message::in_message::InMessage(value.into());
@@ -27,9 +27,11 @@ async fn main() {
     //     "segment_offsets: {:?}",
     //     topic.lock().unwrap().segment_offsets()
     // );
+
+    let topic = engine.open_topic("info_hash").unwrap();
     println!(
         "customer_offsets: {:?}",
-        topic.lock().unwrap().consumer_offsets()
+        topic.consumer_offsets()
     );
 
     // topic.lock().unwrap().purge_segment();

@@ -1,16 +1,13 @@
+use std::sync::{Arc, Mutex};
 use std::{
     collections::HashMap,
     fs,
     path::PathBuf,
-    sync::{Arc, Mutex},
 };
 
 use std::time::Duration;
 use tokio::time::sleep;
-use yiilian_core::common::{
-    error::Error,
-    shutdown::{spawn_with_shutdown, ShutdownReceiver},
-};
+use yiilian_core::common::error::Error;
 
 use crate::{
     message::{in_message::InMessage, Message},
@@ -21,11 +18,11 @@ use crate::{
 pub struct Engine {
     log_data_size: usize,
     path: PathBuf,
-    topics: HashMap<String, Arc<Mutex<Topic>>>,
+    topics: HashMap<String, Topic>,
 }
 
 impl Engine {
-    pub fn new(log_data_size: usize, shutdown_rx: ShutdownReceiver) -> Result<Self, Error> {
+    pub fn new(log_data_size: usize) -> Result<Self, Error> {
         let path: PathBuf = home::home_dir().unwrap().join(".yiilian/mq/");
 
         fs::create_dir_all(path.clone())
@@ -50,19 +47,10 @@ impl Engine {
 
                     let topic = Topic::new(topic_name, topic_path, log_data_size)?;
 
-                    topics.insert(topic_name.to_owned(), Arc::new(Mutex::new(topic)));
+                    topics.insert(topic_name.to_owned(),topic);
                 }
             }
         }
-
-        let topic_list: Vec<Arc<Mutex<Topic>>> = topics.values().map(|v| v.clone()).collect();
-
-        spawn_with_shutdown(
-            shutdown_rx,
-            async move { Engine::purge_loop(topic_list).await },
-            "mq engine purge loop",
-            None,
-        );
 
         Ok(Engine {
             path,
@@ -71,19 +59,9 @@ impl Engine {
         })
     }
 
-    async fn purge_loop(topic_list: Vec<Arc<Mutex<Topic>>>) {
-        loop {
-            for topic in &topic_list {
-                topic.lock().expect("lock topic").purge_segment();
-            }
-
-            sleep(Duration::from_secs(60)).await;
-        }
-    }
-
-    pub fn open_topic(&mut self, topic_name: &str) -> Result<Arc<Mutex<Topic>>, Error> {
+    pub fn open_topic(&mut self, topic_name: &str) -> Result<&mut Topic, Error> {
         if self.topics.contains_key(topic_name) {
-            let topic = self.topics.get(topic_name).expect("get topic").clone();
+            let topic = self.topics.get_mut(topic_name).expect("get topic");
             return Ok(topic);
         }
 
@@ -99,9 +77,9 @@ impl Engine {
         let topic = Topic::new(topic_name, topic_path, self.log_data_size)?;
 
         self.topics
-            .insert(topic_name.to_owned(), Arc::new(Mutex::new(topic)));
+            .insert(topic_name.to_owned(), topic);
 
-        Ok(self.topics.get(topic_name).unwrap().clone())
+        Ok(self.topics.get_mut(topic_name).expect("get topic"))
     }
 
     pub fn remove_topic(&mut self, topic_name: &str) {
@@ -118,20 +96,17 @@ impl Engine {
         }
     }
 
-    pub fn push_message(&self, topic_name: &str, message: InMessage) -> Result<(), Error> {
-        if let Some(topic) = self.topics.get(topic_name) {
-            topic.lock().expect("lock topic").push_message(message)
+    pub fn push_message(&mut self, topic_name: &str, message: InMessage) -> Result<(), Error> {
+        if let Some(topic) = self.topics.get_mut(topic_name) {
+            topic.push_message(message)
         } else {
             Err(Error::new_general("Not found topic"))
         }
     }
 
-    pub fn poll_message(&self, topic_name: &str, consumer_name: &str) -> Option<Message> {
-        if let Some(topic) = self.topics.get(topic_name) {
-            let message = topic
-                .lock()
-                .expect("lock topic")
-                .poll_message(consumer_name);
+    pub fn poll_message(&mut self, topic_name: &str, consumer_name: &str) -> Option<Message> {
+        if let Some(topic) = self.topics.get_mut(topic_name) {
+            let message = topic.poll_message(consumer_name);
 
             message
         } else {
@@ -141,28 +116,37 @@ impl Engine {
 
     pub fn message_count(&self, topic_name: &str, consumer_name: &str) -> u64 {
         if let Some(topic) = self.topics.get(topic_name) {
-            topic.lock().expect("lock topic").count(consumer_name)
+            topic.count(consumer_name)
         } else {
             0
         }
     }
 }
 
+pub async fn purge_loop(engine: Arc<Mutex<Engine>>) {
+    loop {
+        let mut engine = engine.lock().expect("lock engine");
+        let topic_list: Vec<&mut Topic> = engine.topics.values_mut().map(|v| v).collect();
+        for topic in topic_list {
+            topic.purge_segment();
+        }
+
+        sleep(Duration::from_secs(60)).await;
+    }
+}
+
 #[cfg(test)]
 mod tests {
-
-    use yiilian_core::common::shutdown::create_shutdown;
 
     use super::*;
 
     #[tokio::test]
     async fn test_engine() {
-        let (_shutdown_tx, shutdown_rx) = create_shutdown();
         let topic_name = "test_count";
         let consumer_name = "test_client";
 
         let mut engine = {
-            let mut engine = Engine::new(100, shutdown_rx.clone()).expect("create mq engine");
+            let mut engine = Engine::new(100).expect("create mq engine");
             engine
                 .open_topic(topic_name)
                 .expect("open test_count topic");

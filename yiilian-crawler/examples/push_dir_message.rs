@@ -1,4 +1,4 @@
-use yiilian_core::common::shutdown::create_shutdown;
+
 use yiilian_mq::{engine::Engine, segment::LOG_DATA_SIZE};
 
 #[tokio::main]
@@ -6,11 +6,9 @@ async fn main() {
     let mut dl_path = home::home_dir().unwrap();
     dl_path.push(".yiilian/dl");
 
-    let (_shutdown_tx, shutdown_rx) = create_shutdown();
-    
     let topic_name = "info_index";
-    let engine = {
-        let mut engine = Engine::new(LOG_DATA_SIZE, shutdown_rx.clone()).expect("create mq engine");
+    let mut engine = {
+        let mut engine = Engine::new(LOG_DATA_SIZE).expect("create mq engine");
         engine
             .open_topic(topic_name)
             .expect("open info_index topic");
