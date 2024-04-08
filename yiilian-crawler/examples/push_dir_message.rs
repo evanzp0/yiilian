@@ -1,8 +1,8 @@
 use yiilian_core::common::shutdown::create_shutdown;
 use yiilian_mq::{engine::Engine, segment::LOG_DATA_SIZE};
 
-
-fn main() {
+#[tokio::main]
+async fn main() {
     let mut dl_path = home::home_dir().unwrap();
     dl_path.push(".yiilian/dl");
 

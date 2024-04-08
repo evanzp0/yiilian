@@ -44,6 +44,8 @@ impl InfoMqToDb {
                             Ok(bt_torrent) => {
                                 if let Err(error) = self.add_bt_info_record(&bt_torrent).await {
                                     log::trace!(target: "yiilian_index::info_mq_to_db::persist_loop", "add_bt_info_record error: {}", error);
+                                } else {
+                                    log::trace!(target: "yiilian_index::info_mq_to_db::persist_loop", "persisted bt: {}", bt_torrent.info_hash);
                                 }
                             },
                             Err(error) => {
