@@ -15,7 +15,6 @@ use tantivy::schema::Schema;
 use tantivy::schema::STORED;
 use tantivy::schema::TEXT;
 use tantivy::Index;
-use tantivy::IndexWriter;
 use tokio::time::sleep;
 use yiilian_core::common::error::Error;
 
@@ -25,16 +24,17 @@ use crate::res_info_record::ResInfoRecord;
 
 const MAX_PROC_DOC_NUM: i32 = 10000;
 const INDEX_INTERVAL_SEC: u64 = 60 * 60;
+const INDEX_WRITER_BUF_SIZE: usize = 50_000_000;
 
 pub struct InfoDbToDoc {
     db_connection: SqliteConnection,
-    index_writer: IndexWriter,
+    index: Index,
     schema: Schema,
 }
 
 impl InfoDbToDoc {
-    pub fn new(db_connection: SqliteConnection, index_writer: IndexWriter, schema: Schema) -> Self {
-        InfoDbToDoc { db_connection, index_writer, schema }
+    pub fn new(db_connection: SqliteConnection, index: Index, schema: Schema) -> Self {
+        InfoDbToDoc { db_connection, index, schema }
     }
 
     pub async fn index_loop(&mut self) {
@@ -83,6 +83,17 @@ impl InfoDbToDoc {
             if !is_found || proc_doc_num >= MAX_PROC_DOC_NUM {
                 proc_doc_num = 0;
                 is_found = false;
+
+                let segments = self.index.searchable_segment_ids().expect("searchable_segment_ids");
+                
+                if segments.len() > 0 {
+                    let mut index_writer = self.index.writer(INDEX_WRITER_BUF_SIZE).expect("get index_writer");
+                    index_writer.merge(&segments);
+                    index_writer.wait_merging_threads().expect("wait_merging_threads");
+
+                    log::trace!(target: "yiilian_index::info_db_to_doc::index_loop", "Merged segments: {}", segments.len());
+
+                }
                 
                 sleep(Duration::from_secs(INDEX_INTERVAL_SEC)).await;
             } else {
@@ -126,10 +137,12 @@ impl InfoDbToDoc {
         let res_doc = self.schema.parse_document(&res_doc)
             .map_err(|error| Error::new_index(Some(error.into()), None))?;
 
-        self.index_writer.add_document(res_doc)
+        let mut index_writer = self.index.writer(INDEX_WRITER_BUF_SIZE).unwrap();
+
+        index_writer.add_document(res_doc)
             .map_err(|error| Error::new_index(Some(error.into()), None))?;
 
-        self.index_writer.commit()
+        index_writer.commit()
             .map_err(|error| Error::new_index(Some(error.into()), None))?;
 
         Ok(())
@@ -163,7 +176,7 @@ impl InfoDbToDoc {
 #[derive(Default)]
 pub struct InfoDbToDocBuilder {
     db_connection: Option<SqliteConnection>,
-    index_writer: Option<IndexWriter>,
+    index: Option<Index>,
     schema: Option<Schema>,
 }
 
@@ -197,9 +210,7 @@ impl InfoDbToDocBuilder {
         let schema = schema_builder.build();
     
         let index = Index::create_in_dir(&index_path, schema.clone()).unwrap();
-        let index_writer = index.writer(50_000_000).unwrap();
-
-        self.index_writer = Some(index_writer);
+        self.index = Some(index);
         self.schema = Some(schema);
 
         self
@@ -215,13 +226,13 @@ impl InfoDbToDocBuilder {
         self
     }
 
-    pub fn index_writer(mut self, index_writer: IndexWriter) -> Self {
-        self.index_writer = Some(index_writer);
+    pub fn index(mut self, index: Index) -> Self {
+        self.index = Some(index);
         self
     }
 
     pub fn build(self) -> InfoDbToDoc {
-        InfoDbToDoc::new(self.db_connection.unwrap(), self.index_writer.unwrap(), self.schema.unwrap())
+        InfoDbToDoc::new(self.db_connection.unwrap(), self.index.unwrap(), self.schema.unwrap())
     }
 }
 
@@ -235,11 +246,10 @@ mod tests {
         let conn = connect_db().await;
         let schema = Schema::builder().build();
         let index = Index::create_in_ram(schema.clone());
-        let index_writer = index.writer(50_000_000).unwrap();
 
         let mut ri = InfoDbToDocBuilder::new()
             .db_connection(conn)
-            .index_writer(index_writer)
+            .index(index)
             .schema(schema)
             .build();
 

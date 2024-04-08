@@ -13,11 +13,10 @@ async fn main() {
     let schema = Schema::builder().build();
     
     let index = Index::create_in_ram(schema.clone());
-    let index_writer = index.writer(50_000_000).unwrap();
 
     let mut ri = InfoDbToDocBuilder::new()
         .db_uri(db_uri).await
-        .index_writer(index_writer)
+        .index(index)
         .schema(schema)
         .build();
 
