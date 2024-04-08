@@ -1,4 +1,4 @@
-use std::{path::Path, sync::Arc};
+use std::{path::Path, sync::{Arc, Mutex}};
 
 use yiilian_core::common::shutdown::create_shutdown;
 use yiilian_index::info_mq_to_db::InfoMqToDbBuilder;
@@ -13,7 +13,7 @@ async fn main() {
 
     let mut mq_engine = Engine::new(LOG_DATA_SIZE, shutdown_rx).unwrap();
     mq_engine.open_topic("info_index").unwrap();
-    let mq_engine = Arc::new(mq_engine);
+    let mq_engine = Arc::new(Mutex::new(mq_engine));
     
     let mut db_uri = std::env::current_dir().unwrap();
     db_uri.push("yiilian-index/migrations/res.db");

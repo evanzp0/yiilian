@@ -104,7 +104,7 @@ impl Engine {
         Ok(self.topics.get(topic_name).unwrap().clone())
     }
 
-    pub fn remove_topic(&mut self, topic_name: &str) -> Result<(), Error> {
+    pub fn remove_topic(&mut self, topic_name: &str) {
         if self.topics.contains_key(topic_name) {
             self.topics.remove(topic_name);
 
@@ -114,15 +114,8 @@ impl Engine {
                 p
             };
 
-            if let Err(_) = fs::remove_dir_all(topic_path.clone()) {
-                Err(Error::new_file(
-                    None,
-                    Some(format!("remove topic {:?} error", topic_path)),
-                ))?
-            };
+            fs::remove_dir_all(topic_path.clone()).ok();
         }
-
-        Ok(())
     }
 
     pub fn push_message(&self, topic_name: &str, message: InMessage) -> Result<(), Error> {
@@ -190,6 +183,6 @@ mod tests {
         let count = engine.message_count(topic_name, consumer_name);
         assert_eq!(12, count);
 
-        engine.remove_topic(topic_name).unwrap();
+        engine.remove_topic(topic_name);
     }
 }

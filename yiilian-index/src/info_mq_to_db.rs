@@ -2,6 +2,7 @@
 use std::fs;
 use std::str::FromStr;
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::time::Duration;
 
 use chrono::Utc;
@@ -25,17 +26,17 @@ const MQ_CLIENT_PERSIST: &str = "persist_info_client";
 
 pub struct InfoMqToDb {
     db_connection: SqliteConnection,
-    mq_engine: Arc<Engine>,
+    mq_engine: Arc<Mutex<Engine>>,
 }
 
 impl InfoMqToDb {
-    pub fn new(db_connection: SqliteConnection, mq_engine: Arc<Engine>) -> Self {
+    pub fn new(db_connection: SqliteConnection, mq_engine: Arc<Mutex<Engine>>) -> Self {
         InfoMqToDb { db_connection, mq_engine }
     }
 
     pub async fn persist_loop(&mut self) {
         loop {
-            let message = self.mq_engine.poll_message(INDEX_TOPIC_NAME, MQ_CLIENT_PERSIST);
+            let message = self.mq_engine.lock().expect("lock mq_engine").poll_message(INDEX_TOPIC_NAME, MQ_CLIENT_PERSIST);
             if let Some(message) = message {
                 let meta_path = unsafe { String::from_utf8_unchecked(message.value().into()) };
                 match fs::read(meta_path) {
@@ -139,7 +140,7 @@ impl InfoMqToDb {
 #[derive(Default)]
 pub struct InfoMqToDbBuilder {
     db_connection: Option<SqliteConnection>,
-    mq_engine: Option<Arc<Engine>>,
+    mq_engine: Option<Arc<Mutex<Engine>>>,
 }
 
 impl InfoMqToDbBuilder {
@@ -166,7 +167,7 @@ impl InfoMqToDbBuilder {
         self
     }
 
-    pub fn mq_engine(mut self, mq_engine: Arc<Engine>) -> Self {
+    pub fn mq_engine(mut self, mq_engine: Arc<Mutex<Engine>>) -> Self {
         self.mq_engine = Some(mq_engine);
         self
     }
@@ -178,16 +179,26 @@ impl InfoMqToDbBuilder {
 
 #[cfg(test)]
 mod tests {
-    use yiilian_core::data::{FileInfo, MetaInfo};
+    use std::sync::Mutex;
+
+    use yiilian_core::{common::shutdown::create_shutdown, data::{FileInfo, MetaInfo}};
+    use yiilian_mq::segment::LOG_DATA_SIZE;
 
     use super::*;
 
     #[tokio::test]
     async fn test_add_single_and_fetch() {
+        let (mut _shutdown_tx, shutdown_rx) = create_shutdown();
+
+        let mut mq_engine = Engine::new(LOG_DATA_SIZE, shutdown_rx).unwrap();
+        mq_engine.open_topic("test_info_mq").unwrap();
+        let mq_engine = Arc::new(Mutex::new(mq_engine));
+
         let conn = connect_db().await;
 
         let mut ri= InfoMqToDbBuilder::new()
             .db_connection(conn)
+            .mq_engine(mq_engine.clone())
             .build();
 
         let info_hash = "00000000000000000001".to_owned();
@@ -204,14 +215,22 @@ mod tests {
         };
 
         ri.add_bt_info_record(&bt_torrent).await.unwrap();
+        mq_engine.lock().expect("lock mq_engine").remove_topic("test_info_mq");
     }
 
     #[tokio::test]
     async fn test_add_multiple() {
+        let (mut _shutdown_tx, shutdown_rx) = create_shutdown();
+
+        let mut mq_engine = Engine::new(LOG_DATA_SIZE, shutdown_rx).unwrap();
+        mq_engine.open_topic("test_info_mq1").unwrap();
+        let mq_engine = Arc::new(Mutex::new(mq_engine));
+
         let conn = connect_db().await;
 
         let mut ri= InfoMqToDbBuilder::new()
             .db_connection(conn)
+            .mq_engine(mq_engine.clone())
             .build();
 
         let mf = MetaInfo::MultiFile {
@@ -237,6 +256,7 @@ mod tests {
         };
 
         ri.add_bt_info_record(&bt_torrent).await.unwrap();
+        mq_engine.lock().expect("lock mq_engine").remove_topic("test_info_mq1");
     }
 
     async fn connect_db() -> sqlx::SqliteConnection {
