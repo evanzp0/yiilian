@@ -66,6 +66,8 @@ impl InfoDbToDoc {
                                         log::trace!(target: "yiilian_index::info_db_to_doc::index_loop", "index_res_info error: {}", error);
                                         continue;
                                     } else {
+                                        log::trace!(target: "yiilian_index::info_db_to_doc::index_loop", "index info: {}", res_info.info_hash);
+
                                         self.update_indexed_res_info(&res_info.info_hash).await.ok();
 
                                     }
@@ -83,6 +85,8 @@ impl InfoDbToDoc {
                 is_found = false;
                 
                 sleep(Duration::from_secs(INDEX_INTERVAL_SEC)).await;
+            } else {
+                sleep(Duration::from_secs(1)).await;
             }
         }
     }

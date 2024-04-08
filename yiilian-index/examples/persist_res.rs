@@ -29,7 +29,6 @@ async fn main() {
     mqdb.persist_loop().await;
 }
 
-
 fn set_up_logging_from_file<P: AsRef<Path>>(file_path: Option<&P>) {
     if let Some(file_path) = file_path {
         log4rs::init_file(file_path, Default::default()).unwrap();
@@ -37,7 +36,6 @@ fn set_up_logging_from_file<P: AsRef<Path>>(file_path: Option<&P>) {
         log4rs::init_file("log4rs.yml", Default::default()).unwrap();
     }
 }
-
 
 #[cfg(test)]
 mod tests {
