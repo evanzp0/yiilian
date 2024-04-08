@@ -9,4 +9,5 @@ test_file.txt
 nohup.out
 /index
 res.db
+res.db-*
 .dysql
