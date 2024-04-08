@@ -3,7 +3,7 @@ use std::{
     io::{Read, Write},
     net::SocketAddr,
     path::Path,
-    sync::{Arc, RwLock},
+    sync::{Arc, Mutex, RwLock},
     time::Duration,
 };
 
@@ -65,7 +65,7 @@ async fn main() {
             .open_topic(INDEX_TOPIC_NAME)
             .expect(&format!("open {} topic", INDEX_TOPIC_NAME));
 
-        Arc::new(engine)
+        Arc::new(Mutex::new(engine))
     };
 
     let mut announce_listener = RecvAnnounceListener::new(rx, mq_engine.clone());
@@ -133,7 +133,7 @@ async fn main() {
     };
 }
 
-async fn hook(bt_downloader: &BtDownloader, bloom: Arc<RwLock<Bloom<u64>>>, port: u16, mq_engine: Arc<Engine>) {
+async fn hook(bt_downloader: &BtDownloader, bloom: Arc<RwLock<Bloom<u64>>>, port: u16, mq_engine: Arc<Mutex<Engine>>) {
     let bind_addr: SocketAddr = format!("0.0.0.0:{port}")
         .parse()
         .expect("tcp bind error in hook");
@@ -193,7 +193,7 @@ async fn hook(bt_downloader: &BtDownloader, bloom: Arc<RwLock<Bloom<u64>>>, port
                                 None => continue,
                             };
                             let message = yiilian_mq::message::in_message::InMessage(path.into());
-                            if let Err(error) = mq_engine.push_message(INDEX_TOPIC_NAME, message) {
+                            if let Err(error) = mq_engine.lock().expect("lock mq_engin").push_message(INDEX_TOPIC_NAME, message) {
                                 log::trace!(target: "yiilian_crawler::main::hook", "push_message error: {}", error);
                             }
                         }
@@ -210,12 +210,12 @@ async fn hook(bt_downloader: &BtDownloader, bloom: Arc<RwLock<Bloom<u64>>>, port
 }
 
 async fn download_meta_by_msg(
-    mq_engine: Arc<Engine>,
+    mq_engine: Arc<Mutex<Engine>>,
     bt_downloader: &BtDownloader,
     bloom: Arc<RwLock<Bloom<u64>>>,
 ) {
     loop {
-        let msg_rst = mq_engine.poll_message(HASH_TOPIC_NAME, "download_meta_client");
+        let msg_rst = mq_engine.lock().expect("lock mq_engin").poll_message(HASH_TOPIC_NAME, "download_meta_client");
 
         if let Some(msg) = msg_rst {
             log::trace!(target: "yiilian_crawler::main", "poll message offset : {}", msg.offset());
@@ -263,7 +263,7 @@ async fn download_meta_by_msg(
                                     None => continue,
                                 };
                                 let message = yiilian_mq::message::in_message::InMessage(path.into());
-                                if let Err(error) = mq_engine.push_message(INDEX_TOPIC_NAME, message) {
+                                if let Err(error) = mq_engine.lock().expect("lock mq_engin").push_message(INDEX_TOPIC_NAME, message) {
                                     log::trace!(target: "yiilian_crawler::main::hook", "push_message error: {}", error);
                                 }
                             }
@@ -276,7 +276,7 @@ async fn download_meta_by_msg(
                                 info_type: MessageType::Normal(info_hash),
                             };
 
-                            mq_engine.push_message(HASH_TOPIC_NAME, InMessage(msg_data.into())).ok();
+                            mq_engine.lock().expect("lock mq_engin").push_message(HASH_TOPIC_NAME, InMessage(msg_data.into())).ok();
                         }
                     }
                 }
@@ -316,7 +316,7 @@ async fn download_meta_by_msg(
                                     None => continue,
                                 };
                                 let message = yiilian_mq::message::in_message::InMessage(path.into());
-                                if let Err(error) = mq_engine.push_message(INDEX_TOPIC_NAME, message) {
+                                if let Err(error) = mq_engine.lock().expect("lock mq_engin").push_message(INDEX_TOPIC_NAME, message) {
                                     log::trace!(target: "yiilian_crawler::main::hook", "push_message error: {}", error);
                                 }
                             }
@@ -328,7 +328,7 @@ async fn download_meta_by_msg(
                                     info_type: MessageType::Normal(info_hash),
                                 };
 
-                                mq_engine.push_message(HASH_TOPIC_NAME, InMessage(msg_data.into())).ok();
+                                mq_engine.lock().expect("lock mq_engin").push_message(HASH_TOPIC_NAME, InMessage(msg_data.into())).ok();
                             }
                         }
                     }

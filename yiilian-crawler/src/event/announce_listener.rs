@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use tokio::sync::broadcast::{error::RecvError, Receiver};
 use yiilian_core::data::Request;
@@ -10,11 +10,11 @@ use crate::info_message::{InfoMessage, MessageType};
 #[derive(Debug)]
 pub struct RecvAnnounceListener<T> {
     rx: Receiver<Arc<T>>,
-    mq_engine: Arc<Engine>,
+    mq_engine: Arc<Mutex<Engine>>,
 }
 
 impl RecvAnnounceListener<Request<KrpcBody>> {
-    pub fn new(rx: Receiver<Arc<Request<KrpcBody>>>, mq_engine: Arc<Engine>) -> Self {
+    pub fn new(rx: Receiver<Arc<Request<KrpcBody>>>, mq_engine: Arc<Mutex<Engine>>) -> Self {
 
         RecvAnnounceListener { 
             rx, 
@@ -45,7 +45,7 @@ impl RecvAnnounceListener<Request<KrpcBody>> {
 
                             log::debug!(target: "yiilian_crawler::event::announce_listener", "Send message: {:?}", data);
 
-                            self.mq_engine.push_message("info_hash", InMessage(data.into())).ok();
+                            self.mq_engine.lock().expect("lock mq_engin").push_message("info_hash", InMessage(data.into())).ok();
                         }
                         BodyKind::Query(Query::AnnouncePeer(val)) => {
                             let remote_addr = {
@@ -77,7 +77,7 @@ impl RecvAnnounceListener<Request<KrpcBody>> {
 
                             log::debug!(target: "yiilian_crawler::event::announce_listener", "Send message: {:?}", data);
 
-                            self.mq_engine.push_message("info_hash", InMessage(data.into())).ok();
+                            self.mq_engine.lock().expect("lock mq_engin").push_message("info_hash", InMessage(data.into())).ok();
                         }
                         _ => (),
                     }
