@@ -12,6 +12,7 @@ yiilian-core = "0.1"
 yiilian-dht = "0.1"
 yiilian-mq = "0.1"
 yiilian-dl = "0.1"
+yiilian-index = "0.1"
 log ="0.4"
 log4rs = { version = "1", features = ["background_rotation", "gzip"] }
 bloomfilter = { version = "1", features = ["serde"] }
@@ -24,3 +25,4 @@ sha-1 = "0.10.1"
 utp = "0.7"
 utp-rs = "0.1.0-alpha.8"
 home = "0.5"
+tantivy = "0.19"

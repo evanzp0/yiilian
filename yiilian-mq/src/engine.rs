@@ -125,11 +125,16 @@ impl Engine {
 
 pub async fn purge_loop(engine: Arc<Mutex<Engine>>) {
     loop {
+
         let mut engine = engine.lock().expect("lock engine");
+
         let topic_list: Vec<&mut Topic> = engine.topics.values_mut().map(|v| v).collect();
         for topic in topic_list {
             topic.purge_segment();
         }
+
+        // 不 drop 的话，由于后面跟了 sleep().await，导致锁跨 future了。engine 无法释放，所以会一直 lock，形成死锁
+        drop(engine);
 
         sleep(Duration::from_secs(60)).await;
     }

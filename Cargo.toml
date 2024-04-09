@@ -15,6 +15,7 @@ yiilian-core = { path = "./yiilian-core" }
 yiilian-dht = { path = "./yiilian-dht" }
 yiilian-mq = { path = "./yiilian-mq" }
 yiilian-dl = { path = "./yiilian-dl" }
+yiilian-index = { path = "./yiilian-index" }
 
 [profile.bench]
 lto = "fat"

@@ -61,3 +61,8 @@ loggers:
     appenders:
       - log_file
     additive: false
+  yiilian_index:
+    level: trace
+    appenders:
+      - stdout
+    additive: false

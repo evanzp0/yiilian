@@ -11,6 +11,7 @@ use bloomfilter::Bloom;
 use futures::future::join_all;
 
 use hex::ToHex;
+use tantivy::{schema::Schema, Index};
 use tokio::{
     net::TcpListener,
     signal::unix::SignalKind,
@@ -35,7 +36,12 @@ use yiilian_dht::{
     service::KrpcService,
 };
 use yiilian_dl::bt::bt_downloader::BtDownloader;
-use yiilian_mq::{engine::{self, Engine}, message::in_message::InMessage, segment::LOG_DATA_SIZE};
+use yiilian_index::{info_db_to_doc::InfoDbToDocBuilder, info_mq_to_db::InfoMqToDbBuilder};
+use yiilian_mq::{
+    engine::{self, Engine},
+    message::in_message::InMessage,
+    segment::LOG_DATA_SIZE,
+};
 
 use yiilian_crawler::event::RecvAnnounceListener;
 use yiilian_crawler::{
@@ -95,6 +101,29 @@ async fn main() {
         save_bloom(bm);
     });
 
+    let db_uri = {
+        let mut p = home::home_dir().unwrap();
+        p.push(".yiilian/db/res.db");
+        let p = p.to_str().unwrap();
+
+        p.to_owned()
+    };
+
+    let mut mq_db = InfoMqToDbBuilder::new()
+        .db_uri(&db_uri)
+        .await
+        .mq_engine(mq_engine.clone())
+        .build();
+
+    let schema = Schema::builder().build();
+    let index = Index::create_in_ram(schema.clone());
+    let mut db_doc = InfoDbToDocBuilder::new()
+        .db_uri(&db_uri)
+        .await
+        .index(index)
+        .schema(schema)
+        .build();
+
     drop(shutdown_rx);
 
     let mut term_sig = tokio::signal::unix::signal(SignalKind::terminate()).unwrap();
@@ -109,11 +138,15 @@ async fn main() {
 
             join_all(futs).await;
         } => (),
-        _ = engine::purge_loop(mq_engine.clone()) => (),
         _ = announce_listener.listen() => (),
         _ = bt_downloader.run_loop() => (),
         _ = download_meta_by_msg(mq_engine.clone(), &bt_downloader, bloom.clone()) => (),
         _ = hook(&bt_downloader, bloom.clone(), config.bt.download_port, mq_engine.clone()) => (),
+        _= mq_db.persist_loop() => (),
+        _= db_doc.index_loop() => (),
+        _ = async move {
+            engine::purge_loop(mq_engine).await
+        } => (),
         _ = tokio::signal::ctrl_c() => {
 
             drop(dht_list);
@@ -134,7 +167,12 @@ async fn main() {
     };
 }
 
-async fn hook(bt_downloader: &BtDownloader, bloom: Arc<RwLock<Bloom<u64>>>, port: u16, mq_engine: Arc<Mutex<Engine>>) {
+async fn hook(
+    bt_downloader: &BtDownloader,
+    bloom: Arc<RwLock<Bloom<u64>>>,
+    port: u16,
+    mq_engine: Arc<Mutex<Engine>>,
+) {
     let bind_addr: SocketAddr = format!("0.0.0.0:{port}")
         .parse()
         .expect("tcp bind error in hook");
@@ -194,7 +232,11 @@ async fn hook(bt_downloader: &BtDownloader, bloom: Arc<RwLock<Bloom<u64>>>, port
                                 None => continue,
                             };
                             let message = yiilian_mq::message::in_message::InMessage(path.into());
-                            if let Err(error) = mq_engine.lock().expect("lock mq_engin").push_message(INDEX_TOPIC_NAME, message) {
+                            if let Err(error) = mq_engine
+                                .lock()
+                                .expect("lock mq_engin")
+                                .push_message(INDEX_TOPIC_NAME, message)
+                            {
                                 log::trace!(target: "yiilian_crawler::main::hook", "push_message error: {}", error);
                             }
                         }
@@ -216,7 +258,10 @@ async fn download_meta_by_msg(
     bloom: Arc<RwLock<Bloom<u64>>>,
 ) {
     loop {
-        let msg_rst = mq_engine.lock().expect("lock mq_engin").poll_message(HASH_TOPIC_NAME, "download_meta_client");
+        let msg_rst = mq_engine
+            .lock()
+            .expect("lock mq_engin")
+            .poll_message(HASH_TOPIC_NAME, "download_meta_client");
 
         if let Some(msg) = msg_rst {
             log::trace!(target: "yiilian_crawler::main", "poll message offset : {}", msg.offset());
@@ -235,7 +280,6 @@ async fn download_meta_by_msg(
 
             match info_message.info_type {
                 MessageType::Normal(info_hash) => {
-
                     if info_message.try_times <= 0 {
                         continue;
                     }
@@ -263,8 +307,13 @@ async fn download_meta_by_msg(
                                     Some(p) => p.to_owned(),
                                     None => continue,
                                 };
-                                let message = yiilian_mq::message::in_message::InMessage(path.into());
-                                if let Err(error) = mq_engine.lock().expect("lock mq_engin").push_message(INDEX_TOPIC_NAME, message) {
+                                let message =
+                                    yiilian_mq::message::in_message::InMessage(path.into());
+                                if let Err(error) = mq_engine
+                                    .lock()
+                                    .expect("lock mq_engin")
+                                    .push_message(INDEX_TOPIC_NAME, message)
+                                {
                                     log::trace!(target: "yiilian_crawler::main::hook", "push_message error: {}", error);
                                 }
                             }
@@ -277,7 +326,11 @@ async fn download_meta_by_msg(
                                 info_type: MessageType::Normal(info_hash),
                             };
 
-                            mq_engine.lock().expect("lock mq_engin").push_message(HASH_TOPIC_NAME, InMessage(msg_data.into())).ok();
+                            mq_engine
+                                .lock()
+                                .expect("lock mq_engin")
+                                .push_message(HASH_TOPIC_NAME, InMessage(msg_data.into()))
+                                .ok();
                         }
                     }
                 }
@@ -285,7 +338,6 @@ async fn download_meta_by_msg(
                     info_hash,
                     remote_addr,
                 } => {
-
                     if info_message.try_times <= 0 {
                         continue;
                     }
@@ -316,8 +368,13 @@ async fn download_meta_by_msg(
                                     Some(p) => p.to_owned(),
                                     None => continue,
                                 };
-                                let message = yiilian_mq::message::in_message::InMessage(path.into());
-                                if let Err(error) = mq_engine.lock().expect("lock mq_engin").push_message(INDEX_TOPIC_NAME, message) {
+                                let message =
+                                    yiilian_mq::message::in_message::InMessage(path.into());
+                                if let Err(error) = mq_engine
+                                    .lock()
+                                    .expect("lock mq_engin")
+                                    .push_message(INDEX_TOPIC_NAME, message)
+                                {
                                     log::trace!(target: "yiilian_crawler::main::hook", "push_message error: {}", error);
                                 }
                             }
@@ -329,7 +386,11 @@ async fn download_meta_by_msg(
                                     info_type: MessageType::Normal(info_hash),
                                 };
 
-                                mq_engine.lock().expect("lock mq_engin").push_message(HASH_TOPIC_NAME, InMessage(msg_data.into())).ok();
+                                mq_engine
+                                    .lock()
+                                    .expect("lock mq_engin")
+                                    .push_message(HASH_TOPIC_NAME, InMessage(msg_data.into()))
+                                    .ok();
                             }
                         }
                     }
