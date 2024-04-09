@@ -1,10 +1,5 @@
 use std::{
-    fs::{self, File},
-    io::{Read, Write},
-    net::SocketAddr,
-    path::Path,
-    sync::{Arc, Mutex, RwLock},
-    time::Duration,
+    env, fs::{self, File}, io::{Read, Write}, net::SocketAddr, path::Path, sync::{Arc, Mutex, RwLock}, time::Duration
 };
 
 use bloomfilter::Bloom;
@@ -62,6 +57,8 @@ async fn main() {
     let (tx, rx) = broadcast::channel(1024);
     let dht_list = create_dht_list(&config, shutdown_rx.clone(), tx).unwrap();
 
+    let home_dir = home::home_dir().unwrap();
+
     let mq_engine = {
         let mut engine = Engine::new(LOG_DATA_SIZE).expect("create mq engine");
         engine
@@ -84,7 +81,7 @@ async fn main() {
     };
 
     let download_dir = {
-        let mut d = home::home_dir().unwrap();
+        let mut d = home_dir.clone();
         d.push(".yiilian/dl/");
 
         fs::create_dir_all(d.clone())
@@ -102,10 +99,24 @@ async fn main() {
     });
 
     let db_uri = {
-        let mut p = home::home_dir().unwrap();
+        let mut p = home_dir.clone();
         p.push(".yiilian/db/res.db");
-        let p = p.to_str().unwrap();
 
+        if !p.as_path().exists() {
+            let mut db_dir = home_dir.clone();
+            db_dir.push(".yiilian/db");
+            fs::create_dir_all(db_dir).unwrap();
+
+            let mut c_path = env::current_dir().unwrap();
+            c_path.push("res_template.db");
+
+            println!("{:?}", c_path);
+            println!("{:?}", p);
+
+            fs::copy(c_path, p.clone()).unwrap();
+        }
+
+        let p = p.to_str().unwrap();
         p.to_owned()
     };
 
@@ -151,6 +162,8 @@ async fn main() {
 
             drop(dht_list);
             drop(bt_downloader);
+            drop(mq_db);
+            drop(db_doc);
 
             shutdown_tx.shutdown().await;
 
