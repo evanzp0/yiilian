@@ -40,7 +40,6 @@ impl InfoDbToDoc {
     pub async fn index_loop(&mut self) {
         let mut proc_doc_num = 0;
         let mut is_found = false;
-        let mut index_writer = self.index.writer(INDEX_WRITER_BUF_SIZE).expect("get index_writer");
 
         loop {
             let fetch_rst = self.fetch_unindex_bt_info_record().await;
@@ -88,10 +87,12 @@ impl InfoDbToDoc {
                 let segments = self.index.searchable_segment_ids().expect("searchable_segment_ids");
                 
                 if segments.len() > 0 {
+                    let mut index_writer = self.index.writer(INDEX_WRITER_BUF_SIZE).expect("get index_writer");
                     index_writer.merge(&segments);
                     index_writer.wait_merging_threads().expect("wait_merging_threads");
 
                     log::trace!(target: "yiilian_index::info_db_to_doc::index_loop", "Merged segments: {}", segments.len());
+
                 }
                 
                 sleep(Duration::from_secs(INDEX_INTERVAL_SEC)).await;
