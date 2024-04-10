@@ -1,5 +1,5 @@
 use std::{
-    env, fs::{self, File}, io::{Read, Write}, net::SocketAddr, path::PathBuf, sync::{Arc, Mutex, RwLock}, time::Duration
+    fs::{self, File}, io::{Read, Write}, net::SocketAddr, path::PathBuf, sync::{Arc, Mutex, RwLock}, time::Duration
 };
 
 use bloomfilter::Bloom;
@@ -49,6 +49,7 @@ const HASH_TOPIC_NAME: &str = "info_hash";
 const INDEX_TOPIC_NAME: &str = "info_index";
 const CONFIG_FILE: &str = "yiilian-crawler.yml";
 const LOG_CONFIG_FILE: &str = "log4rs.yml";
+const RES_TEMPLATE_DB: &str = "res_template.db";
 
 #[tokio::main]
 async fn main() {
@@ -111,11 +112,7 @@ async fn main() {
             db_dir.push(".yiilian/db");
             fs::create_dir_all(db_dir).unwrap();
 
-            let mut c_path = env::current_dir().unwrap();
-            c_path.push("res_template.db");
-
-            println!("{:?}", c_path);
-            println!("{:?}", p);
+            let c_path = wd.get_path_by_entry(RES_TEMPLATE_DB).unwrap();
 
             fs::copy(c_path, p.clone()).unwrap();
         }
