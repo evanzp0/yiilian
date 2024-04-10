@@ -1,5 +1,5 @@
 use std::{
-    env, fs::{self, File}, io::{Read, Write}, net::SocketAddr, sync::{Arc, Mutex, RwLock}, time::Duration
+    env, fs::{self, File}, io::{Read, Write}, net::SocketAddr, path::PathBuf, sync::{Arc, Mutex, RwLock}, time::Duration
 };
 
 use bloomfilter::Bloom;
@@ -98,7 +98,7 @@ async fn main() {
     let strx = shutdown_rx.clone();
     tokio::spawn(async move {
         strx.watch().await;
-        save_bloom(bm);
+        save_bloom(bm, wd.exec_dir());
     });
 
     let db_uri = {
@@ -501,8 +501,9 @@ fn create_dht_list(
 }
 
 
-pub fn save_bloom(bloom: Arc<RwLock<Bloom<u64>>>) {
-    let mut f = File::create(&BLOOM_STATE_FILE).expect("file create BLOOM_STATE_FILE failed");
+pub fn save_bloom(bloom: Arc<RwLock<Bloom<u64>>>, mut save_dir: PathBuf) {
+    save_dir.push(BLOOM_STATE_FILE);
+    let mut f = File::create(save_dir).expect("file create BLOOM_STATE_FILE failed");
     let encoded: Vec<u8> =
         bincode::serialize(&*bloom).expect("bincode::serialize BLOOM_STATE_FILE failed");
 

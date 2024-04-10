@@ -5,7 +5,7 @@ appenders:
       pattern: "[{d(%Y-%m-%d %H:%M:%S)} {h({l})} {t}] {m}{n}"
   log_file:
     kind: rolling_file
-    path: "log/yiilian-crawler.log"
+    path: $ENV{HOME}/.yiilian/log/yiilian-crawler.log
     policy:
       kind: compound
       trigger:
@@ -13,12 +13,12 @@ appenders:
         limit: 10 mb
       roller:
         kind: fixed_window
-        pattern: 'log/yiilian-crawler.{}.gz'
+        pattern: $ENV{HOME}/.yiilian/log/yiilian-crawler.{}.gz
         base: 1
         count: 5
   event:
     kind: rolling_file
-    path: "log/event.log"
+    path: $ENV{HOME}/.yiilian/log/event.log
     policy:
       kind: compound
       trigger:
@@ -28,7 +28,7 @@ appenders:
         kind: delete
   firewall:
     kind: rolling_file
-    path: "log/firewall.log"
+    path: $ENV{HOME}/.yiilian/log/firewall.log
     policy:
       kind: compound
       trigger:
@@ -37,7 +37,7 @@ appenders:
       roller:
         kind: delete
 root:
-  level: error
+  level: trace
   appenders:
     - log_file
 loggers:
