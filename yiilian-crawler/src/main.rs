@@ -40,22 +40,25 @@ use yiilian_mq::{
 
 use yiilian_crawler::event::RecvAnnounceListener;
 use yiilian_crawler::{
-    common::{Config, DEFAULT_CONFIG_FILE},
+    common::Config,
     info_message::{InfoMessage, MessageType},
 };
 
 const BLOOM_STATE_FILE: &str = "bloom_state.dat";
-
 const HASH_TOPIC_NAME: &str = "info_hash";
 const INDEX_TOPIC_NAME: &str = "info_index";
+const CONFIG_FILE: &str = "yiilian-crawler.yml";
+const LOG_CONFIG_FILE: &str = "log4rs.yml";
 
 #[tokio::main]
 async fn main() {
     let wd = WorkingDir::new();
-    let log4rs_path = wd.get_path_by_entry("log4rs.yml");
+    let log4rs_path = wd.get_path_by_entry(LOG_CONFIG_FILE);
     setup_log4rs_from_file(&log4rs_path.unwrap());
 
-    let config = Config::from_file(DEFAULT_CONFIG_FILE);
+    let config_file = wd.get_path_by_entry(CONFIG_FILE).unwrap();
+
+    let config = Config::from_file(config_file);
     let (mut shutdown_tx, shutdown_rx) = create_shutdown();
     let (tx, rx) = broadcast::channel(1024);
     let dht_list = create_dht_list(&config, shutdown_rx.clone(), tx, wd.home_dir()).unwrap();

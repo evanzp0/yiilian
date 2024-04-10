@@ -1,12 +1,10 @@
 #![allow(dead_code)]
 
-use std::{net::IpAddr, fs, collections::HashSet};
+use std::{collections::HashSet, fs, net::IpAddr, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
 use yiilian_core::{net::block_list::BlockAddr, common::util::atoi};
 use yiilian_dl::bt::common::BtConfig;
-
-pub const DEFAULT_CONFIG_FILE: &str = "yiilian-crawler.yml";
 
 #[derive(Deserialize, Default, Debug)]
 pub struct Config {
@@ -19,9 +17,9 @@ impl Config {
         Config::default()
     }
 
-    pub fn from_file(cfg_file: &str) -> Self {
-        let cfg = fs::read_to_string(cfg_file).expect(&format!("read {} error", cfg_file));
-        serde_yaml::from_str(&cfg).expect(&format!("parse {} error", cfg_file))
+    pub fn from_file(cfg_file: PathBuf) -> Self {
+        let cfg = fs::read_to_string(cfg_file).expect("read cfg_file error");
+        serde_yaml::from_str(&cfg).expect("parsecfg_file error")
     }
 
     pub fn get_dht_block_list(&self) -> Option<HashSet<BlockAddr>> {
@@ -59,16 +57,4 @@ pub struct DhtClusterConfig {
 pub struct FirewallConfig {
     pub max_trace: Option<usize>,
     pub max_block: Option<usize>,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{Config, DEFAULT_CONFIG_FILE};
-
-    #[test]
-    fn test() {
-        let config = Config::from_file(DEFAULT_CONFIG_FILE);
-
-        println!("{:?}", config)
-    }
 }
