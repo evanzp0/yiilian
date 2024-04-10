@@ -14,7 +14,7 @@ enum MyError {
         message: String,
     },
     #[error("Other: {0}")]
-    Other(std::io::Error)
+    Other(std::io::Error) // 省略了 #[from] 
 }
 
 fn main() {
