@@ -1,8 +1,9 @@
 use std::fs;
-use std::path::Path;
 use std::time::{Duration, Instant};
 
 use hex::ToHex;
+use yiilian_core::common::util::setup_log4rs_from_file;
+use yiilian_core::common::working_dir::WorkingDir;
 use yiilian_core::common::{error::Error, shutdown::create_shutdown};
 
 use yiilian_dl::bt::common::BtConfig;
@@ -11,7 +12,9 @@ use yiilian_dl::bt::common::DhtConfig;
 
 #[tokio::main]
 async fn main() {
-    set_up_logging_from_file::<&str>(None);
+    let wd = WorkingDir::new();
+    let log4rs_path = wd.get_path_by_entry("log4rs.yml");
+    setup_log4rs_from_file(&log4rs_path.unwrap());
 
     // let info_hash_str = "FA84A471E92F9DE5B4F2404E5535FCBA639DA8A0";
     // let info_hash_str = "5D238FCCC41203BD121080A0CF9C7788C8237A5A";
@@ -85,14 +88,6 @@ async fn main() {
             }
 
         } => (),
-    }
-}
-
-fn set_up_logging_from_file<P: AsRef<Path>>(file_path: Option<&P>) {
-    if let Some(file_path) = file_path {
-        log4rs::init_file(file_path, Default::default()).unwrap();
-    } else {
-        log4rs::init_file("log4rs.yml", Default::default()).unwrap();
     }
 }
 

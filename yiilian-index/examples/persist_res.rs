@@ -1,12 +1,15 @@
-use std::{path::Path, sync::{Arc, Mutex}};
+use std::sync::{Arc, Mutex};
 
+use yiilian_core::common::{util::setup_log4rs_from_file, working_dir::WorkingDir};
 use yiilian_index::info_mq_to_db::InfoMqToDbBuilder;
 use yiilian_mq::{engine::Engine, segment::LOG_DATA_SIZE};
 
 
 #[tokio::main]
 async fn main() {
-    set_up_logging_from_file::<&str>(None);
+    let wd = WorkingDir::new();
+    let log4rs_path = wd.get_path_by_entry("log4rs.yml");
+    setup_log4rs_from_file(&log4rs_path.unwrap());
 
     let mut mq_engine = Engine::new(LOG_DATA_SIZE).unwrap();
     mq_engine.open_topic("info_index").unwrap();
@@ -24,14 +27,6 @@ async fn main() {
         .build();
 
     mqdb.persist_loop().await;
-}
-
-fn set_up_logging_from_file<P: AsRef<Path>>(file_path: Option<&P>) {
-    if let Some(file_path) = file_path {
-        log4rs::init_file(file_path, Default::default()).unwrap();
-    } else {
-        log4rs::init_file("log4rs.yml", Default::default()).unwrap();
-    }
 }
 
 #[cfg(test)]

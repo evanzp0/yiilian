@@ -1,5 +1,5 @@
 use std::{
-    env, fs::{self, File}, io::{Read, Write}, net::SocketAddr, path::Path, sync::{Arc, Mutex, RwLock}, time::Duration
+    env, fs::{self, File}, io::{Read, Write}, net::SocketAddr, sync::{Arc, Mutex, RwLock}, time::Duration
 };
 
 use bloomfilter::Bloom;
@@ -17,7 +17,7 @@ use yiilian_core::{
     common::{
         error::Error,
         shutdown::{create_shutdown, ShutdownReceiver},
-        util::hash_it,
+        util::{hash_it, setup_log4rs_from_file}, working_dir::WorkingDir,
     },
     data::Request,
     net::tcp::{read_bt_handshake, send_bt_handshake},
@@ -51,7 +51,10 @@ const INDEX_TOPIC_NAME: &str = "info_index";
 
 #[tokio::main]
 async fn main() {
-    set_up_logging_from_file::<&str>(None);
+    let wd = WorkingDir::new();
+    let log4rs_path = wd.get_path_by_entry("log4rs.yml");
+    setup_log4rs_from_file(&log4rs_path.unwrap());
+
     let config = Config::from_file(DEFAULT_CONFIG_FILE);
     let (mut shutdown_tx, shutdown_rx) = create_shutdown();
     let (tx, rx) = broadcast::channel(1024);
@@ -497,13 +500,6 @@ fn create_dht_list(
     Ok(dht_list)
 }
 
-fn set_up_logging_from_file<P: AsRef<Path>>(file_path: Option<&P>) {
-    if let Some(file_path) = file_path {
-        log4rs::init_file(file_path, Default::default()).unwrap();
-    } else {
-        log4rs::init_file("log4rs.yml", Default::default()).unwrap();
-    }
-}
 
 pub fn save_bloom(bloom: Arc<RwLock<Bloom<u64>>>) {
     let mut f = File::create(&BLOOM_STATE_FILE).expect("file create BLOOM_STATE_FILE failed");

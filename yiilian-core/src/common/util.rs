@@ -1,5 +1,6 @@
 use std::hash::{Hash, Hasher};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::path::Path;
 use std::str::FromStr;
 
 use fnv::FnvHasher;
@@ -22,13 +23,17 @@ macro_rules! arcmut {
     };
 }
 
+pub fn setup_log4rs_from_file<P: AsRef<Path>>(file_path: &P) {
+    log4rs::init_file(file_path, Default::default()).unwrap();
+}
+
 /// convert string slice to int
 ///
 /// # Examples
 /// ```
 /// # use yiilian_core::common::util::*;
 ///
-/// assert_eq!(-12, atoi("-12".as_bytes()).unwrap());
+/// assert_eq!(-12, atoi::<i32>("-12".as_bytes()).unwrap());
 /// ```
 pub fn atoi<T>(data: &[u8]) -> Result<T, Error> 
 where

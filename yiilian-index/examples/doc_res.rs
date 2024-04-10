@@ -1,11 +1,13 @@
-use std::path::Path;
 
 use tantivy::{schema::Schema, Index};
+use yiilian_core::common::{util::setup_log4rs_from_file, working_dir::WorkingDir};
 use yiilian_index::info_db_to_doc::InfoDbToDocBuilder;
 
 #[tokio::main]
 async fn main() {
-    set_up_logging_from_file::<&str>(None);
+    let wd = WorkingDir::new();
+    let log4rs_path = wd.get_path_by_entry("log4rs.yml");
+    setup_log4rs_from_file(&log4rs_path.unwrap());
 
     let mut db_uri = std::env::current_dir().unwrap();
     db_uri.push("yiilian-index/migrations/res.db");
@@ -21,12 +23,4 @@ async fn main() {
         .build();
 
     ri.index_loop().await;
-}
-
-fn set_up_logging_from_file<P: AsRef<Path>>(file_path: Option<&P>) {
-    if let Some(file_path) = file_path {
-        log4rs::init_file(file_path, Default::default()).unwrap();
-    } else {
-        log4rs::init_file("log4rs.yml", Default::default()).unwrap();
-    }
 }

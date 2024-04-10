@@ -1,14 +1,16 @@
 
-use std::{net::SocketAddr, path::Path};
+use std::net::SocketAddr;
 
 use rand::thread_rng;
-use yiilian_core::common::error::Error;
+use yiilian_core::common::{error::Error, util::setup_log4rs_from_file, working_dir::WorkingDir};
 use yiilian_dht::common::Id;
 use yiilian_dl::bt::peer_wire::PeerWire;
 
 #[tokio::main]
 async fn main() {
-    set_up_logging_from_file::<&str>(None);
+    let wd = WorkingDir::new();
+    let log4rs_path = wd.get_path_by_entry("log4rs.yml");
+    setup_log4rs_from_file(&log4rs_path.unwrap());
 
     let peer_wire = PeerWire::new();
     let local_id = Id::from_random(&mut thread_rng());
@@ -36,14 +38,6 @@ async fn main() {
             println!("Error: {:?}", error);
 
         }
-    }
-}
-
-fn set_up_logging_from_file<P: AsRef<Path>>(file_path: Option<&P>) {
-    if let Some(file_path) = file_path {
-        log4rs::init_file(file_path, Default::default()).unwrap();
-    } else {
-        log4rs::init_file("log4rs.yml", Default::default()).unwrap();
     }
 }
 
