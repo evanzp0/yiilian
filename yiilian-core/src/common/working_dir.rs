@@ -8,6 +8,9 @@ pub struct WorkingDir {
 
 impl WorkingDir {
     pub fn new() -> Self {
+        let home_dir = home::home_dir().unwrap();
+        std::env::set_var("HOME", home_dir);
+        
         let mut exec_pathes: Vec<PathBuf> = vec![];
 
         let exec_dir = {
