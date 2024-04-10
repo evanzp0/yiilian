@@ -1,0 +1,15 @@
+appenders:
+  stdout:
+    kind: console
+    encoder:
+      pattern: "[{d(%Y-%m-%d %H:%M:%S)} {h({l})} {t}] {m}{n}"
+root:
+  level: error
+  appenders:
+    - stdout
+loggers:
+  yiilian_index:
+    level: trace
+    appenders:
+      - stdout
+    additive: false

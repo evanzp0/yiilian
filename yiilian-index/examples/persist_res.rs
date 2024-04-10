@@ -15,8 +15,8 @@ async fn main() {
     mq_engine.open_topic("info_index").unwrap();
     let mq_engine = Arc::new(Mutex::new(mq_engine));
     
-    let mut db_uri = std::env::current_dir().unwrap();
-    db_uri.push("yiilian-index/migrations/res.db");
+    let mut db_uri = wd.current_dir();
+    db_uri.push("migrations/res.db");
     let db_uri = db_uri.to_str().unwrap();
 
     // let db_uri = "/home/evan/workspace/yiilian/yiilian-index/migrations/res.db";

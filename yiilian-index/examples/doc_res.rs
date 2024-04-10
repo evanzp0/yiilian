@@ -9,9 +9,10 @@ async fn main() {
     let log4rs_path = wd.get_path_by_entry("log4rs.yml");
     setup_log4rs_from_file(&log4rs_path.unwrap());
 
-    let mut db_uri = std::env::current_dir().unwrap();
-    db_uri.push("yiilian-index/migrations/res.db");
+    let mut db_uri = wd.current_dir();
+    db_uri.push("migrations/res.db");
     let db_uri = db_uri.to_str().unwrap();
+    
     let schema = Schema::builder().build();
     
     let index = Index::create_in_ram(schema.clone());
