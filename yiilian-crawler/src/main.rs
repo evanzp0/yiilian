@@ -58,12 +58,9 @@ async fn main() {
     let config = Config::from_file(DEFAULT_CONFIG_FILE);
     let (mut shutdown_tx, shutdown_rx) = create_shutdown();
     let (tx, rx) = broadcast::channel(1024);
-    let dht_list = create_dht_list(&config, shutdown_rx.clone(), tx).unwrap();
-
-    let home_dir = home::home_dir().unwrap();
-
+    let dht_list = create_dht_list(&config, shutdown_rx.clone(), tx, wd.home_dir()).unwrap();
     let mq_engine = {
-        let mut engine = Engine::new(LOG_DATA_SIZE).expect("create mq engine");
+        let mut engine = Engine::new(LOG_DATA_SIZE, wd.home_dir()).expect("create mq engine");
         engine
             .open_topic(HASH_TOPIC_NAME)
             .expect(&format!("open {} topic", HASH_TOPIC_NAME));
@@ -84,7 +81,7 @@ async fn main() {
     };
 
     let download_dir = {
-        let mut d = home_dir.clone();
+        let mut d = wd.home_dir();
         d.push(".yiilian/dl/");
 
         fs::create_dir_all(d.clone())
@@ -92,21 +89,22 @@ async fn main() {
             .unwrap();
         d
     };
-    let bt_downloader = BtDownloader::new(&config.bt, download_dir, shutdown_rx.clone()).unwrap();
+    let bt_downloader = BtDownloader::new(&config.bt, download_dir, shutdown_rx.clone(), wd.home_dir()).unwrap();
 
     let bm = bloom.clone();
     let strx = shutdown_rx.clone();
+    let exec_dir = wd.exec_dir();
     tokio::spawn(async move {
         strx.watch().await;
-        save_bloom(bm, wd.exec_dir());
+        save_bloom(bm, exec_dir);
     });
 
     let db_uri = {
-        let mut p = home_dir.clone();
+        let mut p = wd.home_dir();
         p.push(".yiilian/db/res.db");
 
         if !p.as_path().exists() {
-            let mut db_dir = home_dir.clone();
+            let mut db_dir = wd.home_dir();
             db_dir.push(".yiilian/db");
             fs::create_dir_all(db_dir).unwrap();
 
@@ -422,6 +420,7 @@ fn create_dht_list(
     config: &Config,
     shutdown_rx: ShutdownReceiver,
     tx: Sender<Arc<Request<KrpcBody>>>,
+    home_dir: PathBuf,
 ) -> Result<
     Vec<
         Dht<impl KrpcService<KrpcBody, ResBody = KrpcBody, Error = Error> + Clone + Send + 'static>,
@@ -459,7 +458,7 @@ fn create_dht_list(
         for port in port_start..=port_end {
             let local_addr: SocketAddr = format!("0.0.0.0:{port}").parse().unwrap();
 
-            let dht = DhtBuilder::new(local_addr, shutdown_rx.clone(), workers)
+            let dht = DhtBuilder::new(local_addr, shutdown_rx.clone(), workers, home_dir.clone())
                 .block_list(block_ips.clone())
                 .settings(settings.clone())
                 .mode(DhtMode::Crawler(config.bt.download_port))
@@ -479,7 +478,7 @@ fn create_dht_list(
         for port in ports {
             let local_addr: SocketAddr = format!("0.0.0.0:{port}").parse().unwrap();
 
-            let dht = DhtBuilder::new(local_addr, shutdown_rx.clone(), workers)
+            let dht = DhtBuilder::new(local_addr, shutdown_rx.clone(), workers, home_dir.clone())
                 .block_list(block_ips.clone())
                 .settings(settings.clone())
                 .mode(DhtMode::Crawler(config.bt.download_port))

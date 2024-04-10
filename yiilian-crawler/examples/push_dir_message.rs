@@ -1,14 +1,16 @@
 
+use yiilian_core::common::working_dir::WorkingDir;
 use yiilian_mq::{engine::Engine, segment::LOG_DATA_SIZE};
 
 #[tokio::main]
 async fn main() {
-    let mut dl_path = home::home_dir().unwrap();
+    let wd = WorkingDir::new();
+    let mut dl_path = wd.home_dir();
     dl_path.push(".yiilian/dl");
 
     let topic_name = "info_index";
     let mut engine = {
-        let mut engine = Engine::new(LOG_DATA_SIZE).expect("create mq engine");
+        let mut engine = Engine::new(LOG_DATA_SIZE, wd.home_dir()).expect("create mq engine");
         engine
             .open_topic(topic_name)
             .expect("open info_index topic");

@@ -42,7 +42,7 @@ async fn main() {
 
     let bt_config = BtConfig::new(dht_config, 10800);
     let download_dir = {
-        let mut d = home::home_dir().unwrap();
+        let mut d = wd.home_dir();
         d.push(".yiilian/dl/");
 
         fs::create_dir_all(d.clone())
@@ -53,7 +53,7 @@ async fn main() {
 
     let (mut shutdown_tx, shutdown_rx) = create_shutdown();
 
-    let bt_downloader = BtDownloader::new(&bt_config, download_dir, shutdown_rx).unwrap();
+    let bt_downloader = BtDownloader::new(&bt_config, download_dir, shutdown_rx, wd.home_dir()).unwrap();
 
     tokio::select! {
         _ = bt_downloader.run_loop() => (),

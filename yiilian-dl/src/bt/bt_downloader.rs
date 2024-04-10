@@ -36,8 +36,9 @@ impl BtDownloader {
         config: &BtConfig,
         download_dir: PathBuf,
         shutdown_rx: ShutdownReceiver,
+        home_dir: PathBuf,
     ) -> Result<Self, Error> {
-        let dht = create_dht(&config, shutdown_rx.clone())?;
+        let dht = create_dht(&config, shutdown_rx.clone(), home_dir)?;
         let local_id = Id::from_random(&mut thread_rng()).get_bytes();
         
         Ok(BtDownloader {
@@ -195,6 +196,7 @@ impl BtDownloader {
 fn create_dht(
     config: &BtConfig,
     shutdown_rx: ShutdownReceiver,
+    home_dir: PathBuf,
 ) -> Result<Dht<FirewallService<RouterService>>, Error> {
     let port = &config.dht.port;
     let block_ips = config.get_dht_block_list();
@@ -221,7 +223,7 @@ fn create_dht(
 
     let local_addr: SocketAddr = format!("0.0.0.0:{port}").parse().unwrap();
 
-    let dht = DhtBuilder::new(local_addr, shutdown_rx.clone(), workers)
+    let dht = DhtBuilder::new(local_addr, shutdown_rx.clone(), workers, home_dir)
         .block_list(block_ips.clone())
         .settings(settings.clone())
         .layer(FirewallLayer::new(

@@ -1,12 +1,13 @@
 use std::{fs, thread::sleep, time::Duration};
 
-use yiilian_core::common::util::hash_it;
+use yiilian_core::common::{util::hash_it, working_dir::WorkingDir};
 
 const FOLDER_NUM: u64 = 1000;
 
 fn main() {
     let base = {
-        let mut dl_path = home::home_dir().unwrap();
+        let wd = WorkingDir::new();
+        let mut dl_path = wd.home_dir();
         dl_path.push(".yiilian/dl");
 
         fs::create_dir_all(dl_path.clone()).unwrap();

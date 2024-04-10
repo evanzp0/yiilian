@@ -4,12 +4,13 @@ pub struct WorkingDir {
     exec_pathes: Vec<PathBuf>,
     exec_dir: PathBuf,
     current_dir: PathBuf,
+    home_dir: PathBuf,
 }
 
 impl WorkingDir {
     pub fn new() -> Self {
         let home_dir = home::home_dir().unwrap();
-        std::env::set_var("HOME", home_dir);
+        std::env::set_var("HOME", home_dir.clone());
         
         let mut exec_pathes: Vec<PathBuf> = vec![];
 
@@ -38,6 +39,7 @@ impl WorkingDir {
             exec_pathes,
             exec_dir,
             current_dir,
+            home_dir,
         }
     }
 
@@ -51,6 +53,10 @@ impl WorkingDir {
 
     pub fn current_dir(&self) -> PathBuf {
         self.current_dir.clone()
+    }
+
+    pub fn home_dir(&self) -> PathBuf {
+        self.home_dir.clone()
     }
 
     pub fn get_path_by_entry(&self, entry: &str) -> Option<PathBuf> {

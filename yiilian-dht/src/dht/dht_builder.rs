@@ -1,4 +1,4 @@
-use std::{collections::HashSet, net::SocketAddr};
+use std::{collections::HashSet, net::SocketAddr, path::PathBuf};
 
 use yiilian_core::{
     common::{error::Error, shutdown::ShutdownReceiver},
@@ -23,10 +23,11 @@ pub struct DhtBuilder<L, S> {
     shutdown_rx: ShutdownReceiver,
     workers: Option<usize>,
     mode: DhtMode,
+    home_dir: PathBuf,
 }
 
 impl DhtBuilder<Identity, RouterService> {
-    pub fn new(local_addr: SocketAddr, shutdown_rx: ShutdownReceiver, workers: Option<usize>) -> Self {
+    pub fn new(local_addr: SocketAddr, shutdown_rx: ShutdownReceiver, workers: Option<usize>, home_dir: PathBuf) -> Self {
         let router_service = RouterService::new(local_addr);
         Self {
             local_addr,
@@ -37,6 +38,7 @@ impl DhtBuilder<Identity, RouterService> {
             shutdown_rx,
             workers,
             mode: DhtMode::Normal,
+            home_dir,
         }
     }
 
@@ -71,6 +73,7 @@ impl<L, S> DhtBuilder<L, S> {
             shutdown_rx: self.shutdown_rx,
             workers: self.workers,
             mode: self.mode,
+            home_dir: self.home_dir,
         }
     }
 
@@ -89,6 +92,7 @@ impl<L, S> DhtBuilder<L, S> {
             self.shutdown_rx,
             self.workers,
             self.mode,
+            self.home_dir,
         );
 
         dht

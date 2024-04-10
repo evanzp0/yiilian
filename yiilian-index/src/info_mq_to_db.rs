@@ -181,14 +181,16 @@ impl InfoMqToDbBuilder {
 mod tests {
     use std::sync::Mutex;
 
-    use yiilian_core::data::{FileInfo, MetaInfo};
+    use yiilian_core::{common::working_dir::WorkingDir, data::{FileInfo, MetaInfo}};
     use yiilian_mq::segment::LOG_DATA_SIZE;
 
     use super::*;
 
     #[tokio::test]
     async fn test_add_single_and_fetch() {
-        let mut mq_engine = Engine::new(LOG_DATA_SIZE).unwrap();
+        let wd = WorkingDir::new();
+        
+        let mut mq_engine = Engine::new(LOG_DATA_SIZE, wd.home_dir()).unwrap();
         mq_engine.open_topic("test_info_mq").unwrap();
         let mq_engine = Arc::new(Mutex::new(mq_engine));
 
@@ -218,8 +220,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_add_multiple() {
+        let wd = WorkingDir::new();
 
-        let mut mq_engine = Engine::new(LOG_DATA_SIZE).unwrap();
+        let mut mq_engine = Engine::new(LOG_DATA_SIZE, wd.home_dir()).unwrap();
         mq_engine.open_topic("test_info_mq1").unwrap();
         let mq_engine = Arc::new(Mutex::new(mq_engine));
 

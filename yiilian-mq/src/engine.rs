@@ -22,8 +22,8 @@ pub struct Engine {
 }
 
 impl Engine {
-    pub fn new(log_data_size: usize) -> Result<Self, Error> {
-        let path: PathBuf = home::home_dir().unwrap().join(".yiilian/mq/");
+    pub fn new(log_data_size: usize, home_dir: PathBuf) -> Result<Self, Error> {
+        let path: PathBuf = home_dir.join(".yiilian/mq/");
 
         fs::create_dir_all(path.clone())
             .map_err(|error| Error::new_file(Some(error.into()), None))?;
@@ -143,15 +143,18 @@ pub async fn purge_loop(engine: Arc<Mutex<Engine>>) {
 #[cfg(test)]
 mod tests {
 
+    use yiilian_core::common::working_dir::WorkingDir;
+
     use super::*;
 
     #[tokio::test]
     async fn test_engine() {
         let topic_name = "test_count";
         let consumer_name = "test_client";
+        let wd = WorkingDir::new();
 
         let mut engine = {
-            let mut engine = Engine::new(100).expect("create mq engine");
+            let mut engine = Engine::new(100, wd.home_dir()).expect("create mq engine");
             engine
                 .open_topic(topic_name)
                 .expect("open test_count topic");

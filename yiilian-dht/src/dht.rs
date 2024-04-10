@@ -73,6 +73,7 @@ where
         shutdown_rx: ShutdownReceiver,
         workers: Option<usize>,
         mode: DhtMode,
+        home_dir: PathBuf,
     ) -> Result<Self, Error> {
         let local_id =  if let DhtMode::Crawler(_) = mode {
             Id::from_random(&mut rand::thread_rng())
@@ -126,14 +127,7 @@ where
 
         let server = Server::new(socket.clone(), service, workers);
 
-        let nodes_file = home::home_dir()
-            .map_or(
-                Err(Error::new_path(
-                    None,
-                    Some("<user home> not found".to_owned()),
-                )),
-                |v| Ok(v),
-            )?
+        let nodes_file = home_dir
             .join(format!(".yiilian/dht/{}.txt", ctx_index));
 
         Ok(Dht {

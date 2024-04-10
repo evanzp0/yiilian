@@ -23,4 +23,3 @@ utp = "0.7"
 
 [dev-dependencies]
 utp-rs = "0.1.0-alpha.8"
-home = "0.5"

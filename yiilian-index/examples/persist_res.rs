@@ -11,7 +11,7 @@ async fn main() {
     let log4rs_path = wd.get_path_by_entry("log4rs.yml");
     setup_log4rs_from_file(&log4rs_path.unwrap());
 
-    let mut mq_engine = Engine::new(LOG_DATA_SIZE).unwrap();
+    let mut mq_engine = Engine::new(LOG_DATA_SIZE, wd.home_dir()).unwrap();
     mq_engine.open_topic("info_index").unwrap();
     let mq_engine = Arc::new(Mutex::new(mq_engine));
     

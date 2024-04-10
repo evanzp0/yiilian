@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
 use yiilian_core::{
-    common::{error::Error, shutdown::create_shutdown},
+    common::{error::Error, shutdown::create_shutdown, working_dir::WorkingDir},
     service::{FirewallLayer, LogLayer},
 };
 use yiilian_dht::dht::DhtBuilder;
@@ -14,7 +14,9 @@ async fn main() -> Result<(), Error> {
 
     let local_addr: SocketAddr = "0.0.0.0:6578".parse().unwrap();
 
-    let dht = DhtBuilder::new(local_addr, shutdown_rx.clone(), Some(100))
+    let wd = WorkingDir::new();
+
+    let dht = DhtBuilder::new(local_addr, shutdown_rx.clone(), Some(100), wd.home_dir())
         .layer(FirewallLayer::new(1000, 20, 1000, shutdown_rx.clone()))
         .layer(LogLayer)
         .build()
