@@ -82,8 +82,6 @@ impl TryFrom<&[u8]> for InfoMessage {
 #[cfg(test)]
 mod tests {
 
-    use std::net::SocketAddr;
-
     use super::*;
 
     #[test]

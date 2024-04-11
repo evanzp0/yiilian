@@ -122,7 +122,6 @@ impl From<BtHandshake> for BytesMut {
 
 #[cfg(test)]
 mod tests {
-    use bytes::BytesMut;
 
     use super::*;
 

@@ -179,9 +179,8 @@ impl InfoMqToDbBuilder {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Mutex;
 
-    use yiilian_core::{common::working_dir::WorkingDir, data::{FileInfo, MetaInfo}};
+    use yiilian_core::{common::working_dir::WorkingDir, data::FileInfo};
     use yiilian_mq::segment::LOG_DATA_SIZE;
 
     use super::*;
