@@ -1,3 +1,4 @@
 mod app_state;
+mod template;
 
-pub use app_state::AppState;
+pub use app_state::*;

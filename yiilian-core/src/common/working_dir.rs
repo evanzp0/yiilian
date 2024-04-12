@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+#[derive(Debug)]
 pub struct WorkingDir {
     exec_pathes: Vec<PathBuf>,
     exec_dir: PathBuf,
@@ -31,7 +32,7 @@ impl WorkingDir {
 
         let current_dir = std::env::current_dir().expect("Can't get the current path");
         if !exec_pathes.contains(&current_dir) {
-            exec_pathes.insert(0,current_dir.clone());
+            exec_pathes.push(current_dir.clone());
         }
 
         let exec_dir = exec_dir.expect("exec_dir is None");

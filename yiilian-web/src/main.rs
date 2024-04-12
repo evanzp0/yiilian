@@ -1,36 +1,41 @@
-use std::sync::Arc;
-
 use axum::{extract::MatchedPath, http::Request, routing::get, Router};
 
+use tera::Tera;
 use tower_http::{
     services::{ServeDir, ServeFile},
     trace::TraceLayer,
 };
-use tracing::trace;
+
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 use yiilian_core::common::working_dir::WorkingDir;
-use yiilian_web::{common::AppState, STATIC_DIR};
+use yiilian_web::{common::{init_app_state, AppState}, handle::root, STATIC_DIR};
 
 #[tokio::main]
 async fn main() {
     let working_dir = WorkingDir::new();
     setup_tracing(&working_dir);
 
-    // dir: web/static
-    let static_path = working_dir
-        .get_path_by_entry("web")
-        .and_then(|p| Some(p.join(STATIC_DIR)))
-        .unwrap();
-    // file: web/static/404.html
-    let file_404 = static_path.clone().join("404.html");
+    let web_dir = working_dir.get_path_by_entry("web").unwrap();
 
-    let app_state = Arc::new(AppState::new(working_dir));
-    let serve_dir = ServeDir::new(static_path).not_found_service(ServeFile::new(file_404.clone()));
+    let tera = {
+        let tpl_wld = web_dir.to_str().unwrap().to_owned() + "/**/*.tpl";
+        Tera::new(&tpl_wld).unwrap()
+    };
+    
+    // dir: web/static
+    let static_dir = web_dir.join(STATIC_DIR);
+
+    // file: web/static/404.html
+    let file_404_path = static_dir.clone().join("404.html");
+
+    init_app_state(AppState::new(working_dir, tera));
+
+    let serve_dir = ServeDir::new(static_dir).not_found_service(ServeFile::new(file_404_path.clone()));
 
     let app = Router::new()
-        .route("/", get(|| async { trace!("hello") }))
+        .route("/", get(root))
         .nest_service("/static", serve_dir.clone())
-        .fallback_service(ServeFile::new(file_404))
+        .fallback_service(ServeFile::new(file_404_path))
         .layer(
             TraceLayer::new_for_http()
                 // Create our own span for the request and include the matched path. The matched
@@ -50,8 +55,7 @@ async fn main() {
                 // By default `TraceLayer` will log 5xx responses but we're doing our specific
                 // logging of errors so disable that
                 .on_failure(()),
-        )
-        .with_state(app_state);
+        );
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     axum::serve(listener, app).await.unwrap();
@@ -62,7 +66,7 @@ fn setup_tracing(wd: &WorkingDir) {
     dotenv::from_path(env_path.as_path()).unwrap();
 
     tracing_subscriber::registry()
-        .with(fmt::layer().with_ansi(false))
+        .with(fmt::layer().with_ansi(true))
         .with(EnvFilter::from_env("RUST_LOG"))
         .init();
 }
