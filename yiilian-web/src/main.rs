@@ -1,6 +1,6 @@
 use std::fs;
 
-use axum::{extract::MatchedPath, http::Request, routing::get, Router};
+use axum::{extract::MatchedPath, http::Request, middleware::from_fn, routing::get, Router};
 use tera::Tera;
 use tower_http::{
     services::{ServeDir, ServeFile},
@@ -10,7 +10,7 @@ use tantivy::Index;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 use yiilian_core::common::working_dir::WorkingDir;
-use yiilian_web::{common::{init_app_state, AppState}, handle::{root, search}, STATIC_DIR};
+use yiilian_web::{common::{init_app_state, AppState}, handle::{handler_error_layer, root, search}, STATIC_DIR};
 
 #[tokio::main]
 async fn main() {
@@ -20,7 +20,7 @@ async fn main() {
     let web_dir = working_dir.get_path_by_entry("web").unwrap();
 
     let tera = {
-        let tpl_wld = web_dir.to_str().unwrap().to_owned() + "/**/*.tpl";
+        let tpl_wld = web_dir.to_str().unwrap().to_owned() + "/**/*.tera";
         Tera::new(&tpl_wld).unwrap()
     };
     
@@ -73,7 +73,8 @@ async fn main() {
                 // By default `TraceLayer` will log 5xx responses but we're doing our specific
                 // logging of errors so disable that
                 .on_failure(()),
-        );
+        )
+        .layer(from_fn(handler_error_layer));
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     axum::serve(listener, app).await.unwrap();

@@ -9,7 +9,7 @@ macro_rules! render {
                 context.insert($name, &$val);
             )*
 
-            crate::common::app_state().tera().render($tpl_path, &context).unwrap()
+            crate::common::app_state().tera().render($tpl_path, &context)
         }
     };
 
@@ -17,7 +17,7 @@ macro_rules! render {
         {
             let mut context = tera::Context::new();
             context.insert("value", &$val);
-            crate::common::app_state().tera().render($tpl_path, &context).unwrap()
+            crate::common::app_state().tera().render($tpl_path, &context)
         }
     };
 
@@ -25,14 +25,14 @@ macro_rules! render {
         {
             let mut context = tera::Context::new();
             context.insert("value", &$val);
-            crate::common::app_state().tera().render($tpl_path, &context).unwrap()
+            crate::common::app_state().tera().render($tpl_path, &context)
         }
     };
 
     ($tpl_path: expr) => {
         {
             let context = tera::Context::new();
-            crate::common::app_state().tera().render($tpl_path, &context).unwrap()
+            crate::common::app_state().tera().render($tpl_path, &context)
         }
     };
 }

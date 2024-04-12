@@ -1,10 +1,10 @@
 use axum::response::Html;
 use tracing::instrument;
 
-use crate::render;
+use crate::{render, Result};
 
 #[instrument]
-pub async fn root() -> Html<String> {
+pub async fn root() -> Result<Html<String>> {
     
-    render!("index.tpl").into()
+    Ok(render!("index.tera")?.into())
 }
