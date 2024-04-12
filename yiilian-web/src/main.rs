@@ -28,6 +28,9 @@ async fn main() {
     // file: web/static/404.html
     let file_404_path = static_dir.clone().join("404.html");
 
+    // file: web/robots.txt
+    let robots_txt = ServeFile::new("./web/robots.txt");
+
     init_app_state(AppState::new(working_dir, tera));
 
     let serve_dir = ServeDir::new(static_dir).not_found_service(ServeFile::new(file_404_path.clone()));
@@ -35,6 +38,7 @@ async fn main() {
     let app = Router::new()
         .route("/", get(root))
         .nest_service("/static", serve_dir.clone())
+        .nest_service("/robots.txt", robots_txt)
         .fallback_service(ServeFile::new(file_404_path))
         .layer(
             TraceLayer::new_for_http()
