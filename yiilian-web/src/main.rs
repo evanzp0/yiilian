@@ -1,14 +1,16 @@
-use axum::{extract::MatchedPath, http::Request, routing::get, Router};
+use std::fs;
 
+use axum::{extract::MatchedPath, http::Request, routing::get, Router};
 use tera::Tera;
 use tower_http::{
     services::{ServeDir, ServeFile},
     trace::TraceLayer,
 };
-
+use tantivy::Index;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+
 use yiilian_core::common::working_dir::WorkingDir;
-use yiilian_web::{common::{init_app_state, AppState}, handle::root, STATIC_DIR};
+use yiilian_web::{common::{init_app_state, AppState}, handle::{root, search}, STATIC_DIR};
 
 #[tokio::main]
 async fn main() {
@@ -31,12 +33,24 @@ async fn main() {
     // file: web/robots.txt
     let robots_txt = ServeFile::new("./web/robots.txt");
 
-    init_app_state(AppState::new(working_dir, tera));
+    // dir: <home>/.yiilian/index
+    let index_path = {
+        let path = working_dir.home_dir().join(".yiilian/index");
+        if !path.exists() {
+            fs::create_dir_all(&path).unwrap();
+        }
+
+        path
+    };
+    let index = Index::open_in_dir(&index_path).unwrap();
+
+    init_app_state(AppState::new(working_dir, tera, index));
 
     let serve_dir = ServeDir::new(static_dir).not_found_service(ServeFile::new(file_404_path.clone()));
 
     let app = Router::new()
         .route("/", get(root))
+        .route("/search", get(search))
         .nest_service("/static", serve_dir.clone())
         .nest_service("/robots.txt", robots_txt)
         .fallback_service(ServeFile::new(file_404_path))

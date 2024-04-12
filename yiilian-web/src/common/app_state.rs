@@ -1,4 +1,5 @@
 use once_cell::sync::OnceCell;
+use tantivy::Index;
 use tera::Tera;
 use yiilian_core::common::working_dir::WorkingDir;
 
@@ -8,11 +9,12 @@ pub static mut APP_STATE: OnceCell<AppState> = OnceCell::new();
 pub struct AppState {
     pub working_dir: WorkingDir,
     pub tera: Tera,
+    index: Index,
 }
 
 impl AppState {
-    pub fn new(working_dir: WorkingDir, tera: Tera) -> Self {
-        AppState { working_dir, tera }
+    pub fn new(working_dir: WorkingDir, tera: Tera, index: Index) -> Self {
+        AppState { working_dir, tera, index }
     }
 
     pub fn working_dir(&self) -> &WorkingDir {
@@ -21,6 +23,10 @@ impl AppState {
 
     pub fn tera(&self) -> &Tera {
         &self.tera
+    }
+
+    pub fn index(&self) -> &Index {
+        &self.index
     }
 }
 

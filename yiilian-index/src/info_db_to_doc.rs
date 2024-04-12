@@ -1,4 +1,5 @@
 
+use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
 
@@ -194,7 +195,7 @@ impl InfoDbToDocBuilder {
         self
     }
 
-    pub fn index_path(mut self, index_path: &str) -> Self {
+    pub fn index_path(mut self, index_path: PathBuf) -> Self {
         let mut schema_builder = Schema::builder();
         schema_builder.add_text_field("info_hash", TEXT | STORED);
         schema_builder.add_i64_field("res_type", STORED);

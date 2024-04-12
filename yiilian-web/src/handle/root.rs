@@ -1,7 +1,10 @@
+use axum::response::Html;
+use tracing::instrument;
+
 use crate::render;
 
-pub async fn root() -> String {
-    tracing::trace!("index");
+#[instrument]
+pub async fn root() -> Html<String> {
     
-    render!("index.tpl", { "name" => "hello world", "val" => &2 })
+    render!("index.tpl").into()
 }

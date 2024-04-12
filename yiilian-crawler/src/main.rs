@@ -6,7 +6,7 @@ use bloomfilter::Bloom;
 use futures::future::join_all;
 
 use hex::ToHex;
-use tantivy::{schema::Schema, Index};
+use tantivy::schema::Schema;
 use tokio::{
     net::TcpListener,
     signal::unix::SignalKind,
@@ -128,11 +128,19 @@ async fn main() {
         .build();
 
     let schema = Schema::builder().build();
-    let index = Index::create_in_ram(schema.clone());
+    let index_path = {
+        let path = wd.home_dir().join(".yiilian/index");
+        if !path.exists() {
+            fs::create_dir_all(&path).unwrap();
+        }
+
+        path
+    };
+
     let mut db_doc = InfoDbToDocBuilder::new()
         .db_uri(&db_uri)
         .await
-        .index(index)
+        .index_path(index_path)
         .schema(schema)
         .build();
 
