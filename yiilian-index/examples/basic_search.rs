@@ -8,7 +8,7 @@ fn main() -> tantivy::Result<()> {
 
     let mut schema_builder = Schema::builder();
     schema_builder.add_text_field("title", TEXT | STORED);
-    schema_builder.add_text_field("body", TEXT);
+    schema_builder.add_text_field("body", TEXT | STORED);
 
     let schema = schema_builder.build();
 
@@ -66,12 +66,13 @@ fn main() -> tantivy::Result<()> {
 
     let query_parser = QueryParser::for_index(&index, vec![title, body]);
 
-    let query = query_parser.parse_query("Mice Men")?;
+    let query = query_parser.parse_query("the")?;
 
     let top_docs = searcher.search(&query, &TopDocs::with_limit(10))?;
 
     for (_score, doc_address) in top_docs {
         let retrieved_doc = searcher.doc(doc_address)?;
+        // println!("{:?}", retrieved_doc);
         println!("{}", schema.to_json(&retrieved_doc));
     }
 

@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 yiilian-core = "0.1"
+yiilian-index = "0.1"
 once_cell = "1"
 thiserror = "1"
 tracing = "0.1"

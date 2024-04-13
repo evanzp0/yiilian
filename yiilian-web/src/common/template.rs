@@ -2,7 +2,7 @@
 #[macro_export]
 macro_rules! render {
 
-    ($tpl_path: expr, {$($name: expr => $val: expr),*}) => {
+    ($tpl_path: expr, {$($name: expr => $val: expr),* $(,)*}) => {
         {
             let mut context = tera::Context::new();
             $(

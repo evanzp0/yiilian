@@ -5,8 +5,23 @@
     </head>
     <body>
         <form action="/search" method="get">
-            <input name="q" type="text" value="{{value | default(value = '')}}" />
+            <input name="q" type="text" value="{{q | default(value = '')}}" />
             <button type="submit">搜索</button>
         </form>
+
+        <div id="search_result">
+            {% for info_doc in info_docs | default(value = []) %}
+            <div class="entry">
+                <div class="info_hash">
+                    info hash: {{ info_doc.info_hash }}
+                </div>
+                {% for file_path in info_doc.file_paths %}
+                <div class="files">
+                    {{file_path}} | {{ info_doc.file_sizes | nth(n=loop.index0) | filesizeformat }}
+                </div>
+                {% endfor %}
+            <div>
+            {% endfor %}
+        </div>
     </body>
 </html>
