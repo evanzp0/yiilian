@@ -6,7 +6,6 @@ use bloomfilter::Bloom;
 use futures::future::join_all;
 
 use hex::ToHex;
-use tantivy::schema::Schema;
 use tokio::{
     net::TcpListener,
     signal::unix::SignalKind,
@@ -127,7 +126,6 @@ async fn main() {
         .mq_engine(mq_engine.clone())
         .build();
 
-    let schema = Schema::builder().build();
     let index_path = {
         let path = wd.home_dir().join(".yiilian/index");
         if !path.exists() {
@@ -141,7 +139,6 @@ async fn main() {
         .db_uri(&db_uri)
         .await
         .index_path(index_path)
-        .schema(schema)
         .build();
 
     drop(shutdown_rx);
@@ -181,6 +178,8 @@ async fn main() {
         _ = term_sig.recv() => {
             drop(dht_list);
             drop(bt_downloader);
+            drop(mq_db);
+            drop(db_doc);
 
             shutdown_tx.shutdown().await;
 

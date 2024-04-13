@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use yiilian_core::common::{util::setup_log4rs_from_file, working_dir::WorkingDir};
+use yiilian_core::common::working_dir::WorkingDir;
 use yiilian_index::info_mq_to_db::InfoMqToDbBuilder;
 use yiilian_mq::{engine::Engine, segment::LOG_DATA_SIZE};
 
@@ -8,15 +8,14 @@ use yiilian_mq::{engine::Engine, segment::LOG_DATA_SIZE};
 #[tokio::main]
 async fn main() {
     let wd = WorkingDir::new();
-    let log4rs_path = wd.get_path_by_entry("log4rs.yml");
-    setup_log4rs_from_file(&log4rs_path.unwrap());
+    // let log4rs_path = wd.get_path_by_entry("log4rs.yml");
+    // setup_log4rs_from_file(&log4rs_path.unwrap());
 
     let mut mq_engine = Engine::new(LOG_DATA_SIZE, wd.home_dir()).unwrap();
     mq_engine.open_topic("info_index").unwrap();
     let mq_engine = Arc::new(Mutex::new(mq_engine));
     
-    let mut db_uri = wd.current_dir();
-    db_uri.push("migrations/res.db");
+    let db_uri = wd.home_dir().join(".yiilian/db/res.db");
     let db_uri = db_uri.to_str().unwrap();
 
     // let db_uri = "/home/evan/workspace/yiilian/yiilian-index/migrations/res.db";

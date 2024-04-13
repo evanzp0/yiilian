@@ -1,4 +1,3 @@
-
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
@@ -13,7 +12,9 @@ use sqlx::{
 };
 
 use tantivy::schema::Schema;
+use tantivy::schema::INDEXED;
 use tantivy::schema::STORED;
+use tantivy::schema::STRING;
 use tantivy::schema::TEXT;
 use tantivy::Index;
 use tokio::time::sleep;
@@ -30,12 +31,14 @@ const INDEX_WRITER_BUF_SIZE: usize = 50_000_000;
 pub struct InfoDbToDoc {
     db_connection: SqliteConnection,
     index: Index,
-    schema: Schema,
 }
 
 impl InfoDbToDoc {
-    pub fn new(db_connection: SqliteConnection, index: Index, schema: Schema) -> Self {
-        InfoDbToDoc { db_connection, index, schema }
+    pub fn new(db_connection: SqliteConnection, index: Index) -> Self {
+        InfoDbToDoc {
+            db_connection,
+            index,
+        }
     }
 
     pub async fn index_loop(&mut self) {
@@ -44,22 +47,24 @@ impl InfoDbToDoc {
         loop {
             sleep(Duration::from_secs(1)).await;
             let fetch_rst = self.fetch_unindex_bt_info_record().await;
+
             match fetch_rst {
                 Err(error) => {
                     log::trace!(target: "yiilian_index::info_db_to_doc::index_loop", "fetch_rst error: {}", error);
                     continue;
-                },
+                }
                 Ok(res_infos) => {
                     if res_infos.len() > 0 {
                         is_found = true;
 
                         for res_info in res_infos {
-                            let fetch_files_rst = self.fetch_bt_files_record(&res_info.info_hash).await;
+                            let fetch_files_rst =
+                                self.fetch_bt_files_record(&res_info.info_hash).await;
                             match fetch_files_rst {
                                 Err(error) => {
                                     log::trace!(target: "yiilian_index::info_db_to_doc::index_loop", "fetch_files_rst error: {}", error);
                                     break;
-                                },
+                                }
                                 Ok(res_files) => {
                                     if let Err(error) = self.index_res_info(&res_info, &res_files) {
                                         log::trace!(target: "yiilian_index::info_db_to_doc::index_loop", "index_res_info error: {}", error);
@@ -67,31 +72,37 @@ impl InfoDbToDoc {
                                     } else {
                                         log::trace!(target: "yiilian_index::info_db_to_doc::index_loop", "index info: {}", res_info.info_hash);
 
-                                        self.update_indexed_res_info(&res_info.info_hash).await.ok();
-
+                                        self.update_indexed_res_info(&res_info.info_hash)
+                                            .await
+                                            .ok();
                                     }
-                                },
+                                }
                             }
 
                             proc_doc_num += 1;
-                        };
+                        }
                     }
-                },
+                }
             }
 
             if !is_found || proc_doc_num >= MAX_PROC_DOC_NUM {
                 proc_doc_num = 0;
                 is_found = false;
 
-                let segments = self.index.searchable_segment_ids().expect("searchable_segment_ids");
-                
+                let segments = self
+                    .index
+                    .searchable_segment_ids()
+                    .expect("searchable_segment_ids");
+
                 if segments.len() > 0 {
-                    let mut index_writer = self.index.writer(INDEX_WRITER_BUF_SIZE).expect("get index_writer");
+                    let mut index_writer = self
+                        .index
+                        .writer(INDEX_WRITER_BUF_SIZE)
+                        .expect("get index_writer");
                     index_writer.merge(&segments);
                     // index_writer.wait_merging_threads().expect("wait_merging_threads");
 
                     log::trace!(target: "yiilian_index::info_db_to_doc::index_loop", "Merged segments: {}", segments.len());
-
                 }
                 sleep(Duration::from_secs(INDEX_INTERVAL_SEC)).await;
             }
@@ -111,34 +122,61 @@ impl InfoDbToDoc {
         Ok(())
     }
 
-    pub fn index_res_info(&mut self, res_info: &ResInfoRecord, res_files: &Vec<ResFileRecord>) -> Result<(), Error> {
-
-        let mut file_paths = vec![];
-        let mut file_sizes = vec![];
-        for file in  res_files {
-            file_paths.push(file.file_path.clone());
-            file_sizes.push(file.file_size);
+    pub fn index_res_info(
+        &mut self,
+        res_info: &ResInfoRecord,
+        res_files: &Vec<ResFileRecord>,
+    ) -> Result<(), Error> {
+        let mut file_paths_value = vec![];
+        let mut file_sizes_value = vec![];
+        for file in res_files {
+            // file_paths_value.push(serde_json::Value::from(file.file_path.clone()));
+            // file_sizes_value.push(serde_json::Value::from(file.file_size));
+            file_paths_value.push(file.file_path.clone());
+            file_sizes_value.push(file.file_size);
         }
+
+        // let file_paths_value = serde_json::Value::Array(file_paths_value);
+        // let file_sizes_value = serde_json::Value::Array(file_sizes_value);
+
+        // let schema = self.index.schema();
+
+        // let info_hash = schema.get_field("info_hash").unwrap();
+        // let res_type = schema.get_field("res_type").unwrap();
+        // let create_time = schema.get_field("create_time").unwrap();
+        // let file_paths = schema.get_field("file_paths").unwrap();
+        // let file_sizes = schema.get_field("file_sizes").unwrap();
+
+        // let res_doc = doc! {
+        //     info_hash => res_info.info_hash.clone(),
+        //     res_type =>  res_info.res_type as u64,
+        //     create_time => res_info.create_time.clone(),
+        //     file_paths => file_paths_value,
+        //     file_sizes=> file_sizes_value,
+        // };
 
         let res_doc = ResInfoDoc {
             info_hash: res_info.info_hash.clone(),
             res_type: res_info.res_type,
             create_time: res_info.create_time.clone(),
-            file_paths,
-            file_sizes,
+            file_paths: file_paths_value,
+            file_sizes: file_sizes_value,
         };
-
         let res_doc = serde_json::to_string(&res_doc)
             .map_err(|error| Error::new_index(Some(error.into()), None))?;
-        let res_doc = self.schema.parse_document(&res_doc)
+        let res_doc = self.index
+            .schema()
+            .parse_document(&res_doc)
             .map_err(|error| Error::new_index(Some(error.into()), None))?;
 
         let mut index_writer = self.index.writer(INDEX_WRITER_BUF_SIZE).unwrap();
 
-        index_writer.add_document(res_doc)
+        index_writer
+            .add_document(res_doc)
             .map_err(|error| Error::new_index(Some(error.into()), None))?;
 
-        index_writer.commit()
+        index_writer
+            .commit()
             .map_err(|error| Error::new_index(Some(error.into()), None))?;
 
         Ok(())
@@ -155,7 +193,10 @@ impl InfoDbToDoc {
         Ok(rst)
     }
 
-    pub async fn fetch_bt_files_record(&mut self, info_hash: &str) -> Result<Vec<ResFileRecord>, Error> {
+    pub async fn fetch_bt_files_record(
+        &mut self,
+        info_hash: &str,
+    ) -> Result<Vec<ResFileRecord>, Error> {
         let mut conn = &mut self.db_connection;
         let value = Value::new(info_hash);
 
@@ -168,12 +209,10 @@ impl InfoDbToDoc {
     }
 }
 
-
 #[derive(Default)]
 pub struct InfoDbToDocBuilder {
     db_connection: Option<SqliteConnection>,
     index: Option<Index>,
-    schema: Option<Schema>,
 }
 
 impl InfoDbToDocBuilder {
@@ -196,18 +235,23 @@ impl InfoDbToDocBuilder {
     }
 
     pub fn index_path(mut self, index_path: PathBuf) -> Self {
-        let mut schema_builder = Schema::builder();
-        schema_builder.add_text_field("info_hash", TEXT | STORED);
-        schema_builder.add_i64_field("res_type", STORED);
-        schema_builder.add_text_field("create_time", STORED);
-        schema_builder.add_text_field("file_paths", TEXT | STORED);
-        schema_builder.add_i64_field("file_sizes", STORED);
+        let index = match Index::open_in_dir(&index_path) {
+            Ok(val) => val,
+            Err(_) => {
+                let mut schema_builder = Schema::builder();
+                schema_builder.add_text_field("info_hash", STRING | STORED);
+                schema_builder.add_u64_field("res_type", INDEXED | STORED);
+                schema_builder.add_text_field("create_time", STORED);
+                schema_builder.add_text_field("file_paths", TEXT | STORED);
+                schema_builder.add_u64_field("file_sizes", STORED);
+        
+                let schema = schema_builder.build();
     
-        let schema = schema_builder.build();
-    
-        let index = Index::create_in_dir(&index_path, schema.clone()).unwrap();
+                Index::create_in_dir(&index_path, schema.clone()).unwrap()
+            },
+        };
+
         self.index = Some(index);
-        self.schema = Some(schema);
 
         self
     }
@@ -217,18 +261,16 @@ impl InfoDbToDocBuilder {
         self
     }
 
-    pub fn schema(mut self, schema: Schema)-> Self {
-        self.schema = Some(schema);
-        self
-    }
-
     pub fn index(mut self, index: Index) -> Self {
         self.index = Some(index);
         self
     }
 
     pub fn build(self) -> InfoDbToDoc {
-        InfoDbToDoc::new(self.db_connection.unwrap(), self.index.unwrap(), self.schema.unwrap())
+        InfoDbToDoc::new(
+            self.db_connection.unwrap(),
+            self.index.unwrap(),
+        )
     }
 }
 
@@ -246,9 +288,7 @@ mod tests {
         let mut ri = InfoDbToDocBuilder::new()
             .db_connection(conn)
             .index(index)
-            .schema(schema)
             .build();
-
 
         let rst = ri.fetch_unindex_bt_info_record().await.unwrap();
         assert_eq!("00000000000000000001", rst[0].info_hash);
@@ -289,7 +329,7 @@ mod tests {
             "insert into res_info 
                 (info_hash, res_type, create_time, mod_time, is_indexed)
             values
-                ('00000000000000000001', 0, '2024-0101T11:00:00', '2024-0101T11:00:00', 0)"
+                ('00000000000000000001', 0, '2024-0101T11:00:00', '2024-0101T11:00:00', 0)",
         )
         .execute(&mut conn)
         .await
@@ -317,7 +357,7 @@ mod tests {
             "insert into res_file 
                 (info_hash, file_path, file_size, create_time, mod_time)
             values
-                ('00000000000000000001', 'file1', 100, '2024-0101T11:00:00', '2024-0101T11:00:00')"
+                ('00000000000000000001', 'file1', 100, '2024-0101T11:00:00', '2024-0101T11:00:00')",
         )
         .execute(&mut conn)
         .await

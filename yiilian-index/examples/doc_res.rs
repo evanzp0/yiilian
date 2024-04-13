@@ -20,7 +20,6 @@ async fn main() {
     let mut ri = InfoDbToDocBuilder::new()
         .db_uri(db_uri).await
         .index(index)
-        .schema(schema)
         .build();
 
     ri.index_loop().await;
