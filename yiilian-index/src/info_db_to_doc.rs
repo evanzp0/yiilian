@@ -24,7 +24,7 @@ use crate::res_info_doc::ResInfoDoc;
 use crate::res_info_record::ResFileRecord;
 use crate::res_info_record::ResInfoRecord;
 
-const MAX_PROC_DOC_NUM: i32 = 10000;
+const MAX_PROC_DOC_NUM: i32 = 1000;
 const INDEX_INTERVAL_SEC: u64 = 60 * 60;
 const INDEX_WRITER_BUF_SIZE: usize = 50_000_000;
 
@@ -100,7 +100,8 @@ impl InfoDbToDoc {
                         .writer(INDEX_WRITER_BUF_SIZE)
                         .expect("get index_writer");
                     index_writer.merge(&segments);
-                    // index_writer.wait_merging_threads().expect("wait_merging_threads");
+
+                    index_writer.wait_merging_threads().expect("wait_merging_threads");
 
                     log::trace!(target: "yiilian_index::info_db_to_doc::index_loop", "Merged segments: {}", segments.len());
                 }
