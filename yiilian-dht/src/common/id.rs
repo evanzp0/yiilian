@@ -254,9 +254,9 @@ impl IdPrefixMagic {
             IpAddr::V4(ipv4) => {
                 let r32: u32 = seed_r.into();
                 let magic: u32 = 0x030f3fff;
-                let ip_int: u32 = u32::from_be_bytes(ipv4.octets()); //todo! 应该 (ip_int & magic) | (r32 << 29)后取大端序，在计算 hash ，这里顺序错了
+                let ip_int: u32 = u32::from_be_bytes(ipv4.octets()); //将 ip 转成大端序，再从大端序转成 32 位整数
                 let nonsense: u32 = (ip_int & magic) | (r32 << 29);
-                let crc: u32 = CASTAGNOLI.checksum(&nonsense.to_be_bytes());
+                let crc: u32 = CASTAGNOLI.checksum(&nonsense.to_be_bytes()); // 将合并后的结果转成大端序，再求 CRC32 校验码
                 IdPrefixMagic {
                     prefix: crc.to_be_bytes()[..3]
                         .try_into()
