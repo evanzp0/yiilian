@@ -76,11 +76,17 @@ impl Id {
 
         bytes[0] = magic_prefix.prefix[0];
         bytes[1] = magic_prefix.prefix[1];
+        // 第三个字节取 magic_prefix.prefix[2] 的前 5 位，其余 3 位随机生成。例如：1010_0000 -> 1010_0xxx (xxx 为随机生成的)
         bytes[2] = (magic_prefix.prefix[2] & 0xf8) | (rng.gen::<u8>() & 0x7);
+
+        // 生成 35 random bit
         for item in bytes.iter_mut().take(ID_SIZE - 1).skip(3) {
             *item = rng.gen();
         }
-        bytes[ID_SIZE - 1] = r;
+
+        // 最后一个字节为 r
+        // todo！这个 r 随机数，应该和 crc32c 的最后一个字节相同，否则校验会失败。此处暂时没有实现这一点。
+        bytes[ID_SIZE - 1] = r; 
 
         Id { bytes }
     }
